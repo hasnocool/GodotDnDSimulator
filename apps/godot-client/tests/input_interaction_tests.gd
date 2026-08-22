@@ -185,12 +185,40 @@ func _test_duplicate_confirm_and_authoritative_reconciliation() -> void:
     var first_request_id := controller.confirm_current_intent()
     _check(not first_request_id.is_empty(), "first confirmation submits command")
     _check(
+        not controller.register_mode_request(first_request_id),
+        "submitted command cannot become a cancellable mode request",
+    )
+    _check(
         controller.confirm_current_intent().is_empty(),
         "rapid duplicate confirmation is ignored while pending",
     )
     _check(
         _count_sent_kind(transport, "command.submit") == 1,
         "duplicate confirmation creates only one authoritative submission",
+    )
+    _check(
+        controller.cancel_active_mode(),
+        "cancel input is consumed while authoritative command is pending",
+    )
+    _check(
+        state.interaction.mode() == InteractionModes.Mode.MOVE,
+        "pending authoritative command keeps its interaction mode until resolution",
+    )
+    _check(
+        state.interaction.pending_count() == 1,
+        "pending authoritative command remains tracked after cancel input",
+    )
+    _check(
+        _count_sent_kind(transport, "request.cancel") == 0,
+        "cancel input never sends request.cancel for a submitted command",
+    )
+    _check(
+        not controller.transition_to(InteractionModes.Mode.SELECT),
+        "mode transition is locked while authoritative command is pending",
+    )
+    _check(
+        not controller.set_ui_modal_active(true),
+        "UI modal entry is locked while authoritative command is pending",
     )
 
     var first_request := _find_sent_request(transport, first_request_id)
@@ -259,10 +287,35 @@ func _test_mode_scoped_request_cancellation() -> void:
     )
     _check(not request_id.is_empty(), "target mode can own a preview request")
     _check(controller.register_mode_request(request_id), "preview is registered to current mode")
+    _check(controller.set_ui_modal_active(true), "modal entry suspends target mode")
+    _check(
+        state.interaction.mode() == InteractionModes.Mode.UI_MODAL,
+        "modal entry changes explicit interaction mode",
+    )
+    _check(
+        state.interaction.pending_count() == 0,
+        "modal suspension cancels stale mode preview requests",
+    )
+    _check(
+        _count_sent_kind(transport, "request.cancel") == 1,
+        "modal suspension sends best-effort preview cancellation",
+    )
+    _check(controller.set_ui_modal_active(false), "modal close restores target mode")
+    _check(
+        state.interaction.mode() == InteractionModes.Mode.TARGET,
+        "target mode restores without retaining stale preview",
+    )
+
+    var next_request_id := state.request_preview(
+        "targeting.preview",
+        {},
+        "interaction:target-preview-2",
+    )
+    _check(controller.register_mode_request(next_request_id), "restored target mode owns new preview")
     _check(controller.cancel_active_mode(), "cancelling mode cancels registered requests")
     _check(state.interaction.pending_count() == 0, "mode cancellation clears pending request state")
     _check(
-        _count_sent_kind(transport, "request.cancel") == 1,
+        _count_sent_kind(transport, "request.cancel") == 2,
         "mode cancellation sends best-effort bridge cancellation",
     )
 
