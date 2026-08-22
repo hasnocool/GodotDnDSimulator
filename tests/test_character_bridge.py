@@ -26,7 +26,11 @@ def _request(kind: str, payload: dict[str, object], correlation: str = "creator:
 
 def _bridge() -> CharacterClientBridgeSession:
     return CharacterClientBridgeSession(
-        SimulationEngine.create("campaign:creator", "session:creator", seed=23),
+        SimulationEngine.create(
+            campaign_id="campaign:creator",
+            session_id="session:creator",
+            seed=23,
+        ),
         None,
         CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog())),
     )
