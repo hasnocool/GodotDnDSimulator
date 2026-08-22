@@ -62,7 +62,7 @@ Create these only as implementation needs them; empty directory scaffolding is n
 - [x] `bridge/` for typed engine transport/protocol adapters.
 - [x] `state/` for authoritative mirror, interaction state, and presentation state.
 - [ ] `camera/` for tactical camera controllers/config.
-- [ ] `input/` for input mapping and interaction modes.
+- [x] `input/` for input mapping and interaction modes.
 - [x] `scenes/shell/` for startup/loading/root composition.
 - [x] `scenes/tactical/` for battle-map presentation entry points.
 - [ ] `scenes/actors/` for reusable actor presentation.
@@ -192,23 +192,54 @@ application shell. Exact Godot CI execution remains a separate validation gate.
 
 ## C3 — Input system and interaction modes
 
+Implementation is present on the C3 feature branch. It establishes semantic device-neutral input,
+remappable bindings, centralized interaction modes, modal/focus safety, and single-submit command
+intent handling without implementing C4 camera behavior or C8/C9 spatial/targeting authority.
+
 ### Input map
 
-- [ ] Define semantic input actions rather than hardcoded key checks in gameplay scripts.
-- [ ] Map keyboard/mouse camera pan/zoom/rotate/focus.
-- [ ] Map select/confirm/cancel/context actions.
-- [ ] Keep controller-equivalent actions structurally supported.
-- [ ] Add input remapping architecture before binding proliferation.
-- [ ] Ensure UI focus/navigation does not unintentionally issue tactical commands.
+- [x] Define semantic input actions rather than hardcoded key checks in gameplay scripts.
+- [x] Map keyboard/mouse camera pan/zoom/rotate/focus.
+- [x] Map select/confirm/cancel/context actions.
+- [x] Keep controller-equivalent actions structurally supported.
+- [x] Add input remapping architecture before binding proliferation.
+- [x] Ensure UI focus/navigation does not unintentionally issue tactical commands.
+- [x] Persist remapping descriptors separately from authoritative campaign/save state.
 
 ### Interaction controller
 
-- [ ] Define interaction modes: inspect, select, move, target, AoE/shape preview, UI/modal.
-- [ ] Make all targeting/movement modes cancellable.
-- [ ] Centralize mode transitions instead of scattering booleans through scene scripts.
-- [ ] Ensure only one authoritative command submission occurs for one confirmed intent.
-- [ ] Ignore/reconcile duplicate rapid confirmations while a command is pending.
-- [ ] Preserve selection appropriately after authoritative updates.
+- [x] Define interaction modes: inspect, select, move, target, AoE/shape preview, UI/modal.
+- [x] Make all targeting/movement modes cancellable.
+- [x] Centralize mode transitions instead of scattering booleans through scene scripts.
+- [x] Make interaction-mode changes advance the existing generation used for stale response rejection.
+- [x] Ensure only one authoritative command submission occurs for one confirmed intent.
+- [x] Ignore/reconcile duplicate rapid confirmations while a command is pending.
+- [x] Keep rejected command intents available for correction/retry.
+- [x] Return accepted transient commands to select/inspect only after authoritative acceptance.
+- [x] Preserve selection appropriately after authoritative updates.
+- [x] Keep one persistent interaction controller in the app shell across tactical scene reloads.
+- [x] Disable tactical input while the shell is not ready.
+
+### Fixtures/testing
+
+- [x] Add `res://tests/input_interaction_tests.gd` for semantic bindings and mode transitions.
+- [x] Test keyboard/mouse/controller defaults and descriptor-based remapping.
+- [x] Test UI focus blocks raw tactical confirmation while explicit UI actions share the same path.
+- [x] Test move/target/shape cancellation and UI modal suspend/restore.
+- [x] Test duplicate-confirm suppression, rejection retry, and accepted-command reconciliation.
+- [x] Test mode-scoped preview cancellation and selection preservation across authoritative refresh.
+- [x] Wire the C3 input/interaction suite into the Godot CI job after the C1/C2 suites.
+- [x] Document C3 authority, semantic actions, bindings, modes, modal behavior, command lifecycle, and
+      C4 handoff in `docs/GODOT_CLIENT_INPUT.md`.
+
+### C3 validation / exit criterion
+
+- [ ] Confirm Godot 4.7.1 project parsing and `res://tests/input_interaction_tests.gd` execute
+      successfully on the exact C3 PR head alongside the existing C1/C2 suites.
+- [ ] Confirm the repository Python/governance checks execute successfully on the exact integrated
+      head rather than failing before job step 1.
+- [ ] Mark C3 complete only after executable checks pass with all command outcomes and spatial/rules
+      authority remaining outside Godot input code.
 
 ---
 
