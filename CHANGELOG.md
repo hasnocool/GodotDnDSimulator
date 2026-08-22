@@ -55,6 +55,8 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Generic defense profiles for data-driven resistance, immunity, and vulnerability handling plus explicit temporary-hit-point replacement choice.
 - Combat regression coverage using real `pcg32-v1` seeds for initiative, attack-roll edge cases, damage/healing, death-save state, reactions, malformed inputs, event serialization, and replay parity.
 - `schemas/v1/combat-event.schema.json` and `docs/V0.5_TACTICAL_COMBAT.md` documenting the combat/event boundary and v0.6 spatial handoff.
+- Godot-client-local `AGENTS.md` defining the presentation/engine authority boundary, bridge/state/input architecture, testing rules, performance guidance, UX/accessibility expectations, and client PR definition of done.
+- Detailed `apps/godot-client/TODO.md` covering client architecture and execution from the v0.7 tactical vertical slice through spell UI, complete character creation, and the v1.0 RPG shell.
 
 ### Changed
 
@@ -64,6 +66,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
 - Active implementation focus advances from the v0.4 character runtime to v0.5 tactical combat while unfinished CI/full-source audit items remain tracked as carryover.
 - v0.5 movement commands account for per-turn distance only; authoritative path/range/LOS/cover/terrain legality remains explicitly reserved for v0.6 spatial authority.
+- Root agent governance plus Claude, Gemini, and Copilot adapters now require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
 
 ### Deprecated
 
