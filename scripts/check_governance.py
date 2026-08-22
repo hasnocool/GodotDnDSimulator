@@ -23,6 +23,7 @@ REQUIRED_FILES = (
     "docs/V0.7_GODOT_VERTICAL_SLICE.md",
     "docs/V0.8_SPELL_RUNTIME.md",
     "docs/V0.9_CHARACTER_CREATOR.md",
+    "docs/V1.0_PLAYABLE_RPG.md",
     "docs/adr/0001-engine-runtime.md",
     "docs/adr/0002-versioning.md",
     "pyproject.toml",
@@ -33,6 +34,7 @@ REQUIRED_FILES = (
     "schemas/v1/spatial-event.schema.json",
     "schemas/v1/spell-event.schema.json",
     "schemas/v1/character-record.schema.json",
+    "schemas/v1/world-event.schema.json",
 )
 
 
@@ -66,12 +68,13 @@ def run() -> list[str]:
             ("v0.7", "Godot vertical slice"),
             ("v0.8", "Spell runtime"),
             ("v0.9", "Complete character creator"),
+            ("v1.0", "Playable RPG"),
         )
     )
     if not any(focus in todo for focus in milestone_focuses):
         errors.append(
             "TODO.md must declare a recognized current milestone focus "
-            "from v0.1 through v0.9"
+            "from v0.1 through v1.0"
         )
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")
