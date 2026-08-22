@@ -19,6 +19,7 @@ REQUIRED_FILES = (
     "docs/GIT_WORKFLOW.md",
     "docs/PROJECT_PLAN.md",
     "docs/RULES_INGESTION.md",
+    "docs/V0.6_SPATIAL_AUTHORITY.md",
     "docs/adr/0001-engine-runtime.md",
     "docs/adr/0002-versioning.md",
     "pyproject.toml",
@@ -26,6 +27,7 @@ REQUIRED_FILES = (
     "schemas/v1/command.schema.json",
     "schemas/v1/event.schema.json",
     "schemas/v1/snapshot.schema.json",
+    "schemas/v1/spatial-event.schema.json",
 )
 
 
@@ -47,21 +49,21 @@ def run() -> list[str]:
     agents = _read("AGENTS.md")
     architecture = _read("docs/ARCHITECTURE.md")
 
-    v01_focus = "## Current focus: v0.1 Project foundation"
-    v02_focus = "## Current focus: v0.2 Official SRD pipeline"
-    v03_focus = "## Current focus: v0.3 Rules runtime"
-    v04_focus = "## Current focus: v0.4 Character runtime"
-    v05_focus = "## Current focus: v0.5 Tactical combat"
-    if (
-        v01_focus not in todo
-        and v02_focus not in todo
-        and v03_focus not in todo
-        and v04_focus not in todo
-        and v05_focus not in todo
-    ):
+    milestone_focuses = tuple(
+        f"## Current focus: {version} {name}"
+        for version, name in (
+            ("v0.1", "Project foundation"),
+            ("v0.2", "Official SRD pipeline"),
+            ("v0.3", "Rules runtime"),
+            ("v0.4", "Character runtime"),
+            ("v0.5", "Tactical combat"),
+            ("v0.6", "Spatial authority"),
+        )
+    )
+    if not any(focus in todo for focus in milestone_focuses):
         errors.append(
-            "TODO.md must declare the current milestone focus "
-            "(v0.1, v0.2, v0.3, v0.4, or v0.5)"
+            "TODO.md must declare a recognized current milestone focus "
+            "from v0.1 through v0.6"
         )
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")
