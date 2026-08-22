@@ -1,17 +1,17 @@
 # engine/src/godot_dnd_engine/models.py
-"""Immutable command, event, and game-state domain contracts."""
+"""Immutable command, event, snapshot, and game-state domain contracts."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from .errors import ValidationError
 from .ids import require_id
 
-JSONScalar = str | int | float | bool | None
-JSONValue = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
+_MAX_UINT64 = (1 << 64) - 1
 
 
 def _freeze_payload(payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -127,3 +127,22 @@ class GameState:
             tick=tick,
             counters=tuple(updated.items()),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationSnapshot:
+    """Complete deterministic continuation point for an engine instance."""
+
+    state: GameState
+    rng_algorithm: str
+    rng_state: int
+    rng_increment: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.rng_algorithm, str) or not self.rng_algorithm.strip():
+            raise ValidationError("snapshot RNG algorithm must be a non-empty string")
+        for label, value in (("state", self.rng_state), ("increment", self.rng_increment)):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= _MAX_UINT64:
+                raise ValidationError(f"snapshot RNG {label} must be an unsigned 64-bit integer")
+        if self.rng_increment % 2 == 0:
+            raise ValidationError("snapshot RNG increment must be odd")

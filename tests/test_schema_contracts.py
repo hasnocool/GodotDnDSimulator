@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.models import CommandEnvelope
-from godot_dnd_engine.serialization import event_to_dict, state_to_dict
+from godot_dnd_engine.serialization import event_to_dict, snapshot_to_dict
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas" / "v1"
@@ -37,4 +37,6 @@ def test_emitted_event_and_snapshot_validate_against_schemas() -> None:
     )[0]
 
     Draft202012Validator(_load_schema("event.schema.json")).validate(event_to_dict(event))
-    Draft202012Validator(_load_schema("snapshot.schema.json")).validate(state_to_dict(engine.state))
+    Draft202012Validator(_load_schema("snapshot.schema.json")).validate(
+        snapshot_to_dict(engine.snapshot())
+    )

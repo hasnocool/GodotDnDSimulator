@@ -2,7 +2,7 @@
 """Authoritative deterministic simulation engine for GodotDnDSimulator."""
 
 from .engine import SimulationEngine
-from .models import CommandEnvelope, EventEnvelope, GameState
+from .models import CommandEnvelope, EventEnvelope, GameState, SimulationSnapshot
 from .rng import DeterministicRNG
 
 __all__ = [
@@ -11,4 +11,5 @@ __all__ = [
     "EventEnvelope",
     "GameState",
     "SimulationEngine",
+    "SimulationSnapshot",
 ]

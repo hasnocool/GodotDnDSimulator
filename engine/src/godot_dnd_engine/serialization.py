@@ -1,16 +1,18 @@
 # engine/src/godot_dnd_engine/serialization.py
-"""Strict versioned JSON serialization for snapshots and events."""
+"""Strict versioned JSON serialization for snapshots, state, and events."""
 
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .errors import ValidationError
-from .models import EventEnvelope, GameState
+from .models import EventEnvelope, GameState, SimulationSnapshot
 
 SNAPSHOT_SCHEMA_VERSION = 1
 EVENT_SCHEMA_VERSION = 1
+STATE_SCHEMA_VERSION = 1
 
 
 def _require_mapping(value: object, label: str) -> Mapping[str, Any]:
@@ -21,7 +23,7 @@ def _require_mapping(value: object, label: str) -> Mapping[str, Any]:
 
 def state_to_dict(state: GameState) -> dict[str, object]:
     return {
-        "schema_version": SNAPSHOT_SCHEMA_VERSION,
+        "schema_version": STATE_SCHEMA_VERSION,
         "campaign_id": state.campaign_id,
         "session_id": state.session_id,
         "sequence": state.sequence,
@@ -31,19 +33,19 @@ def state_to_dict(state: GameState) -> dict[str, object]:
 
 
 def state_from_dict(data: Mapping[str, Any]) -> GameState:
-    data = _require_mapping(data, "snapshot")
+    data = _require_mapping(data, "state")
     required = {"schema_version", "campaign_id", "session_id", "sequence", "tick", "counters"}
     if set(data) != required:
-        raise ValidationError("snapshot fields do not match schema v1")
-    if data["schema_version"] != SNAPSHOT_SCHEMA_VERSION:
-        raise ValidationError(f"unsupported snapshot schema version: {data['schema_version']!r}")
-    counters = _require_mapping(data["counters"], "snapshot counters")
+        raise ValidationError("state fields do not match schema v1")
+    if data["schema_version"] != STATE_SCHEMA_VERSION:
+        raise ValidationError(f"unsupported state schema version: {data['schema_version']!r}")
+    counters = _require_mapping(data["counters"], "state counters")
     normalized_counters: list[tuple[str, int]] = []
     for name, value in counters.items():
         if not isinstance(name, str):
-            raise ValidationError("snapshot counter names must be strings")
+            raise ValidationError("state counter names must be strings")
         if isinstance(value, bool) or not isinstance(value, int):
-            raise ValidationError("snapshot counter values must be integers")
+            raise ValidationError("state counter values must be integers")
         normalized_counters.append((name, value))
     try:
         return GameState(
@@ -52,6 +54,39 @@ def state_from_dict(data: Mapping[str, Any]) -> GameState:
             sequence=data["sequence"],
             tick=data["tick"],
             counters=tuple(normalized_counters),
+        )
+    except TypeError as exc:
+        raise ValidationError("state contains invalid field types") from exc
+
+
+def snapshot_to_dict(snapshot: SimulationSnapshot) -> dict[str, object]:
+    return {
+        "schema_version": SNAPSHOT_SCHEMA_VERSION,
+        "state": state_to_dict(snapshot.state),
+        "rng": {
+            "algorithm": snapshot.rng_algorithm,
+            "state": snapshot.rng_state,
+            "increment": snapshot.rng_increment,
+        },
+    }
+
+
+def snapshot_from_dict(data: Mapping[str, Any]) -> SimulationSnapshot:
+    data = _require_mapping(data, "snapshot")
+    if set(data) != {"schema_version", "state", "rng"}:
+        raise ValidationError("snapshot fields do not match schema v1")
+    if data["schema_version"] != SNAPSHOT_SCHEMA_VERSION:
+        raise ValidationError(f"unsupported snapshot schema version: {data['schema_version']!r}")
+    state_data = _require_mapping(data["state"], "snapshot state")
+    rng_data = _require_mapping(data["rng"], "snapshot RNG")
+    if set(rng_data) != {"algorithm", "state", "increment"}:
+        raise ValidationError("snapshot RNG fields do not match schema v1")
+    try:
+        return SimulationSnapshot(
+            state=state_from_dict(state_data),
+            rng_algorithm=rng_data["algorithm"],
+            rng_state=rng_data["state"],
+            rng_increment=rng_data["increment"],
         )
     except TypeError as exc:
         raise ValidationError("snapshot contains invalid field types") from exc

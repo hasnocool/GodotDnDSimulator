@@ -9,7 +9,7 @@ from typing import Any
 from .dice import DiceExpression, roll_expression
 from .errors import SequenceError, UnsupportedCommandError, ValidationError
 from .ids import require_id
-from .models import CommandEnvelope, EventEnvelope, GameState
+from .models import CommandEnvelope, EventEnvelope, GameState, SimulationSnapshot
 from .reducer import apply_event
 from .rng import DeterministicRNG
 
@@ -34,6 +34,31 @@ class SimulationEngine:
         return cls(
             state=GameState(campaign_id=campaign_id, session_id=session_id),
             rng=DeterministicRNG.from_seed(seed),
+        )
+
+    @classmethod
+    def restore(cls, snapshot: SimulationSnapshot) -> SimulationEngine:
+        """Restore state and RNG position so future commands remain deterministic."""
+
+        if snapshot.rng_algorithm != DeterministicRNG.ALGORITHM:
+            raise ValidationError(
+                f"unsupported RNG algorithm: {snapshot.rng_algorithm!r}; "
+                f"expected {DeterministicRNG.ALGORITHM!r}"
+            )
+        return cls(
+            state=snapshot.state,
+            rng=DeterministicRNG.restore((snapshot.rng_state, snapshot.rng_increment)),
+        )
+
+    def snapshot(self) -> SimulationSnapshot:
+        """Capture a complete deterministic continuation point."""
+
+        rng_state, rng_increment = self.rng.snapshot()
+        return SimulationSnapshot(
+            state=self.state,
+            rng_algorithm=self.rng.ALGORITHM,
+            rng_state=rng_state,
+            rng_increment=rng_increment,
         )
 
     def handle(self, command: CommandEnvelope) -> tuple[EventEnvelope, ...]:
