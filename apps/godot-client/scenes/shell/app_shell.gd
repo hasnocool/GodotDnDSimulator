@@ -250,7 +250,7 @@ func _poll_tactical_scene_load() -> void:
         )
         return
     var loaded: Resource = ResourceLoader.load_threaded_get(tactical_scene_path)
-    if not loaded is PackedScene:
+    if not (loaded is PackedScene):
         _fail_shell(
             "Unable to load tactical presentation",
             "resource is not a PackedScene: %s" % tactical_scene_path,
