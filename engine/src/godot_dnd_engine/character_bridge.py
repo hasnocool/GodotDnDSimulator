@@ -51,7 +51,10 @@ class CharacterClientBridgeSession(SpellClientBridgeSession):
         command_data = _require_mapping(payload.get("command"), "command")
         command = _command_from_dict(command_data)
         if command.command_type.startswith("characters."):
-            result = self.creator.command(command.command_type, dict(command.payload))
+            result = self.creator.command(
+                command.command_type,
+                dict(command.payload),
+            )
             return _response(
                 request,
                 "command.accepted",
@@ -81,7 +84,11 @@ async def serve(
     seed: int,
     vertical_slice: bool = True,
 ) -> None:
-    engine = SimulationEngine.create(campaign_id=campaign_id, session_id=session_id, seed=seed)
+    engine = SimulationEngine.create(
+        campaign_id=campaign_id,
+        session_id=session_id,
+        seed=seed,
+    )
     tactical = (
         SpellEnabledTacticalSession.create(
             campaign_id=campaign_id,
@@ -91,22 +98,33 @@ async def serve(
         if vertical_slice
         else None
     )
-    creator = CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog()))
-    bridge = ClientBridgeServer(CharacterClientBridgeSession(engine, tactical, creator))
+    creator = CharacterCreatorService(
+        CharacterCreatorRuntime(demo_character_catalog())
+    )
+    bridge = ClientBridgeServer(
+        CharacterClientBridgeSession(engine, tactical, creator)
+    )
     server = await asyncio.start_server(
         bridge.handle_client,
         host,
         port,
         limit=MAX_MESSAGE_BYTES + 1,
     )
-    addresses = ", ".join(str(sock.getsockname()) for sock in server.sockets or ())
-    print(f"Godot client bridge v{PROTOCOL_VERSION} + character creator listening on {addresses}")
+    addresses = ", ".join(
+        str(sock.getsockname()) for sock in server.sockets or ()
+    )
+    print(
+        f"Godot client bridge v{PROTOCOL_VERSION} + character creator "
+        f"listening on {addresses}"
+    )
     async with server:
         await server.serve_forever()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the v0.9 Godot character creator bridge")
+    parser = argparse.ArgumentParser(
+        description="Run the v0.9 Godot character creator bridge"
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4765)
     parser.add_argument("--campaign-id", default="campaign:local-dev")
@@ -115,7 +133,10 @@ def main() -> None:
     parser.add_argument(
         "--core-only",
         action="store_true",
-        help="Disable tactical/spell providers while retaining character creator services",
+        help=(
+            "Disable tactical/spell providers while retaining character "
+            "creator services"
+        ),
     )
     args = parser.parse_args()
     asyncio.run(
