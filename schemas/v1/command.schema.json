@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/command.schema.json",
+  "title": "GodotDnDSimulator Command Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "command_id",
+    "campaign_id",
+    "session_id",
+    "command_type",
+    "version",
+    "payload"
+  ],
+  "properties": {
+    "command_id": {"type": "string", "pattern": "^command:"},
+    "campaign_id": {"type": "string", "pattern": "^campaign:"},
+    "session_id": {"type": "string", "pattern": "^session:"},
+    "actor_id": {"type": ["string", "null"], "pattern": "^actor:"},
+    "command_type": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "expected_sequence": {"type": ["integer", "null"], "minimum": 0},
+    "payload": {"type": "object"}
+  }
+}

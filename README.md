@@ -30,6 +30,45 @@ Canonical rules data + provenance
      Godot   Server   Tools/Tests
 ```
 
+## v0.1 implementation foundation
+
+The first executable foundation uses **Python 3.12+** for the authoritative engine and **Godot 4.7.1+** for the presentation client. The decision and tradeoffs are recorded in [`docs/adr/0001-engine-runtime.md`](docs/adr/0001-engine-runtime.md).
+
+Implemented foundation pieces include:
+
+- versioned namespaced IDs for campaigns, sessions, actors, commands, events, rules, effects, and packs;
+- typed immutable command/event/state contracts;
+- `pcg32-v1` deterministic RNG with a published regression vector;
+- deterministic dice expressions with raw-roll audit metadata;
+- command validation and optimistic sequence checks;
+- pure event reducers;
+- versioned snapshot/event JSON serialization;
+- event-log replay from a snapshot;
+- JSON Schemas for v1 command, event, and snapshot contracts;
+- a minimal Godot 4.7.1 orthographic 3D project that owns presentation only;
+- Python, schema/governance, and Godot headless CI jobs.
+
+The current proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
+
+## Local validation
+
+With Python 3.12+:
+
+```bash
+python -m pip install -e '.[dev]'
+ruff check .
+mypy engine/src
+pytest --cov=godot_dnd_engine --cov-report=term-missing
+python scripts/check_governance.py
+python scripts/determinism_smoke.py
+```
+
+With Godot 4.7.1 installed:
+
+```bash
+godot --headless --path apps/godot-client --editor --quit
+```
+
 ## Design commitments
 
 - Godot 4.x true-3D orthographic/isometric presentation.
@@ -55,6 +94,8 @@ Start here:
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — authoritative engine/Godot/tooling boundaries.
 - [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md) — licensed rules-source policy, provenance, import, compilation, diffing, and attribution.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
+- [`docs/adr/`](docs/adr/) — durable architecture decisions.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
 - [`CHANGELOG.md`](CHANGELOG.md) — project change history.
 
 ## Agent governance
@@ -79,17 +120,7 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 **v0.1 — Project foundation**
 
-Primary goals:
-
-- establish repository/project structure;
-- bootstrap the Godot client and headless engine;
-- define typed commands/events;
-- implement deterministic RNG/dice;
-- define snapshot/event serialization;
-- prove deterministic command -> event -> state replay in CI;
-- establish governance, testing, changelog/TODO, and Git discipline.
-
-See [`TODO.md`](TODO.md) for the current execution checklist.
+The executable foundation is now substantially in place. Remaining v0.1 work is tracked in [`TODO.md`](TODO.md), with CI required to prove the milestone exit criterion before advancing to the SRD pipeline.
 
 ## First playable target
 

@@ -10,52 +10,52 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 - [x] Add canonical `AGENTS.md` governance.
 - [x] Add roadmap, TODO, changelog, architecture, rules-ingestion, and Git workflow documentation.
 - [x] Add tool-specific agent instruction adapters.
-- [ ] Add `CONTRIBUTING.md` derived from the Git/agent workflow.
-- [ ] Add issue and pull-request templates.
+- [x] Add `CONTRIBUTING.md` derived from the Git/agent workflow.
+- [x] Add issue and pull-request templates.
 - [ ] Add repository labels for roadmap milestones, subsystem, type, and priority.
-- [ ] Add governance CI that verifies required files and changelog/TODO discipline where practical.
-- [ ] Decide and document release/versioning policy before first tagged release.
+- [x] Add governance CI that verifies required files and changelog/TODO discipline where practical.
+- [x] Decide and document release/versioning policy before first tagged release.
 
 ### Project structure
 
-- [ ] Create top-level `apps/`, `engine/`, `content/`, `schemas/`, `tools/`, `tests/`, and `docs/adr/` structure.
-- [ ] Add a minimal Godot 4.x project under `apps/godot-client/`.
-- [ ] Add a headless engine package with no Godot rendering dependency.
-- [ ] Decide the engine implementation language/runtime and document the rationale in an ADR.
-- [ ] Define stable project IDs/namespaces for rules, actors, effects, events, and content packs.
+- [x] Create top-level `apps/`, `engine/`, `content/`, `schemas/`, `tools/`, `tests/`, and `docs/adr/` structure.
+- [x] Add a minimal Godot 4.x project under `apps/godot-client/`.
+- [x] Add a headless engine package with no Godot rendering dependency.
+- [x] Decide the engine implementation language/runtime and document the rationale in an ADR.
+- [x] Define stable project IDs/namespaces for rules, actors, effects, events, and content packs.
 
 ### Deterministic simulation foundations
 
-- [ ] Define typed command envelope.
-- [ ] Define typed domain event envelope.
-- [ ] Define immutable/controlled game-state transition boundary.
-- [ ] Implement deterministic seeded RNG service.
-- [ ] Implement dice expression/value objects on top of the RNG service.
-- [ ] Record raw rolls, modifiers, reason/context, actor/target IDs, and final results.
-- [ ] Add deterministic RNG/dice regression tests.
-- [ ] Define reducer/application interface from event(s) to state.
-- [ ] Add a minimal command -> validation -> event -> reducer integration test.
+- [x] Define typed command envelope.
+- [x] Define typed domain event envelope.
+- [x] Define immutable/controlled game-state transition boundary.
+- [x] Implement deterministic seeded RNG service.
+- [x] Implement dice expression/value objects on top of the RNG service.
+- [x] Record raw rolls, modifiers, reason/context, actor/target IDs, and final results.
+- [x] Add deterministic RNG/dice regression tests.
+- [x] Define reducer/application interface from event(s) to state.
+- [x] Add a minimal command -> validation -> event -> reducer integration test.
 
 ### State, events, saves, replay
 
-- [ ] Define event ordering and unique event IDs.
-- [ ] Define campaign/session IDs.
-- [ ] Define snapshot format and schema version.
-- [ ] Define event serialization format and schema version.
-- [ ] Define save compatibility policy.
-- [ ] Implement snapshot + event-log reconstruction proof of concept.
-- [ ] Add replay determinism test.
-- [ ] Add corrupted/invalid save input validation tests.
+- [x] Define event ordering and unique event IDs.
+- [x] Define campaign/session IDs.
+- [x] Define snapshot format and schema version.
+- [x] Define event serialization format and schema version.
+- [x] Define save compatibility policy.
+- [x] Implement snapshot + event-log reconstruction proof of concept.
+- [x] Add replay determinism test.
+- [x] Add corrupted/invalid save input validation tests.
 
 ### Developer tooling and CI
 
-- [ ] Choose formatting/linting/static-analysis tools for engine code.
-- [ ] Add Godot project validation/headless test job.
-- [ ] Add engine unit/integration test job.
-- [ ] Add schema validation job.
+- [x] Choose formatting/linting/static-analysis tools for engine code.
+- [x] Add Godot project validation/headless test job.
+- [x] Add engine unit/integration test job.
+- [x] Add schema validation job.
 - [ ] Add generated-content determinism check once generation exists.
 - [ ] Add secret scanning/dependency security checks where supported.
-- [ ] Add artifact/cache ignores for Godot/editor/build/test outputs.
+- [x] Add artifact/cache ignores for Godot/editor/build/test outputs.
 
 ### v0.1 exit criterion
 

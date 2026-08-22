@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/snapshot.schema.json",
+  "title": "GodotDnDSimulator Simulation Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "state", "rng"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "campaign_id", "session_id", "sequence", "tick", "counters"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "campaign_id": {"type": "string", "pattern": "^campaign:"},
+        "session_id": {"type": "string", "pattern": "^session:"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "tick": {"type": "integer", "minimum": 0},
+        "counters": {"type": "object", "additionalProperties": {"type": "integer"}}
+      }
+    },
+    "rng": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "state", "increment"],
+      "properties": {
+        "algorithm": {"type": "string", "minLength": 1},
+        "state": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "increment": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615}
+      }
+    }
+  }
+}
