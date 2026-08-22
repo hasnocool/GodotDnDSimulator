@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -89,14 +90,24 @@ class TacticalVerticalSliceSession:
         encounter = combat_runtime.create_encounter(
             "encounter:sunken-courtyard",
             actors,
-            zero_hp_rules={actor.actor_id: ZeroHitPointRule.MONSTER for actor in actors},
+            zero_hp_rules={
+                actor.actor_id: ZeroHitPointRule.MONSTER for actor in actors
+            },
         )
         encounter = combat_runtime.start_encounter(encounter).state
         spatial = SpatialState(
             _demo_space(),
             (
-                SpatialPlacement("actor:ember", GridCell(1, 2), tags=frozenset({"team:ember"})),
-                SpatialPlacement("actor:shale", GridCell(6, 3), tags=frozenset({"team:shale"})),
+                SpatialPlacement(
+                    "actor:ember",
+                    GridCell(1, 2),
+                    tags=frozenset({"team:ember"}),
+                ),
+                SpatialPlacement(
+                    "actor:shale",
+                    GridCell(6, 3),
+                    tags=frozenset({"team:shale"}),
+                ),
             ),
         )
         return cls(
@@ -111,18 +122,17 @@ class TacticalVerticalSliceSession:
         )
 
     def snapshot(self) -> dict[str, object]:
-        state = {
-            "campaign_id": self.campaign_id,
-            "session_id": self.session_id,
-            "sequence": self.sequence,
-            "tick": self.sequence,
-            "mode": "tactical_vertical_slice",
-            "tactical": self._tactical_state(),
-        }
         rng_state, rng_increment = self.rng.snapshot()
         return {
             "schema_version": 1,
-            "state": state,
+            "state": {
+                "campaign_id": self.campaign_id,
+                "session_id": self.session_id,
+                "sequence": self.sequence,
+                "tick": self.sequence,
+                "mode": "tactical_vertical_slice",
+                "tactical": self._tactical_state(),
+            },
             "rng": {
                 "algorithm": self.rng.ALGORITHM,
                 "state": rng_state,
@@ -130,23 +140,31 @@ class TacticalVerticalSliceSession:
             },
         }
 
-    def query(self, query_type: str, payload: dict[str, Any]) -> dict[str, object]:
+    def query(self, query_type: str, payload: Mapping[str, Any]) -> dict[str, object]:
+        query = dict(payload)
         if query_type == "tactical.snapshot":
             return {"snapshot": self.snapshot()}
         if query_type == "tactical.actions":
-            return self._available_actions(payload)
+            return self._available_actions(query)
         if query_type == "tactical.attack_preview":
-            return self._attack_preview(payload)
+            return self._attack_preview(query)
         if query_type.startswith("spatial."):
-            return self._spatial_query(query_type, payload)
+            return self._spatial_query(query_type, query)
         raise UnsupportedCommandError(f"unsupported tactical query: {query_type!r}")
 
-    def preview(self, preview_type: str, payload: dict[str, Any]) -> dict[str, object]:
+    def preview(
+        self,
+        preview_type: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, object]:
+        preview = dict(payload)
         if preview_type == "tactical.attack":
-            return self._attack_preview(payload)
+            return self._attack_preview(preview)
         if preview_type.startswith("spatial."):
-            return self._spatial_query(preview_type, payload)
-        raise UnsupportedCommandError(f"unsupported tactical preview: {preview_type!r}")
+            return self._spatial_query(preview_type, preview)
+        raise UnsupportedCommandError(
+            f"unsupported tactical preview: {preview_type!r}"
+        )
 
     def handle_command(self, command: CommandEnvelope) -> TacticalCommandResult:
         self._validate_command_envelope(command)
@@ -161,12 +179,16 @@ class TacticalVerticalSliceSession:
         )
 
     def _validate_command_envelope(self, command: CommandEnvelope) -> None:
-        if command.campaign_id != self.campaign_id or command.session_id != self.session_id:
-            raise ValidationError("tactical command campaign/session does not match active slice")
-        if command.expected_sequence is not None and command.expected_sequence != self.sequence:
-            raise SequenceError(
-                f"expected tactical sequence {command.expected_sequence}, current {self.sequence}"
-            )
+        if command.campaign_id != self.campaign_id:
+            raise ValidationError("tactical command campaign does not match active slice")
+        if command.session_id != self.session_id:
+            raise ValidationError("tactical command session does not match active slice")
+        if command.expected_sequence is not None:
+            if command.expected_sequence != self.sequence:
+                raise SequenceError(
+                    "expected tactical sequence "
+                    f"{command.expected_sequence}, current {self.sequence}"
+                )
         if command.actor_id is None:
             raise ValidationError("tactical commands require actor_id")
         if command.actor_id != self.encounter.current_actor_id:
@@ -176,7 +198,9 @@ class TacticalVerticalSliceSession:
         actor_id = command.actor_id
         assert actor_id is not None
         destination = _payload_cell(command.payload, "destination")
-        mode = _payload_mode(command.payload.get("movement_mode", MovementMode.WALK.value))
+        mode = _payload_mode(
+            command.payload.get("movement_mode", MovementMode.WALK.value)
+        )
         before = self.spatial.placement(actor_id).anchor
         combined = move_in_encounter(
             spatial_runtime=self.spatial_runtime,
@@ -185,23 +209,31 @@ class TacticalVerticalSliceSession:
             encounter_state=self.encounter,
             actor_id=actor_id,
             destination=destination,
-            mode=mode,
+            movement_mode=mode,
         )
         self.spatial = combined.spatial.state
         self.encounter = combined.combat.state
+        movement_remaining = self.encounter.combatant(
+            actor_id
+        ).economy.movement_remaining
         event = {
             "type": "tactical.actor_moved",
             "actor_id": actor_id,
             "payload": {
                 "from": _cell_dict(before),
                 "to": _cell_dict(destination),
-                "path": [_cell_dict(cell) for cell in combined.spatial.path.path],
+                "path": [
+                    _cell_dict(cell) for cell in combined.spatial.path.path
+                ],
                 "cost_feet": combined.spatial.path.cost_feet,
                 "movement_mode": mode.value,
-                "movement_remaining": self.encounter.combatant(actor_id).economy.movement_remaining,
+                "movement_remaining": movement_remaining,
             },
         }
-        return self._accepted((event,), {"cost_feet": combined.spatial.path.cost_feet})
+        return self._accepted(
+            (event,),
+            {"cost_feet": combined.spatial.path.cost_feet},
+        )
 
     def _attack(self, command: CommandEnvelope) -> TacticalCommandResult:
         attacker_id = command.actor_id
@@ -244,8 +276,9 @@ class TacticalVerticalSliceSession:
         ]
         winner = self._winning_team()
         if winner is not None and self.encounter.status is EncounterStatus.ACTIVE:
-            ended = self.combat_runtime.end_encounter(self.encounter)
-            self.encounter = ended.state
+            self.encounter = self.combat_runtime.end_encounter(
+                self.encounter
+            ).state
             events.append(
                 {
                     "type": "tactical.encounter_ended",
@@ -264,8 +297,10 @@ class TacticalVerticalSliceSession:
     def _end_turn(self, command: CommandEnvelope) -> TacticalCommandResult:
         actor_id = command.actor_id
         assert actor_id is not None
-        transition = self.combat_runtime.end_turn(self.encounter, actor_id)
-        self.encounter = transition.state
+        self.encounter = self.combat_runtime.end_turn(
+            self.encounter,
+            actor_id,
+        ).state
         event = {
             "type": "tactical.turn_started",
             "actor_id": self.encounter.current_actor_id,
@@ -296,7 +331,7 @@ class TacticalVerticalSliceSession:
             result={} if result is None else dict(result),
         )
 
-    def _available_actions(self, payload: dict[str, Any]) -> dict[str, object]:
+    def _available_actions(self, payload: Mapping[str, Any]) -> dict[str, object]:
         actor_id = payload.get("actor_id", self.encounter.current_actor_id)
         if not isinstance(actor_id, str) or not actor_id:
             raise ValidationError("actor_id must be a non-empty string")
@@ -304,6 +339,13 @@ class TacticalVerticalSliceSession:
         current = actor_id == self.encounter.current_actor_id
         conscious = combatant.life_state is LifeState.CONSCIOUS
         economy = combatant.economy
+        move_enabled = current and conscious and economy.movement_remaining > 0
+        attack_enabled = current and conscious and economy.action_available
+        end_enabled = (
+            current
+            and conscious
+            and self.encounter.status is EncounterStatus.ACTIVE
+        )
         return {
             "actor_id": actor_id,
             "current_actor_id": self.encounter.current_actor_id,
@@ -311,25 +353,31 @@ class TacticalVerticalSliceSession:
                 {
                     "action_id": "move",
                     "label": "Move",
-                    "enabled": current and conscious and economy.movement_remaining > 0,
-                    "reason": "" if current and economy.movement_remaining > 0 else "No movement available",
+                    "enabled": move_enabled,
+                    "reason": "" if move_enabled else "No movement available",
                 },
                 {
                     "action_id": "training_strike",
                     "label": "Strike",
-                    "enabled": current and conscious and economy.action_available,
-                    "reason": "" if current and economy.action_available else "Action is not available",
+                    "enabled": attack_enabled,
+                    "reason": (
+                        "" if attack_enabled else "Action is not available"
+                    ),
                 },
                 {
                     "action_id": "end_turn",
                     "label": "End Turn",
-                    "enabled": current and conscious and self.encounter.status is EncounterStatus.ACTIVE,
-                    "reason": "" if current and conscious else "Only the current conscious actor can end the turn",
+                    "enabled": end_enabled,
+                    "reason": (
+                        ""
+                        if end_enabled
+                        else "Only the current conscious actor can end the turn"
+                    ),
                 },
             ],
         }
 
-    def _attack_preview(self, payload: dict[str, Any]) -> dict[str, object]:
+    def _attack_preview(self, payload: Mapping[str, Any]) -> dict[str, object]:
         attacker_id = _payload_string(payload, "attacker_id")
         target_id = _payload_string(payload, "target_id")
         attacker = self.encounter.combatant(attacker_id)
@@ -341,9 +389,22 @@ class TacticalVerticalSliceSession:
                 "target_entity_id": target_id,
             },
         )
-        los = line_of_sight_between_entities(self.spatial, attacker_id, target_id)
-        cover = cover_between_entities(self.spatial, attacker_id, target_id)
-        in_reach = placement_in_reach(self.spatial, attacker_id, target_id, 5)
+        los = line_of_sight_between_entities(
+            self.spatial,
+            attacker_id,
+            target_id,
+        )
+        cover = cover_between_entities(
+            self.spatial,
+            attacker_id,
+            target_id,
+        )
+        in_reach = placement_in_reach(
+            self.spatial,
+            attacker_id,
+            target_id,
+            5,
+        )
         reason = ""
         legal = True
         if self.encounter.status is not EncounterStatus.ACTIVE:
@@ -379,25 +440,35 @@ class TacticalVerticalSliceSession:
             "cover_sources": list(cover.sources),
         }
 
-    def _spatial_query(self, query_type: str, payload: dict[str, Any]) -> dict[str, object]:
+    def _spatial_query(
+        self,
+        query_type: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, object]:
         query = dict(payload)
         actor_id = query.get("entity_id")
-        if query_type in {"spatial.path", "spatial.reachable"} and "budget_feet" not in query:
-            if isinstance(actor_id, str) and actor_id:
-                query["budget_feet"] = self.encounter.combatant(actor_id).economy.movement_remaining
+        if query_type in {"spatial.path", "spatial.reachable"}:
+            if "budget_feet" not in query and isinstance(actor_id, str):
+                query["budget_feet"] = self.encounter.combatant(
+                    actor_id
+                ).economy.movement_remaining
         return self._query_service().execute(query_type, query)
 
     def _query_service(self) -> SpatialQueryService:
-        actors = tuple(combatant.actor for combatant in self.encounter.combatants)
+        actors = tuple(
+            combatant.actor for combatant in self.encounter.combatants
+        )
         return SpatialQueryService(
             self.spatial,
             actors,
-            MovementPolicy(allow_diagonal=True, prevent_corner_cutting=True),
+            MovementPolicy(
+                allow_diagonal=True,
+                prevent_corner_cutting=True,
+            ),
         )
 
     def _tactical_state(self) -> dict[str, object]:
-        current_id = self.encounter.current_actor_id
-        combatants = []
+        combatants: list[dict[str, object]] = []
         for combatant in self.encounter.combatants:
             actor = combatant.actor
             placement = self.spatial.placement(actor.actor_id)
@@ -409,7 +480,9 @@ class TacticalVerticalSliceSession:
                     "size": actor.size.value,
                     "team": _team(actor),
                     "position": _cell_dict(placement.anchor),
-                    "elevation_feet": self.spatial.space.cell(placement.anchor).elevation_feet,
+                    "elevation_feet": self.spatial.space.cell(
+                        placement.anchor
+                    ).elevation_feet,
                     "hit_points": {
                         "current": actor.hit_points.current,
                         "maximum": actor.hit_points.maximum,
@@ -417,16 +490,25 @@ class TacticalVerticalSliceSession:
                     },
                     "armor_class": actor.defense.armor_class,
                     "life_state": combatant.life_state.value,
-                    "conditions": [item.condition_id for item in actor.conditions],
+                    "conditions": [
+                        item.condition_id for item in actor.conditions
+                    ],
                     "movement_modes": [
-                        {"mode": movement.mode.value, "speed_feet": movement.feet}
+                        {
+                            "mode": movement.mode.value,
+                            "speed_feet": movement.feet,
+                        }
                         for movement in actor.movement
                     ],
                     "economy": {
                         "action_available": combatant.economy.action_available,
-                        "bonus_action_available": combatant.economy.bonus_action_available,
+                        "bonus_action_available": (
+                            combatant.economy.bonus_action_available
+                        ),
                         "reaction_available": combatant.economy.reaction_available,
-                        "movement_remaining": combatant.economy.movement_remaining,
+                        "movement_remaining": (
+                            combatant.economy.movement_remaining
+                        ),
                     },
                 }
             )
@@ -437,12 +519,9 @@ class TacticalVerticalSliceSession:
             "status": self.encounter.status.value,
             "round_number": self.encounter.round_number,
             "turn_index": self.encounter.turn_index,
-            "current_actor_id": current_id,
+            "current_actor_id": self.encounter.current_actor_id,
             "initiative": [
-                {
-                    "actor_id": row.actor_id,
-                    "total": row.total,
-                }
+                {"actor_id": row.actor_id, "total": row.total}
                 for row in self.encounter.initiative
             ],
             "actors": combatants,
@@ -451,7 +530,12 @@ class TacticalVerticalSliceSession:
                 "width": self.spatial.space.width,
                 "height": self.spatial.space.height,
                 "cell_size_feet": self.spatial.space.cell_size_feet,
-                "camera_bounds": {"min_x": 0, "min_y": 0, "max_x": 7, "max_y": 5},
+                "camera_bounds": {
+                    "min_x": 0,
+                    "min_y": 0,
+                    "max_x": 7,
+                    "max_y": 5,
+                },
                 "terrain": [
                     {
                         "x": item.cell.x,
@@ -466,7 +550,9 @@ class TacticalVerticalSliceSession:
                     for item in self.spatial.space.terrain
                 ],
             },
-            "recent_events": [dict(item) for item in self.recent_events[-12:]],
+            "recent_events": [
+                dict(item) for item in self.recent_events[-12:]
+            ],
         }
 
     def _winning_team(self) -> str | None:
@@ -482,8 +568,20 @@ class TacticalVerticalSliceSession:
 
 def _demo_actors() -> tuple[ActorState, ...]:
     return (
-        _actor("actor:ember", "Ember Scout", "team:ember", dexterity=16, armor_class=14),
-        _actor("actor:shale", "Shale Warden", "team:shale", dexterity=12, armor_class=13),
+        _actor(
+            "actor:ember",
+            "Ember Scout",
+            "team:ember",
+            dexterity=16,
+            armor_class=14,
+        ),
+        _actor(
+            "actor:shale",
+            "Shale Warden",
+            "team:shale",
+            dexterity=12,
+            armor_class=13,
+        ),
     )
 
 
@@ -498,7 +596,9 @@ def _actor(
     abilities = tuple(
         AbilityScore(
             ability,
-            dexterity if ability is Ability.DEXTERITY else (14 if ability is Ability.STRENGTH else 12),
+            dexterity
+            if ability is Ability.DEXTERITY
+            else (14 if ability is Ability.STRENGTH else 12),
         )
         for ability in Ability
     )
@@ -518,10 +618,26 @@ def _actor(
 
 def _demo_space() -> SquareGridSpace:
     terrain = (
-        TerrainCell(GridCell(2, 2), terrain_id="terrain:shallow-water", difficult=True),
-        TerrainCell(GridCell(2, 3), terrain_id="terrain:shallow-water", difficult=True),
-        TerrainCell(GridCell(5, 2), terrain_id="terrain:raised-stone", elevation_feet=5),
-        TerrainCell(GridCell(5, 3), terrain_id="terrain:raised-stone", elevation_feet=5),
+        TerrainCell(
+            GridCell(2, 2),
+            terrain_id="terrain:shallow-water",
+            difficult=True,
+        ),
+        TerrainCell(
+            GridCell(2, 3),
+            terrain_id="terrain:shallow-water",
+            difficult=True,
+        ),
+        TerrainCell(
+            GridCell(5, 2),
+            terrain_id="terrain:raised-stone",
+            elevation_feet=5,
+        ),
+        TerrainCell(
+            GridCell(5, 3),
+            terrain_id="terrain:raised-stone",
+            elevation_feet=5,
+        ),
         TerrainCell(
             GridCell(3, 1),
             terrain_id="terrain:broken-pillar",
@@ -570,20 +686,16 @@ def _team(actor: ActorState) -> str:
     return "neutral"
 
 
-def _payload_string(payload: Any, key: str) -> str:
-    if not isinstance(payload, dict):
-        raise ValidationError("tactical payload must be an object")
+def _payload_string(payload: Mapping[str, Any], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValidationError(f"{key} must be a non-empty string")
     return value
 
 
-def _payload_cell(payload: Any, key: str) -> GridCell:
-    if not isinstance(payload, dict):
-        raise ValidationError("tactical payload must be an object")
+def _payload_cell(payload: Mapping[str, Any], key: str) -> GridCell:
     value = payload.get(key)
-    if not isinstance(value, dict):
+    if not isinstance(value, Mapping):
         raise ValidationError(f"{key} must be a cell object")
     x = value.get("x")
     y = value.get("y")
