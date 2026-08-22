@@ -195,14 +195,33 @@ func _on_preview_result(
 func _on_request_failed(
     correlation_id: String,
     _category: int,
-    _user_message: String,
-    _debug_detail: String,
+    user_message: String,
+    debug_detail: String,
 ) -> void:
+    var command_failed := _has_pending_kind(correlation_id, "command")
     interaction.clear_pending_matching(correlation_id)
+    if command_failed:
+        command_completed.emit(
+            correlation_id,
+            false,
+            user_message,
+            debug_detail,
+        )
 
 
 func _on_bridge_disconnected(_reason: String) -> void:
     interaction.clear_all_pending()
+
+
+func _has_pending_kind(correlation_id: String, request_kind: String) -> bool:
+    var pending := interaction.pending_requests()
+    for request_id_value in pending:
+        var metadata: Dictionary = pending[request_id_value]
+        if str(metadata.get("correlation_id", "")) != correlation_id:
+            continue
+        if str(metadata.get("request_kind", "")) == request_kind:
+            return true
+    return false
 
 
 func _disconnect_if_connected(signal_value: Signal, callable: Callable) -> void:
