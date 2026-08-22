@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/adapters.py
 """Adapters between rich actor state and the generic v0.3 rules world."""
 
 from __future__ import annotations

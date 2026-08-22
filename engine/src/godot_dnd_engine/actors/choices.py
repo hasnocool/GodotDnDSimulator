@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/choices.py
 """Data-driven character option and choice-constraint primitives."""
 
 from __future__ import annotations

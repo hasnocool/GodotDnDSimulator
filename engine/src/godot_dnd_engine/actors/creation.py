@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/creation.py
 """Initial headless character-creation API built on the shared actor model."""
 
 from __future__ import annotations
@@ -76,7 +77,7 @@ class CharacterCreationSpec:
         option_ids = [option.option_id for option in self.options]
         if len(option_ids) != len(set(option_ids)):
             raise ValidationError("character creation options must have unique option IDs")
-        known = set(option_ids)
+        known = frozenset(option_ids)
         group_ids = [group.group_id for group in self.choice_groups]
         if len(group_ids) != len(set(group_ids)):
             raise ValidationError("character creation groups must have unique group IDs")
@@ -87,7 +88,7 @@ class CharacterCreationSpec:
                     f"option {option.option_id!r} references unknown options: {sorted(missing)}"
                 )
         for group in self.choice_groups:
-            missing = set(group.option_ids) - known
+            missing = frozenset(group.option_ids) - known
             if missing:
                 raise ValidationError(
                     f"choice group {group.group_id!r} references unknown options: {sorted(missing)}"

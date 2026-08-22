@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/inventory.py
 """Immutable inventory and equipment containers for shared actor state."""
 
 from __future__ import annotations

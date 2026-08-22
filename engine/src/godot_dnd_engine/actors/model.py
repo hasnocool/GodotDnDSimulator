@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/model.py
 """Shared immutable actor model for heroes, NPCs, and creatures."""
 
 from __future__ import annotations

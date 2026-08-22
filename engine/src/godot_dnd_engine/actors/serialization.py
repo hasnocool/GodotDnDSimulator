@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/serialization.py
 """Versioned actor serialization and explicit migrations."""
 
 from __future__ import annotations

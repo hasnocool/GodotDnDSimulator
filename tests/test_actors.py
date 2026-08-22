@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-
 from godot_dnd_engine.actors import (
     ACTOR_SCHEMA_VERSION,
     SKILL_ABILITIES,
@@ -160,7 +159,7 @@ def test_actor_requires_all_six_abilities_exactly_once() -> None:
     with pytest.raises(ValidationError, match="six abilities"):
         replace(actor(), abilities=abilities()[:-1])
     with pytest.raises(ValidationError, match="six abilities"):
-        replace(actor(), abilities=abilities() + (AbilityScore(Ability.STRENGTH, 10),))
+        replace(actor(), abilities=(*abilities(), AbilityScore(Ability.STRENGTH, 10)))
 
 
 def test_choice_groups_validate_cardinality_requirements_and_conflicts() -> None:
@@ -177,9 +176,9 @@ def test_choice_groups_validate_cardinality_requirements_and_conflicts() -> None
     result = validate_choices(options, groups, ("class:one", "feat:one"))
     assert result.selected_option_ids == ("class:one", "feat:one")
     assert result.granted_tags == frozenset({"class-selected"})
-    with pytest.raises(ValidationError, match="requires 1..1"):
+    with pytest.raises(ValidationError, match=r"requires 1\.\.1"):
         validate_choices(options, groups, ())
-    with pytest.raises(ValidationError, match="requires selections"):
+    with pytest.raises(ValidationError, match=r"requires selections"):
         validate_choices(options, groups, ("class:two", "feat:one"))
     with pytest.raises(ValidationError):
         validate_choices(options, (), ("feat:one", "feat:two", "class:one"))

@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/actors/__init__.py
 """Shared v0.4 actor and character runtime."""
 
 from .adapters import (
