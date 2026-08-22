@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "godot-dnd-engine"
-version = "0.7.0.dev0"
+version = "0.8.0.dev0"
 description = "Deterministic headless simulation engine for GodotDnDSimulator"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-godot-dnd-client-bridge = "godot_dnd_engine.client_bridge:main"
+godot-dnd-client-bridge = "godot_dnd_engine.spell_bridge:main"
 
 [project.optional-dependencies]
 rules = [
