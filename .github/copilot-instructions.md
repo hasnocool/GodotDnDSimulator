@@ -4,6 +4,8 @@ Read and follow `/AGENTS.md` as the canonical project contract before proposing 
 
 Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` plus relevant `/docs` synchronized.
 
+For every task touching `apps/godot-client/**`, first read and follow `/apps/godot-client/AGENTS.md` and `/apps/godot-client/TODO.md`. Root roadmap/TODO remain milestone authority; the client TODO is the detailed execution backlog.
+
 ## Non-negotiable architecture
 
 - Authoritative game/rules state belongs in the headless engine, not Godot UI/scene scripts.
@@ -12,6 +14,7 @@ Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` pl
 - Prefer generic triggers/requirements/targets/modifiers/effects over named spell/item/monster conditionals.
 - Spatial legality must be headlessly testable; Godot navigation is an adapter, not the rules authority.
 - AI/LLMs may submit typed commands but never directly mutate game state.
+- Godot client scenes depend on the transport-independent engine bridge, never sockets/processes directly.
 
 ## Rules/content
 
@@ -27,6 +30,7 @@ Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` pl
 - Add tests for behavioral changes and regression tests for bug fixes.
 - Do not hand-edit generated rules/content owned by a generator.
 - Validate untrusted packs, imports, network input, and AI tool arguments.
+- Keep `/apps/godot-client/TODO.md` synchronized when client implementation changes its detailed backlog.
 
 ## Git
 
