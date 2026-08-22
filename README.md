@@ -124,7 +124,7 @@ See [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md).
 
 ## v0.5 tactical combat
 
-The active phase adds deterministic tactical combat under `engine/src/godot_dnd_engine/combat/` while preserving the existing actor and rules runtimes.
+The merged v0.5 implementation adds deterministic tactical combat under `engine/src/godot_dnd_engine/combat/` while preserving the existing actor and rules runtimes.
 
 Implemented combat families include:
 
@@ -140,11 +140,35 @@ Implemented combat families include:
 - versioned `CombatEvent` records, a pure reducer, canonical JSON/JSONL logs, and deterministic replay;
 - `schemas/v1/combat-event.schema.json`.
 
-Movement in v0.5 is **budget accounting only**. Path legality, occupancy, distance/reach, terrain, LOS, cover, elevation, and AoE remain v0.6 Spatial Authority responsibilities.
+Movement in v0.5 is **budget accounting only**. The v0.6 spatial authority validates logical route legality and cost, then the existing combat runtime spends that exact cost.
 
 The combat engine contains no named-item, named-spell, or named-creature special cases and no Godot scene authority.
 
 See [`docs/V0.5_TACTICAL_COMBAT.md`](docs/V0.5_TACTICAL_COMBAT.md).
+
+## v0.6 spatial authority
+
+The active main-engine phase adds deterministic tactical space under `engine/src/godot_dnd_engine/spatial/` while keeping Godot navigation and scene geometry non-authoritative.
+
+Implemented v0.6 families include:
+
+- backend-independent `LogicalSpace` plus an initial bounded square-grid space;
+- multi-cell footprints, occupancy, collision, and immutable spatial placement state;
+- explicit grid, Manhattan, and Euclidean distance/reach queries;
+- deterministic path legality/pathfinding and reachable-space queries;
+- difficult-terrain cost, elevation, diagonal/corner policy, and movement-mode compatibility;
+- direct adapters to v0.4 walk/climb/swim/fly/burrow actor movement data;
+- logical LOS and explicit cover classifications;
+- generic sphere/cube/cylinder/cone/line area membership;
+- geometric threat-zone entry/exit inputs without duplicating v0.5 reaction rules;
+- navigation-path proposal validation so Godot can suggest a route without becoming authority;
+- versioned `SpatialEvent` movement facts, pure reduction, canonical JSON/JSONL, schema, and replay;
+- JSON-shaped `SpatialQueryService` results for later Godot/server/tool integration;
+- a narrow v0.5/v0.6 integration path that validates movement spatially before spending combat movement budget.
+
+The live bridge does not fabricate a tactical map or spatial state. Campaign/encounter integration must supply the actual `SpatialState` before the bridge delegates the v0.6 query surface.
+
+See [`docs/V0.6_SPATIAL_AUTHORITY.md`](docs/V0.6_SPATIAL_AUTHORITY.md).
 
 ## Local validation
 
@@ -160,7 +184,16 @@ python scripts/determinism_smoke.py
 python -m tools.rules_importer.smoke
 ```
 
-Focused v0.5 validation also runs the combat tests against the real `pcg32-v1` seeded RNG interface. The offline pre-PR suite reached 29 passing tests and 96% branch-aware coverage for `godot_dnd_engine.combat`.
+Focused v0.6 coverage lives in:
+
+```text
+tests/test_spatial.py
+tests/test_spatial_validation.py
+tests/test_spatial_combat_integration.py
+tests/test_spatial_schema.py
+```
+
+Those tests cover the v0.6 headless conformance, adversarial validation, replay, JSON Schema, navigation-proposal, query, and v0.5 integration surfaces. The exact v0.6 feature head must still execute the complete repository gates before the milestone exit criterion is checked.
 
 With Godot 4.7.1 installed:
 
@@ -219,6 +252,7 @@ Start here:
 - [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md) — executable rules primitives, modifier/effect semantics, determinism, and v0.4 handoff.
 - [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md) — shared actor state, creation API, rule adapters, serialization, and v0.5 handoff.
 - [`docs/V0.5_TACTICAL_COMBAT.md`](docs/V0.5_TACTICAL_COMBAT.md) — encounter state, attacks, damage/healing, reactions, event replay, and v0.6 spatial handoff.
+- [`docs/V0.6_SPATIAL_AUTHORITY.md`](docs/V0.6_SPATIAL_AUTHORITY.md) — logical space, movement/pathfinding, LOS/cover, generic areas, spatial replay, and Godot adapter boundary.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
 - [`docs/adr/`](docs/adr/) — durable architecture decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
@@ -244,11 +278,11 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 ## Current milestone
 
-**v0.5 — Tactical combat**
+**v0.6 — Spatial authority**
 
-The tactical-combat implementation is on the active feature branch with encounter lifecycle, deterministic initiative/turns, action economy, movement accounting, reactions, abstract attacks, damage/healing/defense hooks, combat conditions, supported zero-HP state transitions, and versioned event replay. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
+The v0.6 feature branch now contains the headless logical-space model, occupancy/footprints, deterministic movement/path queries, terrain/elevation/movement-mode handling, LOS/cover, generic area geometry, threat-transition inputs, navigation-proposal validation, spatial movement events/replay, read-only query service, and v0.5 combat-budget integration.
 
-Outstanding earlier CI proof and full-source v0.2 audit items remain tracked as carryover rather than being silently considered complete.
+The implementation checklist is complete, but the milestone remains open until the exact feature/PR head executes and passes the complete repository CI gates recorded in [`TODO.md`](TODO.md). Outstanding earlier CI proof and full-source v0.2 audit items remain tracked as carryover rather than being silently considered complete.
 
 ## First playable target
 
