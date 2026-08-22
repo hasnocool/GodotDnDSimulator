@@ -2,6 +2,7 @@
 """Rules-driven v0.9 character creator and advancement API."""
 
 from .catalog import demo_character_catalog
+from .data import catalog_from_data, catalog_to_data
 from .model import (
     AbilityScorePolicy,
     CharacterCreatorCatalog,
@@ -26,6 +27,8 @@ __all__ = [
     "CreationGroup",
     "CreationStep",
     "InventoryGrant",
+    "catalog_from_data",
+    "catalog_to_data",
     "demo_character_catalog",
     "record_to_dict",
 ]
