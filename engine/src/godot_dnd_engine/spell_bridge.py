@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from collections.abc import Mapping
 from typing import Any
 
 from .client_bridge import (
@@ -20,7 +19,6 @@ from .client_bridge import (
     _response,
 )
 from .engine import SimulationEngine
-from .errors import UnsupportedCommandError
 from .spell_slice import SPELL_SLICE_CAPABILITIES, SpellEnabledTacticalSession
 from .vertical_slice import VERTICAL_SLICE_CAPABILITIES
 
@@ -91,11 +89,11 @@ class SpellClientBridgeSession(ClientBridgeSession):
         if self.spell_tactical is not None and query_type.startswith(
             ("tactical.", "spatial.", "spells.")
         ):
-            try:
-                result = self.spell_tactical.query(query_type, query)
-            except UnsupportedCommandError:
-                raise
-            return _response(request, "query.result", payload=result)
+            return _response(
+                request,
+                "query.result",
+                payload=self.spell_tactical.query(query_type, query),
+            )
         return super()._query(request)
 
     def _preview(self, request: dict[str, Any]) -> dict[str, object]:
@@ -108,8 +106,11 @@ class SpellClientBridgeSession(ClientBridgeSession):
             preview_type.startswith(("tactical.", "spatial."))
             or preview_type == "spells.preview"
         ):
-            result = self.spell_tactical.preview(preview_type, preview)
-            return _response(request, "preview.result", payload=result)
+            return _response(
+                request,
+                "preview.result",
+                payload=self.spell_tactical.preview(preview_type, preview),
+            )
         return super()._preview(request)
 
     def _authoritative_snapshot(self) -> dict[str, object]:
