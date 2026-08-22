@@ -12,7 +12,7 @@ from .models import CanonicalEntity, NormalizedDocument, Provenance
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 _SECTION_KIND: tuple[tuple[str, str], ...] = (
-    ("classes", "class"),
+    ("classes", "character-option"),
     ("character origins", "character-option"),
     ("background", "character-option"),
     ("species", "character-option"),

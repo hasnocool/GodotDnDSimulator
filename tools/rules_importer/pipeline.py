@@ -1,0 +1,65 @@
+# tools/rules_importer/pipeline.py
+"""End-to-end deterministic build orchestration for an approved SRD source."""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+
+from .compile import compile_entities
+from .errors import SourceChangedError, SourcePolicyError
+from .extract import extract_pdf_async
+from .fetch import fetch_source
+from .models import ImportReport, SourceArtifact
+from .normalize import normalize_blocks
+from .reports import build_import_report, write_dataset
+from .sources import SourceRegistry
+from .validate import validate_entities
+
+
+async def build_from_artifact(
+    *,
+    registry: SourceRegistry,
+    source_id: str,
+    artifact: SourceArtifact,
+    schema_dir: Path,
+    output_dir: Path,
+) -> ImportReport:
+    policy = registry.require(source_id)
+    if artifact.source_id != policy.source_id:
+        raise SourcePolicyError("artifact source_id does not match requested policy")
+    if artifact.document_version != policy.document_version:
+        raise SourcePolicyError("artifact document version does not match source policy")
+    if artifact.license_id != policy.license_id:
+        raise SourcePolicyError("artifact license does not match source policy")
+    if policy.expected_sha256 is not None and artifact.sha256 != policy.expected_sha256:
+        raise SourceChangedError(
+            f"artifact checksum does not match pinned source: {artifact.sha256}"
+        )
+
+    blocks = await extract_pdf_async(Path(artifact.cache_path), artifact)
+    document = await asyncio.to_thread(normalize_blocks, artifact, blocks)
+    entities = await asyncio.to_thread(compile_entities, document)
+    await asyncio.to_thread(validate_entities, entities, schema_dir)
+    report = await asyncio.to_thread(build_import_report, entities)
+    await asyncio.to_thread(write_dataset, output_dir, entities, report, policy)
+    return report
+
+
+async def build_source(
+    *,
+    registry: SourceRegistry,
+    source_id: str,
+    cache_dir: Path,
+    schema_dir: Path,
+    output_dir: Path,
+) -> ImportReport:
+    policy = registry.require(source_id)
+    artifact = await fetch_source(policy, cache_dir)
+    return await build_from_artifact(
+        registry=registry,
+        source_id=source_id,
+        artifact=artifact,
+        schema_dir=schema_dir,
+        output_dir=output_dir,
+    )
