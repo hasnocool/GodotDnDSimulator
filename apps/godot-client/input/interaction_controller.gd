@@ -1,6 +1,9 @@
 class_name ClientInteractionController
 extends Node
 
+const ClientInputActions = preload("res://input/input_actions.gd")
+const InteractionModes = preload("res://input/interaction_modes.gd")
+
 signal mode_changed(mode: int, mode_name: String)
 signal select_requested()
 signal confirm_requested(mode: int)

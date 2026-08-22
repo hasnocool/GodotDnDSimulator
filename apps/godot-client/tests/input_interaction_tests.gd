@@ -6,6 +6,8 @@ const FakeTransportScript = preload("res://bridge/fake_engine_transport.gd")
 const CoordinatorScript = preload("res://state/client_state_coordinator.gd")
 const InputBindingsScript = preload("res://input/input_bindings.gd")
 const InteractionControllerScript = preload("res://input/interaction_controller.gd")
+const ClientInputActions = preload("res://input/input_actions.gd")
+const InteractionModes = preload("res://input/interaction_modes.gd")
 
 var _failures := 0
 
@@ -25,8 +27,9 @@ func _run() -> void:
     if _failures == 0:
         print("Godot client input/interaction tests: PASS")
         quit(0)
-    push_error("Godot client input/interaction tests: %d failure(s)" % _failures)
-    quit(1)
+    else:
+        push_error("Godot client input/interaction tests: %d failure(s)" % _failures)
+        quit(1)
 
 
 func _test_semantic_actions_and_remapping() -> void:
@@ -183,7 +186,7 @@ func _test_duplicate_confirm_and_authoritative_reconciliation() -> void:
         controller.set_command_intent(_command("command:move"), "interaction:move"),
         "move command intent is armed",
     )
-    var first_request_id := controller.confirm_current_intent()
+    var first_request_id: String = controller.confirm_current_intent()
     _check(not first_request_id.is_empty(), "first confirmation submits command")
     _check(
         not controller.register_mode_request(first_request_id),
@@ -244,7 +247,7 @@ func _test_duplicate_confirm_and_authoritative_reconciliation() -> void:
         "rejected command keeps the current interaction mode for correction",
     )
 
-    var retry_request_id := controller.confirm_current_intent()
+    var retry_request_id: String = controller.confirm_current_intent()
     _check(not retry_request_id.is_empty(), "rejected command can be retried")
     _check(
         _count_sent_kind(transport, "command.submit") == 2,
@@ -281,7 +284,7 @@ func _test_mode_scoped_request_cancellation() -> void:
     var transport = bundle["transport"]
 
     controller.transition_to(InteractionModes.Mode.TARGET)
-    var request_id := state.request_preview(
+    var request_id: String = state.request_preview(
         "targeting.preview",
         {},
         "interaction:target-preview",
@@ -307,7 +310,7 @@ func _test_mode_scoped_request_cancellation() -> void:
         "target mode restores without retaining stale preview",
     )
 
-    var next_request_id := state.request_preview(
+    var next_request_id: String = state.request_preview(
         "targeting.preview",
         {},
         "interaction:target-preview-2",
@@ -340,7 +343,7 @@ func _test_stale_generation_results_are_not_reemitted() -> void:
     )
 
     state.interaction.set_selected_actor("actor:hero")
-    var stale_request_id := state.request_preview(
+    var stale_request_id: String = state.request_preview(
         "targeting.preview",
         {},
         "interaction:stale-preview",
@@ -362,7 +365,7 @@ func _test_stale_generation_results_are_not_reemitted() -> void:
     _check(stale.size() == 1, "stale interaction result is reported")
     _check(state.interaction.pending_count() == 0, "stale result still clears its pending request")
 
-    var fresh_request_id := state.request_preview(
+    var fresh_request_id: String = state.request_preview(
         "targeting.preview",
         {},
         "interaction:fresh-preview",
@@ -456,7 +459,7 @@ func _accept_hello(bridge, transport) -> void:
             true,
             {
                 "protocol": Protocol.PROTOCOL_NAME,
-                "capabilities": Array(Protocol.CAPABILITIES),
+                "capabilities": Protocol._capabilities(),
             },
         )
     )

@@ -447,11 +447,7 @@ func _ingest_snapshot(snapshot_value: Variant) -> bool:
         return false
     var state: Dictionary = state_value
     var seq_val: Variant = state.get("sequence")
-    var seq_type := typeof(seq_val)
-    if seq_type != TYPE_INT and seq_type != TYPE_FLOAT:
-        _authoritative_validation_error("snapshot state sequence must be an integer >= 0")
-        return false
-    var sequence := int(seq_val)
+    var sequence := _parse_sequence(seq_val, 0)
     if sequence < 0:
         _authoritative_validation_error("snapshot state sequence must be an integer >= 0")
         return false
@@ -477,11 +473,7 @@ func _ingest_events(events_value: Variant) -> bool:
             return false
         var event: Dictionary = raw_event
         var seq_val: Variant = event.get("sequence")
-        var seq_type := typeof(seq_val)
-        if seq_type != TYPE_INT and seq_type != TYPE_FLOAT:
-            _authoritative_validation_error("event sequence must be an integer >= 1")
-            return false
-        var sequence := int(seq_val)
+        var sequence := _parse_sequence(seq_val, 1)
         if sequence < 1:
             _authoritative_validation_error("event sequence must be an integer >= 1")
             return false
@@ -502,6 +494,19 @@ func _ingest_events(events_value: Variant) -> bool:
     _has_authoritative_state = true
     authoritative_events.emit(accepted)
     return true
+
+
+func _parse_sequence(value: Variant, minimum: int) -> int:
+    if typeof(value) == TYPE_INT:
+        var integer_value := int(value)
+        return integer_value if integer_value >= minimum else -1
+    if typeof(value) != TYPE_FLOAT:
+        return -1
+    var float_value := float(value)
+    if not is_finite(float_value) or float_value != floor(float_value):
+        return -1
+    var integer_value := int(float_value)
+    return integer_value if integer_value >= minimum else -1
 
 
 func _authoritative_validation_error(debug_detail: String) -> void:

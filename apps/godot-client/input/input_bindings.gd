@@ -1,6 +1,8 @@
 class_name ClientInputBindings
 extends RefCounted
 
+const ClientInputActions = preload("res://input/input_actions.gd")
+
 signal binding_changed(action: StringName)
 
 const SETTINGS_PATH := "user://input_bindings.cfg"

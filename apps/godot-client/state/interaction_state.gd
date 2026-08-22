@@ -1,6 +1,8 @@
 class_name InteractionState
 extends RefCounted
 
+const InteractionModes = preload("res://input/interaction_modes.gd")
+
 signal selection_changed(actor_id: String, generation: int)
 signal hover_changed(actor_id: String, generation: int)
 signal target_changed(actor_id: String, generation: int)

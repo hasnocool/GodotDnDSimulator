@@ -101,6 +101,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Snapshot restore now resumes the deterministic RNG stream instead of only restoring visible game state.
 - Replaying events after an older snapshot now advances RNG state through recorded event checkpoints before future commands execute.
 - Raw tactical input no longer acts while a Godot UI control owns focus, and repeated confirmation while an authoritative command is pending cannot create a second submission from the same armed intent.
+- Godot bridge and authoritative-mirror sequence validation now accepts integral numbers decoded from JSON while rejecting fractional values, and standalone client tests no longer depend on editor class-cache or autoload compilation order.
 
 ### Security
 

@@ -62,9 +62,9 @@ func ingest_snapshot(snapshot_value: Dictionary) -> bool:
         return false
     var state: Dictionary = state_value
     var sequence_value: Variant = state.get("sequence")
-    if typeof(sequence_value) != TYPE_INT or int(sequence_value) < 0:
+    var next_sequence := _parse_sequence(sequence_value, 0)
+    if next_sequence < 0:
         return false
-    var next_sequence := int(sequence_value)
     if _has_snapshot and next_sequence < _sequence:
         return false
 
@@ -88,9 +88,9 @@ func ingest_events(events_value: Array) -> bool:
             return false
         var event: Dictionary = raw_event
         var sequence_value: Variant = event.get("sequence")
-        if typeof(sequence_value) != TYPE_INT or int(sequence_value) < 1:
+        var event_sequence := _parse_sequence(sequence_value, 1)
+        if event_sequence < 1:
             return false
-        var event_sequence := int(sequence_value)
         if event_sequence <= _sequence:
             continue
         if event_sequence != expected:
@@ -110,3 +110,16 @@ func ingest_events(events_value: Array) -> bool:
         emitted_events.append(event.duplicate(true))
     events_appended.emit(emitted_events, _sequence)
     return true
+
+
+func _parse_sequence(value: Variant, minimum: int) -> int:
+    if typeof(value) == TYPE_INT:
+        var integer_value := int(value)
+        return integer_value if integer_value >= minimum else -1
+    if typeof(value) != TYPE_FLOAT:
+        return -1
+    var float_value := float(value)
+    if not is_finite(float_value) or float_value != floor(float_value):
+        return -1
+    var integer_value := int(float_value)
+    return integer_value if integer_value >= minimum else -1
