@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 
 from .errors import CompilationError
 from .models import CanonicalEntity, NormalizedDocument, Provenance
@@ -56,7 +55,7 @@ def compile_entities(document: NormalizedDocument) -> tuple[CanonicalEntity, ...
         raise CompilationError("normalized document contains no headings")
     entities: list[CanonicalEntity] = []
     current_section = "Document"
-    used_ids: Counter[str] = Counter()
+    used_ids: set[str] = set()
 
     for position, index in enumerate(headings):
         heading = blocks[index]
@@ -79,9 +78,12 @@ def compile_entities(document: NormalizedDocument) -> tuple[CanonicalEntity, ...
             current_section = heading.text
         body = "\n".join(block.text for block in body_blocks).strip()
         kind = _kind_for(current_section, heading.text)
-        base_id = f"srd5.2.1:{kind}:{slugify(heading.text)}"
-        used_ids[base_id] += 1
-        entity_id = base_id if used_ids[base_id] == 1 else f"{base_id}-{used_ids[base_id]}"
+        entity_id = f"srd5.2.1:{kind}:{slugify(current_section)}:{slugify(heading.text)}"
+        if entity_id in used_ids:
+            raise CompilationError(
+                f"stable ID collision requires a richer heading context: {entity_id}"
+            )
+        used_ids.add(entity_id)
         page_end = max([heading.page, *(block.page for block in body_blocks)])
         entities.append(
             CanonicalEntity(

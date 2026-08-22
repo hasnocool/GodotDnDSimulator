@@ -30,6 +30,7 @@ class SourcePolicy:
 @dataclass(frozen=True, slots=True)
 class SourceArtifact:
     source_id: str
+    importer_version: str
     document_version: str
     license_id: str
     requested_url: str
@@ -85,6 +86,7 @@ class CanonicalEntity:
 @dataclass(frozen=True, slots=True)
 class ImportReport:
     source_id: str
+    importer_version: str
     source_sha256: str
     total_entities: int
     by_kind: dict[str, int]

@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 from .errors import CompilationError
 from .models import CanonicalEntity
@@ -26,15 +27,27 @@ _SCHEMA_BY_KIND = {
 
 
 def _entity_dict(entity: CanonicalEntity) -> dict[str, object]:
-    return json.loads(dumps_canonical(entity))
+    value = json.loads(dumps_canonical(entity))
+    if not isinstance(value, dict):
+        raise CompilationError("canonical entity did not serialize to a JSON object")
+    return value
+
+
+def _validator(schema_dir: Path, schema_name: str) -> Draft202012Validator:
+    base_schema = json.loads((schema_dir / "entity-base.schema.json").read_text(encoding="utf-8"))
+    kind_schema = json.loads((schema_dir / schema_name).read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(base_schema)
+    Draft202012Validator.check_schema(kind_schema)
+    base_id = base_schema.get("$id")
+    if not isinstance(base_id, str) or not base_id:
+        raise CompilationError("base entity schema must define a non-empty $id")
+    registry = Registry().with_resource(base_id, Resource.from_contents(base_schema))
+    return Draft202012Validator(kind_schema, registry=registry)
 
 
 def validate_entities(entities: tuple[CanonicalEntity, ...], schema_dir: Path) -> None:
     ids: set[str] = set()
-    base_schema = json.loads((schema_dir / "entity-base.schema.json").read_text(encoding="utf-8"))
-    Draft202012Validator.check_schema(base_schema)
-    base_validator = Draft202012Validator(base_schema)
-    checked_kind_schemas: set[str] = set()
+    validators: dict[str, Draft202012Validator] = {}
 
     for entity in entities:
         if entity.entity_id in ids:
@@ -44,14 +57,11 @@ def validate_entities(entities: tuple[CanonicalEntity, ...], schema_dir: Path) -
             schema_name = _SCHEMA_BY_KIND[entity.kind]
         except KeyError as exc:
             raise CompilationError(f"unsupported canonical entity kind: {entity.kind}") from exc
-
-        if schema_name not in checked_kind_schemas:
-            kind_schema = json.loads((schema_dir / schema_name).read_text(encoding="utf-8"))
-            Draft202012Validator.check_schema(kind_schema)
-            checked_kind_schemas.add(schema_name)
-
-        raw = _entity_dict(entity)
-        errors = sorted(base_validator.iter_errors(raw), key=lambda err: list(err.path))
+        validator = validators.get(schema_name)
+        if validator is None:
+            validator = _validator(schema_dir, schema_name)
+            validators[schema_name] = validator
+        errors = sorted(validator.iter_errors(_entity_dict(entity)), key=lambda err: list(err.path))
         if errors:
             messages = "; ".join(error.message for error in errors[:5])
             raise CompilationError(f"schema validation failed for {entity.entity_id}: {messages}")

@@ -7,12 +7,12 @@ import hashlib
 import json
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _default(value: object) -> Any:
     if is_dataclass(value):
-        return asdict(value)
+        return asdict(cast(Any, value))
     raise TypeError(f"unsupported canonical JSON value: {type(value).__name__}")
 
 

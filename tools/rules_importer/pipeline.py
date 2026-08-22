@@ -13,8 +13,19 @@ from .fetch import fetch_source
 from .models import ImportReport, SourceArtifact
 from .normalize import normalize_blocks
 from .reports import build_import_report, write_dataset
+from .serialization import sha256_bytes
 from .sources import SourceRegistry
 from .validate import validate_entities
+
+
+def _verify_artifact_file(artifact: SourceArtifact) -> None:
+    path = Path(artifact.cache_path)
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise SourceChangedError(f"unable to read cached source artifact: {path}") from exc
+    if len(data) != artifact.size_bytes or sha256_bytes(data) != artifact.sha256:
+        raise SourceChangedError("cached source bytes do not match the artifact manifest")
 
 
 async def build_from_artifact(
@@ -36,6 +47,7 @@ async def build_from_artifact(
         raise SourceChangedError(
             f"artifact checksum does not match pinned source: {artifact.sha256}"
         )
+    await asyncio.to_thread(_verify_artifact_file, artifact)
 
     blocks = await extract_pdf_async(Path(artifact.cache_path), artifact)
     document = await asyncio.to_thread(normalize_blocks, artifact, blocks)

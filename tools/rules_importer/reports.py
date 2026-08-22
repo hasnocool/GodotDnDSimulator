@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .models import CanonicalEntity, ImportReport, SourcePolicy
 from .serialization import dumps_canonical, sha256_text, write_canonical_json
+from .version import IMPORTER_VERSION
 
 _ATTRIBUTION = (
     'This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") '
@@ -39,6 +40,7 @@ def build_import_report(entities: tuple[CanonicalEntity, ...]) -> ImportReport:
     canonical_text = "\n".join(dumps_canonical(entity) for entity in entities) + "\n"
     return ImportReport(
         source_id=source.source_id,
+        importer_version=IMPORTER_VERSION,
         source_sha256=source.source_sha256,
         total_entities=len(entities),
         by_kind=dict(sorted(by_kind.items())),

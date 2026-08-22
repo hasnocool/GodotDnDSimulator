@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["entity_id", "kind", "name", "schema_version", "status", "source_text", "provenance", "mechanics"],
   "properties": {
-    "entity_id": {"type": "string", "pattern": "^srd5\\.2\\.1:[a-z0-9-]+:[a-z0-9-]+$"},
+    "entity_id": {"type": "string", "pattern": "^srd5\\.2\\.1:[a-z0-9-]+:[a-z0-9-]+:[a-z0-9-]+$"},
     "kind": {"type": "string"},
     "name": {"type": "string", "minLength": 1},
     "schema_version": {"const": 1},
