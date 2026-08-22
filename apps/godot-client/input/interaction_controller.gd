@@ -15,6 +15,7 @@ signal command_intent_rejected(
     debug_detail: String,
 )
 signal duplicate_confirmation_ignored(correlation_id: String)
+signal pending_command_cancel_ignored(correlation_id: String)
 
 var _state: ClientStateCoordinator
 var _input_enabled := false
@@ -72,6 +73,8 @@ func transition_to(next_mode: int) -> bool:
     var current := _state.interaction.mode()
     if current == next_mode:
         return true
+    if _submission_is_pending():
+        return false
     if InteractionModes.is_cancellable(current):
         _cancel_mode_requests()
         clear_command_intent()
@@ -85,7 +88,11 @@ func set_ui_modal_active(active: bool) -> bool:
     if active:
         if current == InteractionModes.Mode.UI_MODAL:
             return true
+        if _submission_is_pending():
+            return false
         _mode_before_modal = current
+        if InteractionModes.is_cancellable(current):
+            _cancel_mode_requests()
         return _state.interaction.set_mode(InteractionModes.Mode.UI_MODAL)
     if current != InteractionModes.Mode.UI_MODAL:
         return true
@@ -121,7 +128,11 @@ func clear_command_intent() -> void:
 func register_mode_request(request_id: String) -> bool:
     if _state == null or request_id.is_empty():
         return false
-    if not _state.interaction.pending_requests().has(request_id):
+    var pending := _state.interaction.pending_requests()
+    if not pending.has(request_id):
+        return false
+    var metadata: Dictionary = pending[request_id]
+    if str(metadata.get("request_kind", "")) == "command":
         return false
     if not _mode_request_ids.has(request_id):
         _mode_request_ids.append(request_id)
@@ -134,6 +145,9 @@ func cancel_active_mode() -> bool:
     var mode := _state.interaction.mode()
     if mode == InteractionModes.Mode.UI_MODAL:
         modal_cancel_requested.emit()
+        return true
+    if _submission_is_pending():
+        pending_command_cancel_ignored.emit(_intent_correlation_id)
         return true
     if not InteractionModes.is_cancellable(mode):
         cancel_requested.emit(mode)
@@ -159,7 +173,7 @@ func confirm_current_intent() -> String:
     if request_id.is_empty():
         return ""
     _submitted_request_id = request_id
-    register_mode_request(request_id)
+    _cancel_mode_requests()
     command_intent_submitted.emit(request_id, _intent_correlation_id)
     return request_id
 
