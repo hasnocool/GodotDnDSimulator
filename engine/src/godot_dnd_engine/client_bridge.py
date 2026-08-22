@@ -16,6 +16,7 @@ from .serialization import event_to_dict, snapshot_to_dict
 
 PROTOCOL_NAME = "godot-dnd-bridge"
 PROTOCOL_VERSION = 1
+MAX_MESSAGE_BYTES = 1_048_576
 CAPABILITIES = (
     "commands.v1",
     "queries.v1",
@@ -181,7 +182,18 @@ class ClientBridgeServer:
     ) -> None:
         try:
             while not reader.at_eof():
-                line = await reader.readline()
+                try:
+                    line = await reader.readline()
+                except ValueError:
+                    writer.write(
+                        _dumps_line(
+                            _validation_rejection(
+                                f"bridge frame exceeded {MAX_MESSAGE_BYTES} bytes"
+                            )
+                        )
+                    )
+                    await writer.drain()
+                    break
                 if not line:
                     break
                 response = self._handle_line(line)
@@ -194,25 +206,16 @@ class ClientBridgeServer:
             await writer.wait_closed()
 
     def _handle_line(self, line: bytes) -> dict[str, object] | None:
+        if len(line) > MAX_MESSAGE_BYTES:
+            return _validation_rejection(
+                f"bridge frame exceeded {MAX_MESSAGE_BYTES} bytes"
+            )
         try:
             decoded = json.loads(line.decode("utf-8"))
             message = _require_mapping(decoded, "bridge message")
             return self.session.handle_message(message)
         except (UnicodeDecodeError, json.JSONDecodeError, BridgeProtocolError) as exc:
-            return {
-                "bridge_version": PROTOCOL_VERSION,
-                "kind": "request.rejected",
-                "request_id": "",
-                "correlation_id": "",
-                "generation": 0,
-                "ok": False,
-                "payload": {},
-                "error": _error(
-                    "validation",
-                    "Received malformed bridge message",
-                    str(exc),
-                ),
-            }
+            return _validation_rejection(str(exc))
 
 
 async def serve(
@@ -229,7 +232,12 @@ async def serve(
         seed=seed,
     )
     bridge = ClientBridgeServer(ClientBridgeSession(engine))
-    server = await asyncio.start_server(bridge.handle_client, host, port)
+    server = await asyncio.start_server(
+        bridge.handle_client,
+        host,
+        port,
+        limit=MAX_MESSAGE_BYTES + 1,
+    )
     addresses = ", ".join(str(sock.getsockname()) for sock in server.sockets or ())
     print(f"Godot client bridge v{PROTOCOL_VERSION} listening on {addresses}")
     async with server:
@@ -313,7 +321,6 @@ def _response(
         "generation": request["generation"],
         "ok": True,
         "payload": dict(payload),
-        "error": {},
     }
 
 
@@ -333,6 +340,23 @@ def _rejected(
         "ok": False,
         "payload": {},
         "error": _error(category, user_message, debug_detail),
+    }
+
+
+def _validation_rejection(debug_detail: str) -> dict[str, object]:
+    return {
+        "bridge_version": PROTOCOL_VERSION,
+        "kind": "request.rejected",
+        "request_id": "",
+        "correlation_id": "",
+        "generation": 0,
+        "ok": False,
+        "payload": {},
+        "error": _error(
+            "validation",
+            "Received malformed bridge message",
+            debug_detail,
+        ),
     }
 
 
