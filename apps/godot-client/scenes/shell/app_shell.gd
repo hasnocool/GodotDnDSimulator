@@ -215,6 +215,7 @@ func _on_bridge_disconnected(reason: String) -> void:
 
 
 func _on_bridge_request_failed(
+    _request_id: String,
     correlation_id: String,
     _category: int,
     user_message: String,

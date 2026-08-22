@@ -182,12 +182,30 @@ func _test_duplicate_confirm_and_authoritative_reconciliation() -> void:
 
     state.interaction.set_selected_actor("actor:hero")
     controller.transition_to(InteractionModes.Mode.MOVE)
+    var preview_request_id: String = state.request_preview(
+        "movement.path",
+        {"destination": "cell:1,1"},
+        "interaction:move",
+    )
+    _check(
+        controller.register_mode_request(preview_request_id),
+        "move preview can share the command interaction correlation",
+    )
     _check(
         controller.set_command_intent(_command("command:move"), "interaction:move"),
         "move command intent is armed",
     )
     var first_request_id: String = controller.confirm_current_intent()
     _check(not first_request_id.is_empty(), "first confirmation submits command")
+    _check(
+        state.interaction.pending_count() == 1,
+        "cancelling the correlated preview preserves the submitted command",
+    )
+    var cancellation := _last_sent_kind(transport, "request.cancel")
+    _check(
+        str(cancellation.get("payload", {}).get("target_request_id", "")) == preview_request_id,
+        "mode cancellation targets the preview request rather than the command",
+    )
     _check(
         not controller.register_mode_request(first_request_id),
         "submitted command cannot become a cancellable mode request",
@@ -213,7 +231,7 @@ func _test_duplicate_confirm_and_authoritative_reconciliation() -> void:
         "pending authoritative command remains tracked after cancel input",
     )
     _check(
-        _count_sent_kind(transport, "request.cancel") == 0,
+        _count_sent_kind(transport, "request.cancel") == 1,
         "cancel input never sends request.cancel for a submitted command",
     )
     _check(
@@ -511,6 +529,14 @@ func _count_sent_kind(transport, kind: String) -> int:
         if str(message.get("kind", "")) == kind:
             count += 1
     return count
+
+
+func _last_sent_kind(transport, kind: String) -> Dictionary:
+    for index in range(transport.sent_messages.size() - 1, -1, -1):
+        var message: Dictionary = transport.sent_messages[index]
+        if str(message.get("kind", "")) == kind:
+            return message
+    return {}
 
 
 func _action_has_type(action: StringName, class_name_value: String) -> bool:

@@ -206,13 +206,18 @@ func _on_preview_result(
 
 
 func _on_request_failed(
+    request_id: String,
     correlation_id: String,
     _category: int,
     user_message: String,
     debug_detail: String,
 ) -> void:
-    var command_failed := _has_pending_kind(correlation_id, "command")
-    interaction.clear_pending_matching(correlation_id)
+    var pending := interaction.pending_requests()
+    if request_id.is_empty() or not pending.has(request_id):
+        return
+    var metadata: Dictionary = pending[request_id]
+    var command_failed := str(metadata.get("request_kind", "")) == "command"
+    interaction.clear_pending(request_id)
     if command_failed:
         command_completed.emit(
             correlation_id,
@@ -236,19 +241,6 @@ func _result_generation_is_current(correlation_id: String, generation: int) -> b
         current_generation,
     )
     return false
-
-
-func _has_pending_kind(correlation_id: String, request_kind: String) -> bool:
-    var pending := interaction.pending_requests()
-    for request_id_value in pending:
-        var metadata: Dictionary = pending[request_id_value]
-        if str(metadata.get("correlation_id", "")) != correlation_id:
-            continue
-        if str(metadata.get("request_kind", "")) == request_kind:
-            return true
-    return false
-
-
 func _disconnect_if_connected(signal_value: Signal, callable: Callable) -> void:
     if signal_value.is_connected(callable):
         signal_value.disconnect(callable)

@@ -181,6 +181,7 @@ func _test_fractional_sequence_is_rejected() -> void:
     var failures: Array = []
     bridge.request_failed.connect(
         func(
+            _request_id: String,
             correlation_id: String,
             category: int,
             user_message: String,
@@ -253,6 +254,7 @@ func _test_timeout_and_cancellation() -> void:
     var failures: Array = []
     bridge.request_failed.connect(
         func(
+            _request_id: String,
             correlation_id: String,
             category: int,
             user_message: String,

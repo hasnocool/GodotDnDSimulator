@@ -119,6 +119,8 @@ Protocol v1 defines:
 
 Errors contain both `user_message` and `debug_detail`. Normal UI should prefer the concise user message while developer tooling can expose the debug detail.
 
+Local `request_failed` notifications carry both the unique `request_id` and broader `correlation_id`. Interaction state reconciles the exact failed request by request ID, so cancelling or timing out one preview/query cannot clear another request that belongs to the same interaction.
+
 ## Transport abstraction
 
 `EngineTransport` is deliberately independent of scenes and engine mechanics. `EngineBridge` depends on the abstraction, not a concrete socket implementation.

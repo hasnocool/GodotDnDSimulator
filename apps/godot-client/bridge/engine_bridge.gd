@@ -19,6 +19,7 @@ signal command_rejected(
 signal query_result(correlation_id: String, generation: int, payload: Dictionary)
 signal preview_result(correlation_id: String, generation: int, payload: Dictionary)
 signal request_failed(
+    request_id: String,
     correlation_id: String,
     category: int,
     user_message: String,
@@ -188,6 +189,7 @@ func cancel_request(request_id: String) -> bool:
                 )
             )
     request_failed.emit(
+        request_id,
         str(metadata["correlation_id"]),
         Protocol.ErrorCategory.CANCELLED,
         "Request cancelled",
@@ -211,6 +213,7 @@ func request_resync(timeout_msec: int = DEFAULT_TIMEOUT_MSEC) -> String:
 func _can_submit(correlation_id: String, generation: int, timeout_msec: int) -> bool:
     if not _ready or _transport == null or not _transport._is_connected():
         request_failed.emit(
+            "",
             correlation_id,
             Protocol.ErrorCategory.TRANSPORT,
             "Engine bridge is not ready",
@@ -250,6 +253,7 @@ func _send_tracked(
     if error != OK:
         _pending.erase(request_id)
         request_failed.emit(
+            request_id,
             correlation_id,
             Protocol.ErrorCategory.TRANSPORT,
             "Failed to send engine request",
@@ -279,6 +283,7 @@ func _send_hello() -> void:
         _pending.erase(request_id)
         request_failed.emit(
             request_id,
+            request_id,
             Protocol.ErrorCategory.TRANSPORT,
             "Failed to negotiate engine bridge",
             "hello send returned error %d" % error,
@@ -292,13 +297,14 @@ func _on_transport_disconnected(reason: String) -> void:
 
 
 func _on_transport_error(category: int, user_message: String, debug_detail: String) -> void:
-    request_failed.emit("bridge", category, user_message, debug_detail)
+    request_failed.emit("", "bridge", category, user_message, debug_detail)
 
 
 func _on_transport_message(message: Dictionary) -> void:
     var validation_error := Protocol.validate_message(message)
     if not validation_error.is_empty():
         request_failed.emit(
+            "",
             "bridge",
             Protocol.ErrorCategory.VALIDATION,
             "Received invalid engine message",
@@ -366,6 +372,7 @@ func _on_transport_message(message: Dictionary) -> void:
             )
         _:
             request_failed.emit(
+                request_id,
                 str(metadata["correlation_id"]),
                 Protocol.ErrorCategory.INTERNAL,
                 "Unknown pending bridge request",
@@ -413,6 +420,7 @@ func _handle_rejected_response(metadata: Dictionary, message: Dictionary) -> voi
         )
     else:
         request_failed.emit(
+            str(message["request_id"]),
             correlation_id,
             category,
             str(error["user_message"]),
@@ -512,6 +520,7 @@ func _parse_sequence(value: Variant, minimum: int) -> int:
 func _authoritative_validation_error(debug_detail: String) -> void:
     _needs_resync = true
     request_failed.emit(
+        "",
         "authoritative-state",
         Protocol.ErrorCategory.VALIDATION,
         "Received invalid authoritative state",
@@ -532,6 +541,7 @@ func _expire_requests(now_msec: int) -> void:
         if _transport != null:
             _transport.cancel(request_id)
         request_failed.emit(
+            request_id,
             str(metadata["correlation_id"]),
             Protocol.ErrorCategory.TIMEOUT,
             "Engine request timed out",
@@ -541,6 +551,7 @@ func _expire_requests(now_msec: int) -> void:
 
 func _emit_validation_failure(correlation_id: String, detail: String) -> void:
     request_failed.emit(
+        "",
         correlation_id,
         Protocol.ErrorCategory.VALIDATION,
         "Invalid engine request",
