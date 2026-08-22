@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/actor.schema.json",
+  "title": "ActorState v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "actor_id", "name", "kind", "size", "level", "proficiency_bonus", "abilities", "hit_points", "defense", "skills", "saves", "proficiencies", "movement", "senses", "inventory", "equipment", "resources", "conditions", "selected_options", "tags"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "actor_id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["hero", "npc", "creature"]},
+    "size": {"enum": ["tiny", "small", "medium", "large", "huge", "gargantuan"]},
+    "level": {"type": ["integer", "null"], "minimum": 1, "maximum": 20},
+    "proficiency_bonus": {"type": "integer", "minimum": 0, "maximum": 20},
+    "abilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"],
+      "properties": {
+        "strength": {"type": "integer", "minimum": 1, "maximum": 30},
+        "dexterity": {"type": "integer", "minimum": 1, "maximum": 30},
+        "constitution": {"type": "integer", "minimum": 1, "maximum": 30},
+        "intelligence": {"type": "integer", "minimum": 1, "maximum": 30},
+        "wisdom": {"type": "integer", "minimum": 1, "maximum": 30},
+        "charisma": {"type": "integer", "minimum": 1, "maximum": 30}
+      }
+    },
+    "hit_points": {"type": "object", "required": ["current", "maximum", "temporary"], "properties": {"current": {"type": "integer", "minimum": 0}, "maximum": {"type": "integer", "minimum": 1}, "temporary": {"type": "integer", "minimum": 0}}},
+    "defense": {"type": "object", "required": ["armor_class"], "properties": {"armor_class": {"type": "integer", "minimum": 0, "maximum": 1000}}},
+    "skills": {"type": "array", "items": {"type": "object"}},
+    "saves": {"type": "array", "items": {"type": "object"}},
+    "proficiencies": {"type": "array", "items": {"type": "object"}},
+    "movement": {"type": "array", "items": {"type": "object"}},
+    "senses": {"type": "array", "items": {"type": "object"}},
+    "inventory": {"type": "array", "items": {"type": "object"}},
+    "equipment": {"type": "array", "items": {"type": "object"}},
+    "resources": {"type": "array", "items": {"type": "object"}},
+    "conditions": {"type": "array", "items": {"type": "object"}},
+    "selected_options": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "tags": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  }
+}
