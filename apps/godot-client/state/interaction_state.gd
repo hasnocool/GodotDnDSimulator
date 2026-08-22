@@ -4,12 +4,14 @@ extends RefCounted
 signal selection_changed(actor_id: String, generation: int)
 signal hover_changed(actor_id: String, generation: int)
 signal target_changed(actor_id: String, generation: int)
+signal mode_changed(mode: int, generation: int)
 signal pending_changed(pending_count: int)
 signal generation_changed(generation: int)
 
 var _selected_actor_id := ""
 var _hovered_actor_id := ""
 var _targeted_actor_id := ""
+var _mode := InteractionModes.Mode.INSPECT
 var _generation := 0
 var _pending: Dictionary = {}
 
@@ -26,6 +28,10 @@ func targeted_actor_id() -> String:
     return _targeted_actor_id
 
 
+func mode() -> int:
+    return _mode
+
+
 func generation() -> int:
     return _generation
 
@@ -36,6 +42,17 @@ func pending_count() -> int:
 
 func pending_requests() -> Dictionary:
     return _pending.duplicate(true)
+
+
+func set_mode(next_mode: int) -> bool:
+    if not InteractionModes.is_valid(next_mode):
+        return false
+    if next_mode == _mode:
+        return true
+    _mode = next_mode
+    _advance_generation()
+    mode_changed.emit(_mode, _generation)
+    return true
 
 
 func set_selected_actor(actor_id: String) -> void:
