@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from ..actors import ActorState
 from ..dice import DiceExpression, roll_expression
 from ..errors import ValidationError
+from ..models import RNGCheckpoint
 from ..rng import DeterministicRNG
 from ..rules.capabilities import RulesetCapabilities
 from ..rules.primitives import Ability, D20TestKind
@@ -55,13 +56,13 @@ class CombatRuntime:
         zero_hp_rules: dict[str, ZeroHitPointRule] | None = None,
         condition_rules: tuple[CombatConditionRule, ...] = (),
     ) -> EncounterState:
-        defenses = defenses or {}
-        zero_hp_rules = zero_hp_rules or {}
+        defense_map = defenses or {}
+        zero_hp_map = zero_hp_rules or {}
         combatants = tuple(
             CombatantState(
                 actor=actor,
-                defenses=defenses.get(actor.actor_id, DefenseProfile()),
-                zero_hp_rule=zero_hp_rules.get(actor.actor_id),
+                defenses=defense_map.get(actor.actor_id, DefenseProfile()),
+                zero_hp_rule=zero_hp_map.get(actor.actor_id),
             )
             for actor in actors
         )
@@ -72,6 +73,14 @@ class CombatRuntime:
             condition_rules=condition_rules,
         )
 
+    def _checkpoint(self) -> RNGCheckpoint:
+        state, increment = self.rng.snapshot()
+        return RNGCheckpoint(
+            algorithm=self.rng.ALGORITHM,
+            state=state,
+            increment=increment,
+        )
+
     def _event(
         self,
         state: EncounterState,
@@ -80,6 +89,7 @@ class CombatRuntime:
         actor_id: str | None = None,
         target_id: str | None = None,
         payload: tuple[tuple[str, EventValue], ...] = (),
+        rng_after: RNGCheckpoint | None = None,
     ) -> CombatEvent:
         return CombatEvent(
             sequence=state.next_sequence(),
@@ -87,6 +97,7 @@ class CombatRuntime:
             actor_id=actor_id,
             target_id=target_id,
             payload=payload,
+            rng_after=rng_after,
         )
 
     def _apply(self, state: EncounterState, event: CombatEvent) -> EncounterState:
@@ -100,7 +111,7 @@ class CombatRuntime:
         initiative_rows: list[tuple[str, int, int, int]] = []
         for combatant in state.combatants:
             actor = combatant.actor
-            dex = actor.ability_score(Ability.DEXTERITY)
+            dexterity = actor.ability_score(Ability.DEXTERITY)
             outcome = self.rules.resolve_d20(
                 ResolutionContext(
                     context_id=f"initiative:{state.encounter_id}:{actor.actor_id}",
@@ -109,20 +120,23 @@ class CombatRuntime:
                     ability=Ability.DEXTERITY,
                     reason="Initiative",
                 ),
-                ability_score=dex,
+                ability_score=dexterity,
                 proficiency_bonus=actor.proficiency_bonus,
             )
-            raw = outcome.selected_roll
-            initiative_rows.append((actor.actor_id, outcome.total, dex.modifier, raw))
+            raw_roll = outcome.selected_roll
+            initiative_rows.append(
+                (actor.actor_id, outcome.total, dexterity.modifier, raw_roll)
+            )
             event = self._event(
                 current,
                 "initiative.rolled",
                 actor_id=actor.actor_id,
                 payload=(
                     ("total", outcome.total),
-                    ("dexterity_modifier", dex.modifier),
-                    ("raw_roll", raw),
+                    ("dexterity_modifier", dexterity.modifier),
+                    ("raw_roll", raw_roll),
                 ),
+                rng_after=self._checkpoint(),
             )
             current = self._apply(current, event)
             events.append(event)
@@ -134,9 +148,9 @@ class CombatRuntime:
                 key=lambda item: (-item[1], -item[2], item[0]),
             )
         )
-        event = self._event(current, "encounter.started", payload=(("order", order),))
-        current = self._apply(current, event)
-        events.append(event)
+        started = self._event(current, "encounter.started", payload=(("order", order),))
+        current = self._apply(current, started)
+        events.append(started)
         turn = self._start_turn_event(current, turn_index=0, round_number=1)
         current = self._apply(current, turn)
         events.append(turn)
@@ -228,18 +242,24 @@ class CombatRuntime:
         if state.current_actor_id != actor_id:
             raise ValidationError("combat command actor is not the current turn actor")
         next_index, next_round = self._next_living_turn(state)
-        event = self._start_turn_event(state, turn_index=next_index, round_number=next_round)
-        next_state = self._apply(state, event)
-        events: list[CombatEvent] = [event]
-        next_actor = next_state.combatant(next_state.current_actor_id or "")
+        turn = self._start_turn_event(
+            state,
+            turn_index=next_index,
+            round_number=next_round,
+        )
+        next_state = self._apply(state, turn)
+        events: list[CombatEvent] = [turn]
+        next_actor_id = next_state.current_actor_id
+        assert next_actor_id is not None
+        next_actor = next_state.combatant(next_actor_id)
         if (
             next_actor.life_state is LifeState.UNCONSCIOUS
             and next_actor.actor.hit_points.current == 0
             and next_actor.zero_hp_rule is ZeroHitPointRule.CHARACTER
         ):
-            death = self._death_save_event(next_state, next_actor.actor_id)
-            next_state = self._apply(next_state, death)
-            events.append(death)
+            death_save = self._death_save_event(next_state, next_actor.actor_id)
+            next_state = self._apply(next_state, death_save)
+            events.append(death_save)
         return CombatTransition(next_state, tuple(events))
 
     def _next_living_turn(self, state: EncounterState) -> tuple[int, int]:
@@ -264,6 +284,7 @@ class CombatRuntime:
         self._assert_active(state)
         if any(window.window_id == window_id for window in state.reaction_windows):
             raise ValidationError("reaction window ID already exists")
+        state.combatant(source_actor_id)
         for actor_id in eligible_actor_ids:
             state.combatant(actor_id)
         event = self._event(
@@ -327,16 +348,16 @@ class CombatRuntime:
         modifiers: AttackModifiers | None = None,
     ) -> tuple[CombatTransition, AttackResult]:
         attacker = self._assert_current_actor(state, attacker_id)
-        modifiers = modifiers or AttackModifiers()
+        attack_modifiers = modifiers or AttackModifiers()
         target = state.combatant(target_id)
         if target.life_state is LifeState.DEAD:
             raise ValidationError("target is already dead")
         if self._condition_blocks(state, attacker, attack.action_resource):
             raise ValidationError("combat conditions block that attack action")
+
         spent = self.spend_action(state, attacker_id, attack.action_resource)
         current = spent.state
         events = list(spent.events)
-
         d20 = self.rules.resolve_d20(
             ResolutionContext(
                 context_id=(
@@ -351,17 +372,15 @@ class CombatRuntime:
             ),
             ability_score=attacker.actor.ability_score(attack.ability),
             proficiency_bonus=attacker.actor.proficiency_bonus,
-            modifiers=modifiers.attack_roll,
-            advantage_sources=modifiers.advantage_sources,
-            disadvantage_sources=modifiers.disadvantage_sources,
+            modifiers=attack_modifiers.attack_roll,
+            advantage_sources=attack_modifiers.advantage_sources,
+            disadvantage_sources=attack_modifiers.disadvantage_sources,
         )
-        natural = d20.selected_roll
-        critical = natural == 20
-        hit = critical or (natural != 1 and d20.total >= target.actor.defense.armor_class)
-        damage_raw: tuple[int, ...] = ()
-        damage_before = 0
-        adjustment: DamageAdjustment | None = None
-
+        natural_roll = d20.selected_roll
+        critical = natural_roll == 20
+        hit = critical or (
+            natural_roll != 1 and d20.total >= target.actor.defense.armor_class
+        )
         attack_event = self._event(
             current,
             "attack.resolved",
@@ -369,16 +388,20 @@ class CombatRuntime:
             target_id=target_id,
             payload=(
                 ("attack_id", attack.attack_id),
-                ("natural_roll", natural),
+                ("natural_roll", natural_roll),
                 ("total", d20.total),
                 ("target_armor_class", target.actor.defense.armor_class),
                 ("hit", hit),
                 ("critical", critical),
             ),
+            rng_after=self._checkpoint(),
         )
         current = self._apply(current, attack_event)
         events.append(attack_event)
 
+        damage_raw: tuple[int, ...] = ()
+        damage_before = 0
+        adjustment: DamageAdjustment | None = None
         if hit:
             base_damage = DiceExpression(
                 count=attack.damage_dice.count,
@@ -414,6 +437,7 @@ class CombatRuntime:
                 packet=DamagePacket(damage_before, attack.damage_type),
                 source_actor_id=attacker_id,
                 critical=critical,
+                rng_after=self._checkpoint(),
             )
             current = damage_transition.state
             events.extend(damage_transition.events)
@@ -440,6 +464,7 @@ class CombatRuntime:
         packet: DamagePacket,
         source_actor_id: str | None = None,
         critical: bool = False,
+        rng_after: RNGCheckpoint | None = None,
     ) -> tuple[CombatTransition, DamageAdjustment]:
         self._assert_active(state)
         target = state.combatant(target_id)
@@ -451,24 +476,26 @@ class CombatRuntime:
         remaining = adjustment.adjusted_amount - temp_absorbed
         hp_after = max(0, hp.current - remaining)
         leftover_after_zero = max(0, remaining - hp.current)
-        life = target.life_state
-        saves = target.death_saves
+        life_state = target.life_state
+        death_saves = target.death_saves
 
         if hp.current == 0 and adjustment.adjusted_amount > 0:
             if adjustment.adjusted_amount >= hp.maximum:
-                life = LifeState.DEAD
+                life_state = LifeState.DEAD
             elif target.zero_hp_rule is ZeroHitPointRule.CHARACTER:
-                failures = min(3, saves.failures + (2 if critical else 1))
-                saves = replace(saves, failures=failures)
-                life = LifeState.DEAD if failures >= 3 else LifeState.UNCONSCIOUS
+                failures = min(3, death_saves.failures + (2 if critical else 1))
+                death_saves = replace(death_saves, failures=failures)
+                life_state = (
+                    LifeState.DEAD if failures >= 3 else LifeState.UNCONSCIOUS
+                )
         elif hp.current > 0 and hp_after == 0:
             if target.zero_hp_rule is ZeroHitPointRule.MONSTER:
-                life = LifeState.DEAD
+                life_state = LifeState.DEAD
             elif leftover_after_zero >= hp.maximum:
-                life = LifeState.DEAD
+                life_state = LifeState.DEAD
             else:
-                life = LifeState.UNCONSCIOUS
-                saves = replace(saves, successes=0, failures=0)
+                life_state = LifeState.UNCONSCIOUS
+                death_saves = replace(death_saves, successes=0, failures=0)
 
         event = self._event(
             state,
@@ -481,11 +508,12 @@ class CombatRuntime:
                 ("adjusted_amount", adjustment.adjusted_amount),
                 ("temporary_after", hp.temporary - temp_absorbed),
                 ("hp_after", hp_after),
-                ("life_state", life.value),
-                ("death_successes", saves.successes),
-                ("death_failures", saves.failures),
+                ("life_state", life_state.value),
+                ("death_successes", death_saves.successes),
+                ("death_failures", death_saves.failures),
                 ("critical", critical),
             ),
+            rng_after=rng_after,
         )
         return CombatTransition(self._apply(state, event), (event,)), adjustment
 
@@ -505,8 +533,8 @@ class CombatRuntime:
             raise ValidationError("ordinary healing cannot restore a dead combatant")
         hp = target.actor.hit_points
         hp_after = min(hp.maximum, hp.current + amount)
-        life = LifeState.CONSCIOUS if hp_after > 0 else target.life_state
-        saves = (
+        life_state = LifeState.CONSCIOUS if hp_after > 0 else target.life_state
+        death_saves = (
             target.death_saves
             if hp_after == 0
             else replace(target.death_saves, successes=0, failures=0)
@@ -520,9 +548,9 @@ class CombatRuntime:
                 ("amount", amount),
                 ("temporary_after", hp.temporary),
                 ("hp_after", hp_after),
-                ("life_state", life.value),
-                ("death_successes", saves.successes),
-                ("death_failures", saves.failures),
+                ("life_state", life_state.value),
+                ("death_successes", death_saves.successes),
+                ("death_failures", death_saves.failures),
             ),
         )
         return CombatTransition(self._apply(state, event), (event,))
@@ -597,13 +625,13 @@ class CombatRuntime:
         roll = self.rng.roll_die(20)
         successes = target.death_saves.successes
         failures = target.death_saves.failures
-        life = target.life_state
+        life_state = target.life_state
         hp_after = 0
         if roll == 20:
             hp_after = 1
             successes = 0
             failures = 0
-            life = LifeState.CONSCIOUS
+            life_state = LifeState.CONSCIOUS
         elif roll == 1:
             failures = min(3, failures + 2)
         elif roll >= 10:
@@ -611,9 +639,9 @@ class CombatRuntime:
         else:
             failures = min(3, failures + 1)
         if failures >= 3:
-            life = LifeState.DEAD
+            life_state = LifeState.DEAD
         elif successes >= 3:
-            life = LifeState.STABLE
+            life_state = LifeState.STABLE
             successes = 0
             failures = 0
         return self._event(
@@ -625,10 +653,11 @@ class CombatRuntime:
                 ("roll", roll),
                 ("hp_after", hp_after),
                 ("temporary_after", hp.temporary),
-                ("life_state", life.value),
+                ("life_state", life_state.value),
                 ("death_successes", successes),
                 ("death_failures", failures),
             ),
+            rng_after=self._checkpoint(),
         )
 
     def end_encounter(self, state: EncounterState) -> CombatTransition:
