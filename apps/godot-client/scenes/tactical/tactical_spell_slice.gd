@@ -1,8 +1,6 @@
 class_name TacticalSpellSlice
 extends "res://scenes/tactical/tactical_vertical_slice.gd"
 
-const InteractionModes = preload("res://input/interaction_modes.gd")
-
 var _spell_state: ClientStateCoordinator
 var _active_spell: Dictionary = {}
 var _active_slot_level := 0
@@ -16,6 +14,7 @@ var _spell_direction := Vector2.RIGHT
 
 func _ready() -> void:
     super._ready()
+    _spell_palette.visible = false
     _spell_palette.spell_selected.connect(_on_spell_selected)
 
 
@@ -25,6 +24,7 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
     _spell_state = state
     if _spell_state == null:
         _spell_palette.clear()
+        _spell_palette.visible = false
         return
     _spell_state.query_completed.connect(_on_spell_query_completed)
     _spell_state.preview_completed.connect(_on_spell_preview_completed)
@@ -82,10 +82,8 @@ func _on_confirm_requested(mode: int) -> void:
 
 func _on_controller_mode_changed(mode: int, mode_name: String) -> void:
     super._on_controller_mode_changed(mode, mode_name)
-    if mode not in [InteractionModes.Mode.TARGET, InteractionModes.Mode.SHAPE_PREVIEW]:
-        if not _active_spell.is_empty() and _controller != null:
-            if _controller.current_mode() != InteractionModes.Mode.SELECT:
-                _clear_spell_intent()
+    if mode == InteractionModes.Mode.INSPECT or mode == InteractionModes.Mode.UI_MODAL:
+        _clear_spell_intent()
 
 
 func _on_command_completed(
@@ -101,7 +99,7 @@ func _on_command_completed(
 
 
 func _on_spell_selected(spell: Dictionary, slot_level: int) -> void:
-    if _state == null or _controller == null:
+    if _state == null or _controller == null or not _spell_palette.visible:
         return
     var caster_id := _state.interaction.selected_actor_id()
     if caster_id.is_empty():
@@ -135,6 +133,11 @@ func _on_spell_selected(spell: Dictionary, slot_level: int) -> void:
 func _request_spells() -> void:
     if _spell_state == null:
         return
+    if not _tactical.has("spellcasting"):
+        _spell_palette.clear()
+        _spell_palette.visible = false
+        return
+    _spell_palette.visible = true
     var actor_id := _spell_state.interaction.selected_actor_id()
     if actor_id.is_empty():
         _spell_palette.clear()
