@@ -2,6 +2,7 @@ class_name TcpJsonTransport
 extends EngineTransport
 
 const Protocol = preload("res://bridge/bridge_protocol.gd")
+const MAX_MESSAGE_BYTES := 1_048_576
 
 var _peer := StreamPeerTCP.new()
 var _host := "127.0.0.1"
@@ -48,6 +49,8 @@ func send(message: Dictionary) -> Error:
     if not validation_error.is_empty():
         return ERR_INVALID_DATA
     var encoded := (JSON.stringify(message) + "\n").to_utf8_buffer()
+    if encoded.size() > MAX_MESSAGE_BYTES:
+        return ERR_INVALID_DATA
     return _peer.put_data(encoded)
 
 
@@ -102,6 +105,11 @@ func _drain_lines() -> void:
     while true:
         var newline_index := _receive_buffer.find(10)
         if newline_index < 0:
+            if _receive_buffer.size() > MAX_MESSAGE_BYTES:
+                _reject_oversized_frame()
+            return
+        if newline_index + 1 > MAX_MESSAGE_BYTES:
+            _reject_oversized_frame()
             return
         var line_bytes := _receive_buffer.slice(0, newline_index)
         _receive_buffer = _receive_buffer.slice(newline_index + 1)
@@ -117,3 +125,12 @@ func _drain_lines() -> void:
             continue
         var message: Dictionary = parsed
         message_received.emit(message)
+
+
+func _reject_oversized_frame() -> void:
+    transport_error.emit(
+        Protocol.ErrorCategory.VALIDATION,
+        "Received oversized engine message",
+        "bridge frame exceeded %d bytes" % MAX_MESSAGE_BYTES,
+    )
+    stop()
