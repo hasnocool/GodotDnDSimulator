@@ -7,6 +7,7 @@ import pytest
 
 from godot_dnd_engine.client_bridge import (
     CAPABILITIES,
+    MAX_MESSAGE_BYTES,
     PROTOCOL_NAME,
     PROTOCOL_VERSION,
     BridgeProtocolError,
@@ -76,6 +77,7 @@ def test_hello_negotiates_protocol_and_capabilities() -> None:
     assert response is not None
     assert response["kind"] == "bridge.hello.accepted"
     assert response["ok"] is True
+    assert "error" not in response
     assert response["payload"] == {
         "protocol": PROTOCOL_NAME,
         "capabilities": list(CAPABILITIES),
@@ -252,6 +254,11 @@ def test_server_line_parser_returns_validation_response_for_bad_input() -> None:
     assert non_object is not None
     assert non_object["error"]["category"] == "validation"
 
+    oversized = server._handle_line(b"x" * (MAX_MESSAGE_BYTES + 1))
+    assert oversized is not None
+    assert oversized["error"]["category"] == "validation"
+    assert "exceeded" in oversized["error"]["debug_detail"]
+
 
 @pytest.mark.asyncio
 async def test_async_tcp_round_trip_uses_newline_delimited_json() -> None:
@@ -274,6 +281,7 @@ async def test_async_tcp_round_trip_uses_newline_delimited_json() -> None:
         response = json.loads((await reader.readline()).decode())
         assert response["kind"] == "bridge.hello.accepted"
         assert response["bridge_version"] == PROTOCOL_VERSION
+        assert "error" not in response
 
         writer.close()
         await writer.wait_closed()
