@@ -115,7 +115,11 @@ class RulesRuntime:
         base_total = selected + ability_score.modifier + proficiency_modifier
         resolved = resolve_modifiers(base_total, modifiers)
         dc = context.difficulty_class
-        success = None if dc is None else resolved.final_value >= dc.value
+        success = (
+            None
+            if dc is None or context.test_kind is D20TestKind.ATTACK_ROLL
+            else resolved.final_value >= dc.value
+        )
         return D20Outcome(
             context=context,
             roll_mode=mode,
