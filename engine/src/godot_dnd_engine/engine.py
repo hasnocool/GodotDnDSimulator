@@ -9,7 +9,13 @@ from typing import Any
 from .dice import DiceExpression, roll_expression
 from .errors import SequenceError, UnsupportedCommandError, ValidationError
 from .ids import require_id
-from .models import CommandEnvelope, EventEnvelope, GameState, SimulationSnapshot
+from .models import (
+    CommandEnvelope,
+    EventEnvelope,
+    GameState,
+    RNGCheckpoint,
+    SimulationSnapshot,
+)
 from .reducer import apply_event
 from .rng import DeterministicRNG
 
@@ -40,26 +46,18 @@ class SimulationEngine:
     def restore(cls, snapshot: SimulationSnapshot) -> SimulationEngine:
         """Restore state and RNG position so future commands remain deterministic."""
 
-        if snapshot.rng_algorithm != DeterministicRNG.ALGORITHM:
-            raise ValidationError(
-                f"unsupported RNG algorithm: {snapshot.rng_algorithm!r}; "
-                f"expected {DeterministicRNG.ALGORITHM!r}"
-            )
+        cls._validate_rng_algorithm(snapshot.rng.algorithm)
         return cls(
             state=snapshot.state,
-            rng=DeterministicRNG.restore((snapshot.rng_state, snapshot.rng_increment)),
+            rng=DeterministicRNG.restore(
+                (snapshot.rng.state, snapshot.rng.increment)
+            ),
         )
 
     def snapshot(self) -> SimulationSnapshot:
         """Capture a complete deterministic continuation point."""
 
-        rng_state, rng_increment = self.rng.snapshot()
-        return SimulationSnapshot(
-            state=self.state,
-            rng_algorithm=self.rng.ALGORITHM,
-            rng_state=rng_state,
-            rng_increment=rng_increment,
-        )
+        return SimulationSnapshot(state=self.state, rng=self._rng_checkpoint())
 
     def handle(self, command: CommandEnvelope) -> tuple[EventEnvelope, ...]:
         """Validate and resolve one command, then atomically reduce emitted events."""
@@ -118,7 +116,12 @@ class SimulationEngine:
         )
         payload: dict[str, Any] = roll.to_dict()
         payload["counter"] = counter.strip()
-        return self._event(command, event_type="dice.rolled", payload=payload)
+        return self._event(
+            command,
+            event_type="dice.rolled",
+            payload=payload,
+            rng_after=self._rng_checkpoint(),
+        )
 
     def _resolve_advance_tick(self, command: CommandEnvelope) -> EventEnvelope:
         amount = command.payload.get("amount", 1)
@@ -138,6 +141,7 @@ class SimulationEngine:
         event_type: str,
         payload: dict[str, Any],
         tick: int | None = None,
+        rng_after: RNGCheckpoint | None = None,
     ) -> EventEnvelope:
         sequence = self.state.sequence + 1
         return EventEnvelope(
@@ -151,4 +155,21 @@ class SimulationEngine:
             correlation_id=command.command_id,
             causation_id=command.command_id,
             payload=payload,
+            rng_after=rng_after,
         )
+
+    def _rng_checkpoint(self) -> RNGCheckpoint:
+        state, increment = self.rng.snapshot()
+        return RNGCheckpoint(
+            algorithm=self.rng.ALGORITHM,
+            state=state,
+            increment=increment,
+        )
+
+    @staticmethod
+    def _validate_rng_algorithm(algorithm: str) -> None:
+        if algorithm != DeterministicRNG.ALGORITHM:
+            raise ValidationError(
+                f"unsupported RNG algorithm: {algorithm!r}; "
+                f"expected {DeterministicRNG.ALGORITHM!r}"
+            )

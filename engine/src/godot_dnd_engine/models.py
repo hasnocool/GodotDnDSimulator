@@ -21,6 +21,30 @@ def _freeze_payload(payload: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 @dataclass(frozen=True, slots=True)
+class RNGCheckpoint:
+    """Versioned RNG position captured after deterministic random work."""
+
+    algorithm: str
+    state: int
+    increment: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.algorithm, str) or not self.algorithm.strip():
+            raise ValidationError("RNG algorithm must be a non-empty string")
+        for label, value in (("state", self.state), ("increment", self.increment)):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= _MAX_UINT64
+            ):
+                raise ValidationError(
+                    f"RNG {label} must be an unsigned 64-bit integer"
+                )
+        if self.increment % 2 == 0:
+            raise ValidationError("RNG increment must be odd")
+
+
+@dataclass(frozen=True, slots=True)
 class CommandEnvelope:
     command_id: str
     campaign_id: str
@@ -66,6 +90,7 @@ class EventEnvelope:
     payload: Mapping[str, Any] = field(default_factory=dict)
     version: int = 1
     tick: int = 0
+    rng_after: RNGCheckpoint | None = None
 
     def __post_init__(self) -> None:
         require_id(self.event_id, "event")
@@ -89,6 +114,8 @@ class EventEnvelope:
             raise ValidationError("event version must be an integer >= 1")
         if isinstance(self.tick, bool) or not isinstance(self.tick, int) or self.tick < 0:
             raise ValidationError("event tick must be an integer >= 0")
+        if self.rng_after is not None and not isinstance(self.rng_after, RNGCheckpoint):
+            raise ValidationError("event rng_after must be an RNGCheckpoint or None")
         object.__setattr__(self, "payload", _freeze_payload(self.payload))
 
 
@@ -157,24 +184,10 @@ class SimulationSnapshot:
     """Complete deterministic continuation point for an engine instance."""
 
     state: GameState
-    rng_algorithm: str
-    rng_state: int
-    rng_increment: int
+    rng: RNGCheckpoint
 
     def __post_init__(self) -> None:
-        if not isinstance(self.rng_algorithm, str) or not self.rng_algorithm.strip():
-            raise ValidationError("snapshot RNG algorithm must be a non-empty string")
-        for label, value in (
-            ("state", self.rng_state),
-            ("increment", self.rng_increment),
-        ):
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, int)
-                or not 0 <= value <= _MAX_UINT64
-            ):
-                raise ValidationError(
-                    f"snapshot RNG {label} must be an unsigned 64-bit integer"
-                )
-        if self.rng_increment % 2 == 0:
-            raise ValidationError("snapshot RNG increment must be odd")
+        if not isinstance(self.state, GameState):
+            raise ValidationError("snapshot state must be a GameState")
+        if not isinstance(self.rng, RNGCheckpoint):
+            raise ValidationError("snapshot RNG must be an RNGCheckpoint")

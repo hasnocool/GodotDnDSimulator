@@ -8,7 +8,7 @@ import pytest
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.errors import SequenceError, ValidationError
 from godot_dnd_engine.models import CommandEnvelope, GameState
-from godot_dnd_engine.replay import replay_events
+from godot_dnd_engine.replay import replay_events, replay_snapshot
 from godot_dnd_engine.serialization import (
     dumps_canonical,
     event_from_dict,
@@ -18,6 +18,21 @@ from godot_dnd_engine.serialization import (
     state_from_dict,
     state_to_dict,
 )
+
+
+def _roll_command(command_id: str, expected_sequence: int) -> CommandEnvelope:
+    return CommandEnvelope(
+        command_id=command_id,
+        campaign_id="campaign:test",
+        session_id="session:test",
+        command_type="simulation.roll_dice",
+        expected_sequence=expected_sequence,
+        payload={
+            "expression": "2d20+3",
+            "counter": "next",
+            "reason": "continuation",
+        },
+    )
 
 
 def test_snapshot_and_event_log_reconstruct_exact_state() -> None:
@@ -90,24 +105,50 @@ def test_serialized_snapshot_restores_rng_continuation_exactly() -> None:
 
     encoded = dumps_canonical(snapshot_to_dict(engine.snapshot()))
     restored = SimulationEngine.restore(snapshot_from_dict(json.loads(encoded)))
-    next_command = CommandEnvelope(
-        command_id="command:next-roll",
-        campaign_id="campaign:test",
-        session_id="session:test",
-        command_type="simulation.roll_dice",
-        expected_sequence=1,
-        payload={
-            "expression": "2d20+3",
-            "counter": "next",
-            "reason": "continuation",
-        },
-    )
+    next_command = _roll_command("command:next-roll", 1)
 
     uninterrupted_event = engine.handle(next_command)[0]
     restored_event = restored.handle(next_command)[0]
 
     assert dumps_canonical(event_to_dict(restored_event)) == dumps_canonical(
         event_to_dict(uninterrupted_event)
+    )
+    assert restored.state == engine.state
+
+
+def test_snapshot_plus_events_restores_future_rng_exactly() -> None:
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=987,
+    )
+    initial_snapshot = engine.snapshot()
+    events = []
+    events.extend(engine.handle(_roll_command("command:roll-a", 0)))
+    events.extend(
+        engine.handle(
+            CommandEnvelope(
+                command_id="command:tick-a",
+                campaign_id="campaign:test",
+                session_id="session:test",
+                command_type="simulation.advance_tick",
+                expected_sequence=1,
+                payload={"amount": 2},
+            )
+        )
+    )
+    events.extend(engine.handle(_roll_command("command:roll-b", 2)))
+
+    serialized_events = [event_to_dict(event) for event in events]
+    decoded_events = [event_from_dict(data) for data in serialized_events]
+    restored = SimulationEngine.restore(replay_snapshot(initial_snapshot, decoded_events))
+
+    next_command = _roll_command("command:roll-c", 3)
+    uninterrupted = engine.handle(next_command)[0]
+    resumed = restored.handle(next_command)[0]
+
+    assert dumps_canonical(event_to_dict(resumed)) == dumps_canonical(
+        event_to_dict(uninterrupted)
     )
     assert restored.state == engine.state
 

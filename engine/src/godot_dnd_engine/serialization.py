@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .errors import ValidationError
-from .models import EventEnvelope, GameState, SimulationSnapshot
+from .models import EventEnvelope, GameState, RNGCheckpoint, SimulationSnapshot
 
 SNAPSHOT_SCHEMA_VERSION = 1
 EVENT_SCHEMA_VERSION = 1
@@ -19,6 +19,28 @@ def _require_mapping(value: object, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValidationError(f"{label} must be a JSON object")
     return value
+
+
+def _rng_to_dict(rng: RNGCheckpoint) -> dict[str, object]:
+    return {
+        "algorithm": rng.algorithm,
+        "state": rng.state,
+        "increment": rng.increment,
+    }
+
+
+def _rng_from_dict(data: object, label: str) -> RNGCheckpoint:
+    rng_data = _require_mapping(data, label)
+    if set(rng_data) != {"algorithm", "state", "increment"}:
+        raise ValidationError(f"{label} fields do not match schema v1")
+    try:
+        return RNGCheckpoint(
+            algorithm=rng_data["algorithm"],
+            state=rng_data["state"],
+            increment=rng_data["increment"],
+        )
+    except TypeError as exc:
+        raise ValidationError(f"{label} contains invalid field types") from exc
 
 
 def state_to_dict(state: GameState) -> dict[str, object]:
@@ -72,11 +94,7 @@ def snapshot_to_dict(snapshot: SimulationSnapshot) -> dict[str, object]:
     return {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "state": state_to_dict(snapshot.state),
-        "rng": {
-            "algorithm": snapshot.rng_algorithm,
-            "state": snapshot.rng_state,
-            "increment": snapshot.rng_increment,
-        },
+        "rng": _rng_to_dict(snapshot.rng),
     }
 
 
@@ -89,18 +107,10 @@ def snapshot_from_dict(data: Mapping[str, Any]) -> SimulationSnapshot:
             f"unsupported snapshot schema version: {data['schema_version']!r}"
         )
     state_data = _require_mapping(data["state"], "snapshot state")
-    rng_data = _require_mapping(data["rng"], "snapshot RNG")
-    if set(rng_data) != {"algorithm", "state", "increment"}:
-        raise ValidationError("snapshot RNG fields do not match schema v1")
-    try:
-        return SimulationSnapshot(
-            state=state_from_dict(state_data),
-            rng_algorithm=rng_data["algorithm"],
-            rng_state=rng_data["state"],
-            rng_increment=rng_data["increment"],
-        )
-    except TypeError as exc:
-        raise ValidationError("snapshot contains invalid field types") from exc
+    return SimulationSnapshot(
+        state=state_from_dict(state_data),
+        rng=_rng_from_dict(data["rng"], "snapshot RNG"),
+    )
 
 
 def event_to_dict(event: EventEnvelope) -> dict[str, object]:
@@ -116,6 +126,7 @@ def event_to_dict(event: EventEnvelope) -> dict[str, object]:
         "correlation_id": event.correlation_id,
         "causation_id": event.causation_id,
         "payload": dict(event.payload),
+        "rng_after": None if event.rng_after is None else _rng_to_dict(event.rng_after),
     }
 
 
@@ -133,6 +144,7 @@ def event_from_dict(data: Mapping[str, Any]) -> EventEnvelope:
         "correlation_id",
         "causation_id",
         "payload",
+        "rng_after",
     }
     if set(data) != required:
         raise ValidationError("event fields do not match schema v1")
@@ -141,6 +153,11 @@ def event_from_dict(data: Mapping[str, Any]) -> EventEnvelope:
             f"unsupported event schema version: {data['schema_version']!r}"
         )
     payload = _require_mapping(data["payload"], "event payload")
+    rng_after = (
+        None
+        if data["rng_after"] is None
+        else _rng_from_dict(data["rng_after"], "event RNG checkpoint")
+    )
     try:
         return EventEnvelope(
             event_id=data["event_id"],
@@ -153,6 +170,7 @@ def event_from_dict(data: Mapping[str, Any]) -> EventEnvelope:
             correlation_id=data["correlation_id"],
             causation_id=data["causation_id"],
             payload=dict(payload),
+            rng_after=rng_after,
         )
     except TypeError as exc:
         raise ValidationError("event contains invalid field types") from exc
