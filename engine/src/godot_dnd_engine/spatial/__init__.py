@@ -65,6 +65,7 @@ from .serialization import (
     serialize_event,
     serialize_log,
 )
+from .space import LogicalSpace
 from .threats import ThreatDefinition, path_threat_transitions, threatened_cells
 from .visibility import (
     cover_between_entities,
@@ -87,6 +88,7 @@ __all__ = [
     "GridOffset",
     "LineOfSightResult",
     "LineShape",
+    "LogicalSpace",
     "MovementCapability",
     "MovementPolicy",
     "NavigationPathProposal",
