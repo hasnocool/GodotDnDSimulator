@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from ..actors import SizeCategory, Skill
 from ..errors import ValidationError
@@ -16,6 +17,8 @@ from .model import (
     CreationStep,
     InventoryGrant,
 )
+
+EnumT = TypeVar("EnumT")
 
 
 def catalog_from_data(payload: dict[str, Any]) -> CharacterCreatorCatalog:
@@ -61,9 +64,8 @@ def _choice(value: dict[str, Any]) -> CreationChoice:
     if not isinstance(bonuses_raw, dict):
         raise ValidationError("creator ability_bonuses must be an object")
     for ability_id, bonus in bonuses_raw.items():
-        if not isinstance(ability_id, str):
-            raise ValidationError("creator ability bonus keys must be strings")
-        bonuses.append((Ability(ability_id), _integer(bonus, "ability bonus")))
+        ability = _enum(Ability, ability_id, "ability bonus key")
+        bonuses.append((ability, _integer(bonus, "ability bonus")))
     inventory = tuple(
         InventoryGrant(
             item_id=_string(item.get("item_id"), "item_id"),
@@ -75,22 +77,29 @@ def _choice(value: dict[str, Any]) -> CreationChoice:
     size_value = value.get("size")
     return CreationChoice(
         choice_id=_string(value.get("choice_id"), "choice_id"),
-        step=CreationStep(_string(value.get("step"), "step")),
+        step=_enum(CreationStep, value.get("step"), "step"),
         name=_string(value.get("name"), "name"),
-        description=_optional_string(value.get("description", ""), "description") or "",
+        description=_optional_string(
+            value.get("description", ""), "description"
+        )
+        or "",
         requires=frozenset(_string_list(value.get("requires", []), "requires")),
-        conflicts=frozenset(_string_list(value.get("conflicts", []), "conflicts")),
-        grants_tags=frozenset(_string_list(value.get("grants_tags", []), "grants_tags")),
+        conflicts=frozenset(
+            _string_list(value.get("conflicts", []), "conflicts")
+        ),
+        grants_tags=frozenset(
+            _string_list(value.get("grants_tags", []), "grants_tags")
+        ),
         ability_bonuses=tuple(bonuses),
         skill_proficiencies=tuple(
-            Skill(item)
+            _enum(Skill, item, "skill proficiency")
             for item in _string_list(
                 value.get("skill_proficiencies", []),
                 "skill_proficiencies",
             )
         ),
         save_proficiencies=tuple(
-            Ability(item)
+            _enum(Ability, item, "save proficiency")
             for item in _string_list(
                 value.get("save_proficiencies", []),
                 "save_proficiencies",
@@ -103,9 +112,17 @@ def _choice(value: dict[str, Any]) -> CreationChoice:
         inventory=inventory,
         spell_ids=_string_tuple(value.get("spell_ids", []), "spell_ids"),
         feature_ids=_string_tuple(value.get("feature_ids", []), "feature_ids"),
-        size=None if size_value is None else SizeCategory(_string(size_value, "size")),
-        walk_speed_feet=_optional_int(value.get("walk_speed_feet"), "walk_speed_feet"),
-        base_hit_points=_optional_int(value.get("base_hit_points"), "base_hit_points"),
+        size=(
+            None
+            if size_value is None
+            else _enum(SizeCategory, size_value, "size")
+        ),
+        walk_speed_feet=_optional_int(
+            value.get("walk_speed_feet"), "walk_speed_feet"
+        ),
+        base_hit_points=_optional_int(
+            value.get("base_hit_points"), "base_hit_points"
+        ),
         hit_points_per_level=_optional_int(
             value.get("hit_points_per_level"),
             "hit_points_per_level",
@@ -127,8 +144,12 @@ def _choice_to_data(choice: CreationChoice) -> dict[str, object]:
         "ability_bonuses": {
             ability.value: bonus for ability, bonus in choice.ability_bonuses
         },
-        "skill_proficiencies": [item.value for item in choice.skill_proficiencies],
-        "save_proficiencies": [item.value for item in choice.save_proficiencies],
+        "skill_proficiencies": [
+            item.value for item in choice.skill_proficiencies
+        ],
+        "save_proficiencies": [
+            item.value for item in choice.save_proficiencies
+        ],
         "training_proficiencies": list(choice.training_proficiencies),
         "inventory": [
             {
@@ -152,7 +173,7 @@ def _choice_to_data(choice: CreationChoice) -> dict[str, object]:
 def _group(value: dict[str, Any]) -> CreationGroup:
     return CreationGroup(
         group_id=_string(value.get("group_id"), "group_id"),
-        step=CreationStep(_string(value.get("step"), "step")),
+        step=_enum(CreationStep, value.get("step"), "step"),
         choice_ids=_string_tuple(value.get("choice_ids", []), "choice_ids"),
         minimum=_integer(value.get("minimum", 1), "minimum"),
         maximum=_integer(value.get("maximum", 1), "maximum"),
@@ -165,14 +186,33 @@ def _policy(value: dict[str, Any]) -> AbilityScorePolicy:
         raise ValidationError("ability policy values must be an array")
     return AbilityScorePolicy(
         method_id=_string(value.get("method_id"), "method_id"),
-        values=tuple(_integer(item, "ability policy value") for item in values_raw),
+        values=tuple(
+            _integer(item, "ability policy value") for item in values_raw
+        ),
     )
 
 
 def _dict_list(value: Any, label: str) -> list[dict[str, Any]]:
-    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+    if not isinstance(value, list):
         raise ValidationError(f"{label} must be an array of objects")
-    return [dict(item) for item in value]
+    result: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValidationError(f"{label} must be an array of objects")
+        result.append(dict(item))
+    return result
+
+
+def _enum(
+    constructor: Callable[[str], EnumT],
+    value: Any,
+    label: str,
+) -> EnumT:
+    raw = _string(value, label)
+    try:
+        return constructor(raw)
+    except ValueError as exc:
+        raise ValidationError(f"unsupported {label}: {raw!r}") from exc
 
 
 def _string(value: Any, label: str) -> str:
@@ -190,11 +230,18 @@ def _optional_string(value: Any, label: str) -> str | None:
 
 
 def _string_list(value: Any, label: str) -> list[str]:
-    if not isinstance(value, list) or any(
-        not isinstance(item, str) or not item.strip() for item in value
-    ):
-        raise ValidationError(f"{label} must be an array of non-empty strings")
-    return [str(item) for item in value]
+    if not isinstance(value, list):
+        raise ValidationError(
+            f"{label} must be an array of non-empty strings"
+        )
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ValidationError(
+                f"{label} must be an array of non-empty strings"
+            )
+        result.append(item)
+    return result
 
 
 def _string_tuple(value: Any, label: str) -> tuple[str, ...]:
