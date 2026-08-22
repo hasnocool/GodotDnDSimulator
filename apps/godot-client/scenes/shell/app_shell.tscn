@@ -1,9 +1,11 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource path="res://scenes/shell/app_shell.gd" type="Script" id="1_shell"]
 [ext_resource path="res://debug/client_debug_overlay.tscn" type="PackedScene" id="2_debug"]
 [ext_resource path="res://scenes/character_creator/character_creator.tscn" type="PackedScene" id="3_creator"]
 [ext_resource path="res://scenes/character_creator/creator_launcher.gd" type="Script" id="4_launcher"]
+[ext_resource path="res://scenes/world/world_rpg_view.tscn" type="PackedScene" id="5_world"]
+[ext_resource path="res://scenes/world/world_launcher.gd" type="Script" id="6_world_launcher"]
 
 [node name="AppShell" type="Node"]
 script = ExtResource("1_shell")
@@ -43,6 +45,14 @@ visible = false
 layout_mode = 2
 text = "Retry engine connection"
 
+[node name="WorldButton" type="Button" parent="ShellUI"]
+offset_left = 728.0
+offset_top = 24.0
+offset_right = 914.0
+offset_bottom = 64.0
+text = "Adventure"
+script = ExtResource("6_world_launcher")
+
 [node name="CreatorButton" type="Button" parent="ShellUI"]
 offset_left = 930.0
 offset_top = 24.0
@@ -54,3 +64,5 @@ script = ExtResource("4_launcher")
 [node name="ClientDebugOverlay" parent="ShellUI" instance=ExtResource("2_debug")]
 
 [node name="CharacterCreator" parent="." instance=ExtResource("3_creator")]
+
+[node name="WorldRPG" parent="." instance=ExtResource("5_world")]
