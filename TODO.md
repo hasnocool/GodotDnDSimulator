@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.2 Official SRD pipeline
+## Current focus: v0.3 Rules runtime
 
-The v0.1 executable foundation has been merged. Its remaining repository-administration and CI-proof items stay visible below as carryover; they do not block scoped v0.2 implementation work, but must not be silently forgotten.
+The v0.1 executable foundation and v0.2 importer infrastructure have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but they do not require duplicating importer/runtime work in v0.3.
 
 ### v0.1 carryover: repository and governance
 
@@ -65,7 +65,7 @@ The v0.1 executable foundation has been merged. Its remaining repository-adminis
 
 ---
 
-## v0.2 Official SRD pipeline
+## v0.2 Official SRD pipeline carryover
 
 ### Legal/source boundary
 
@@ -140,22 +140,36 @@ The v0.1 executable foundation has been merged. Its remaining repository-adminis
 
 ## v0.3 Rules runtime
 
-- [ ] Ability score/modifier primitives.
-- [ ] Proficiency primitives.
-- [ ] Generic d20 test API.
-- [ ] Advantage/disadvantage resolution.
-- [ ] Difficulty class and save resolution.
-- [ ] Typed resolution context/outcome.
-- [ ] Generic modifier pipeline with precedence/stacking semantics.
-- [ ] Resource/cost primitives.
-- [ ] Trigger/requirement model.
-- [ ] Target selector model.
-- [ ] Effect pipeline.
-- [ ] Duration/expiry model.
-- [ ] Condition model.
-- [ ] Reaction/event hook model.
-- [ ] Ruleset capability declarations.
-- [ ] Representative imported-rule conformance tests.
+- [x] Ability score/modifier primitives.
+- [x] Proficiency primitives.
+- [x] Generic d20 test API.
+- [x] Advantage/disadvantage resolution.
+- [x] Difficulty class and save resolution.
+- [x] Typed resolution context/outcome.
+- [x] Generic modifier pipeline with precedence/stacking semantics.
+- [x] Resource/cost primitives.
+- [x] Trigger/requirement model.
+- [x] Target selector model.
+- [x] Effect pipeline.
+- [x] Duration/expiry model.
+- [x] Condition model.
+- [x] Reaction/event hook model.
+- [x] Ruleset capability declarations.
+- [x] Representative imported-rule conformance tests using v0.2 `CanonicalEntity`/provenance-shaped fixtures.
+
+### v0.3 validation
+
+- [x] Keep all randomness behind the existing versioned deterministic RNG/dice abstraction.
+- [x] Keep rule-state transforms immutable/pure so failed costs/effect batches cannot partially mutate caller state.
+- [x] Add deterministic tests for modifier stacking, resources, requirements, targets, effects, conditions, durations, reactions, capability gating, and D20 outcomes.
+- [x] Document which semantics are official SRD behavior versus project-defined generic runtime primitives.
+- [ ] Confirm Ruff, Mypy, full repository coverage, importer determinism, governance, and Godot checks on the v0.3 PR head in CI.
+
+### v0.3 exit criterion
+
+- [ ] Demonstrate the complete v0.3 headless rules runtime passing repository CI with deterministic canonical-entity conformance and no Godot rule authority.
+
+---
 
 ## v0.4 Character runtime
 

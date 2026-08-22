@@ -52,7 +52,7 @@ The proof-of-foundation command is `simulation.roll_dice`. Given the same initia
 
 ## v0.2 SRD pipeline
 
-The next phase adds a development-time, provenance-first importer under `tools/rules_importer/`. Runtime gameplay does **not** depend on the importer or PDF/network libraries.
+The v0.2 phase adds a development-time, provenance-first importer under `tools/rules_importer/`. Runtime gameplay does **not** depend on the importer or PDF/network libraries.
 
 The production source policy currently allowlists only:
 
@@ -87,11 +87,41 @@ entities.jsonl + reports + attribution
 version/source diff tooling
 ```
 
-The compiler currently emits provenance-rich **data-only** canonical entities. Executable D&D mechanics belong to the later rules-runtime/effect-pipeline milestones rather than being hidden inside the importer.
+The compiler currently emits provenance-rich **data-only** canonical entities. The remaining full-official-source fetch, 364-page audit, generated-data decision, and v0.2 exit criterion remain tracked in [`TODO.md`](TODO.md).
 
 Raw SRD PDFs are ignored by Git. Generated/audited canonical output should only be committed or released after the complete official-source import has been reviewed.
 
 See [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) and [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md).
+
+## v0.3 rules runtime
+
+The active implementation phase adds a deterministic, headless rules runtime under `engine/src/godot_dnd_engine/rules/` without adding Godot authority or a second RNG system.
+
+Implemented runtime families include:
+
+- ability scores and modifiers;
+- character proficiency progression and none/half/full/double proficiency ranks;
+- typed ability-check, saving-throw, and attack-roll D20 contexts;
+- deterministic advantage/disadvantage with cancellation;
+- typed difficulty classes and save resolution;
+- audit-rich D20 outcomes;
+- generic modifiers with priority and explicit stack/highest/lowest/replace policies;
+- bounded resources and atomic costs;
+- tag/resource/condition/capability requirements;
+- deterministic presentation-independent target selectors;
+- pure resource/condition effect batches;
+- condition unique/refresh/stack behavior;
+- tick/turn/round/permanent durations and deterministic expiry;
+- trigger/reaction-hook matching;
+- ruleset capability declarations.
+
+The runtime uses the existing versioned `pcg32-v1` RNG through the established dice service. It has no filesystem, network, database, wall-clock, or Godot dependency.
+
+A lightweight immutable `RuleSubjectState`/`RuleWorldState` provides enough state for generic v0.3 mechanics without prematurely defining the richer hero/NPC/creature actor model. v0.4 should adapt its character runtime to these primitives instead of reimplementing D20, modifier, resource, condition, target, or reaction behavior.
+
+Representative conformance tests use the actual v0.2 `CanonicalEntity`/`Provenance` shape with structured `mechanics` fields, proving the importer/runtime contract without making runtime code import development-time tools.
+
+See [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md).
 
 ## Local validation
 
@@ -136,8 +166,6 @@ rule schemas    schemas/rules/v1/
 generated data  content/generated/srd-5.2.1/
 ```
 
-The full official-source build is still a v0.2 completion criterion; fixture success alone does not mark the milestone complete.
-
 ## Design commitments
 
 - Godot 4.x true-3D orthographic/isometric presentation.
@@ -162,7 +190,8 @@ Start here:
 - [`TODO.md`](TODO.md) — active implementation backlog and milestone exit criteria.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — authoritative engine/Godot/tooling boundaries.
 - [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md) — licensed rules-source policy, provenance, import, compilation, diffing, and attribution.
-- [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) — implemented importer commands, contracts, outputs, tests, and completion gates.
+- [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) — importer commands, contracts, outputs, tests, and remaining audit gates.
+- [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md) — executable rules primitives, modifier/effect semantics, determinism, and v0.4 handoff.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
 - [`docs/adr/`](docs/adr/) — durable architecture decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
@@ -188,9 +217,11 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 ## Current milestone
 
-**v0.2 — Official SRD pipeline**
+**v0.3 — Rules runtime**
 
-The importer infrastructure, schemas, deterministic fixture build, provenance controls, and diff/report tooling are implemented. The milestone remains open until the pinned official SRD 5.2.1 PDF is fetched and the complete 364-page dataset is successfully compiled, validated, audited, and reproduced as recorded in [`TODO.md`](TODO.md).
+The headless rules runtime is implemented on the active feature branch with deterministic D20 resolution, modifiers, resources, requirements, targets, effects, conditions/durations, reactions, capabilities, and canonical-entity conformance tests. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
+
+The outstanding full-source v0.2 audit remains tracked as carryover and is not silently considered complete.
 
 ## First playable target
 
