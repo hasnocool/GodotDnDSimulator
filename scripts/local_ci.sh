@@ -17,3 +17,5 @@ godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/bridg
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/authoritative_mirror_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/state_shell_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/input_interaction_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_camera_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_vertical_slice_tests.gd
