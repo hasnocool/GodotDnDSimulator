@@ -152,6 +152,7 @@ class SpellEffectSpec:
     damage_type: str | None = None
     condition_id: str | None = None
     save_effect: SaveEffect = SaveEffect.NONE
+    ongoing: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.flat_amount, bool) or not isinstance(self.flat_amount, int):
@@ -207,6 +208,8 @@ class SpellDefinition:
             or self.duration_rounds < 1
         ):
             raise ValidationError("spell duration_rounds must be None or >= 1")
+        if any(effect.ongoing for effect in self.effects) and self.duration_rounds is None:
+            raise ValidationError("ongoing spell effects require duration_rounds")
 
     def cast_level(self, requested_level: int | None) -> int:
         if self.level == 0:
