@@ -11,6 +11,7 @@ from godot_dnd_engine.actors import (
     HitPoints,
     MovementMode,
     MovementSpeed,
+    SizeCategory,
 )
 from godot_dnd_engine.combat import (
     ActionResource,
@@ -23,7 +24,6 @@ from godot_dnd_engine.combat import (
     EncounterStatus,
     LifeState,
     TemporaryHitPointChoice,
-    ZeroHitPointRule,
     adjust_damage,
     replay_combat,
 )
@@ -50,6 +50,7 @@ def actor(
         actor_id=actor_id,
         name=actor_id,
         kind=kind,
+        size=SizeCategory.MEDIUM,
         proficiency_bonus=2,
         abilities=abilities,
         hit_points=HitPoints(hp, hp),
@@ -204,7 +205,7 @@ def test_attack_natural_one_misses_and_twenty_hits_and_doubles_damage_dice() -> 
     assert transition.state.combatant("actor:b").actor.hit_points.current == 3
 
 
-def test_attack_uses_advantage_disadvantage_and_armor_class() -> None:
+def test_attack_uses_advantage_and_armor_class() -> None:
     attack = AttackDefinition(
         "attack:adv",
         Ability.DEXTERITY,
@@ -320,7 +321,6 @@ def test_damage_at_zero_records_failed_death_save_and_critical_records_two() -> 
 
 
 def test_end_turn_auto_resolves_character_death_save() -> None:
-    # Seed 0 gives a deterministic successful death save after initiative.
     runtime = CombatRuntime(DeterministicRNG.from_seed(0))
     _, started = start(runtime, actor("actor:a"), actor("actor:b", hp=5))
     state = runtime.apply_damage(
@@ -334,18 +334,15 @@ def test_end_turn_auto_resolves_character_death_save() -> None:
     assert transition.events[-1].event_type == "death_save.resolved"
 
 
-def test_three_death_save_successes_stabilize_and_three_failures_end_state() -> None:
+def test_three_death_save_successes_stabilize() -> None:
     runtime = CombatRuntime(DeterministicRNG.from_seed(20))
     _, started = start(runtime, actor("actor:a"), actor("actor:b", hp=5))
     state = runtime.apply_damage(
         started.state, target_id="actor:b", packet=DamagePacket(5, "energy")
     )[0].state
-    # b turn success 1
     state = runtime.end_turn(state, "actor:a").state
-    # advance b->a, a->b success 2
     state = runtime.end_turn(state, "actor:b").state
     state = runtime.end_turn(state, "actor:a").state
-    # advance b->a, a->b success 3 => stable
     state = runtime.end_turn(state, "actor:b").state
     state = runtime.end_turn(state, "actor:a").state
     assert state.combatant("actor:b").life_state is LifeState.STABLE
