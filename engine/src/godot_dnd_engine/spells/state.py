@@ -17,19 +17,32 @@ class ActiveSpellEffect:
     target_ids: tuple[str, ...]
     effects: tuple[SpellEffectSpec, ...]
     remaining_rounds: int
+    cast_level: int
     concentration: bool = False
 
     def __post_init__(self) -> None:
-        if not self.effect_id.strip() or not self.spell_id.strip() or not self.caster_id.strip():
+        if (
+            not self.effect_id.strip()
+            or not self.spell_id.strip()
+            or not self.caster_id.strip()
+        ):
             raise ValidationError("active spell IDs must be non-empty")
         if len(self.target_ids) != len(set(self.target_ids)):
             raise ValidationError("active spell target IDs must be unique")
         if any(not target.strip() for target in self.target_ids):
             raise ValidationError("active spell target IDs must be non-empty")
-        if isinstance(self.remaining_rounds, bool) or not isinstance(self.remaining_rounds, int):
-            raise ValidationError("active spell remaining_rounds must be an integer")
-        if self.remaining_rounds < 1:
-            raise ValidationError("active spell remaining_rounds must be >= 1")
+        if (
+            isinstance(self.remaining_rounds, bool)
+            or not isinstance(self.remaining_rounds, int)
+            or self.remaining_rounds < 1
+        ):
+            raise ValidationError("active spell remaining_rounds must be an integer >= 1")
+        if (
+            isinstance(self.cast_level, bool)
+            or not isinstance(self.cast_level, int)
+            or not 0 <= self.cast_level <= 9
+        ):
+            raise ValidationError("active spell cast_level must be an integer from 0 through 9")
 
     def tick(self) -> ActiveSpellEffect | None:
         if self.remaining_rounds <= 1:
@@ -50,9 +63,17 @@ class SpellRuntimeState:
         effect_ids = [item.effect_id for item in self.active_effects]
         if len(effect_ids) != len(set(effect_ids)):
             raise ValidationError("active spell effects must have unique IDs")
-        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int) or self.sequence < 0:
+        if (
+            isinstance(self.sequence, bool)
+            or not isinstance(self.sequence, int)
+            or self.sequence < 0
+        ):
             raise ValidationError("spell runtime sequence must be an integer >= 0")
-        object.__setattr__(self, "casters", tuple(sorted(self.casters, key=lambda item: item.actor_id)))
+        object.__setattr__(
+            self,
+            "casters",
+            tuple(sorted(self.casters, key=lambda item: item.actor_id)),
+        )
         object.__setattr__(
             self,
             "active_effects",
@@ -70,7 +91,10 @@ class SpellRuntimeState:
             raise ValidationError("cannot replace unknown spellcaster")
         return replace(
             self,
-            casters=tuple(caster if item.actor_id == caster.actor_id else item for item in self.casters),
+            casters=tuple(
+                caster if item.actor_id == caster.actor_id else item
+                for item in self.casters
+            ),
         )
 
     def end_concentration(self, actor_id: str) -> SpellRuntimeState:
