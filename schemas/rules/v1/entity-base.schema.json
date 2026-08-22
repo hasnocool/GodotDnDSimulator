@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/rules/v1/entity-base.schema.json",
+  "type": "object",
+  "required": ["entity_id", "kind", "name", "schema_version", "status", "source_text", "provenance", "mechanics"],
+  "properties": {
+    "entity_id": {"type": "string", "pattern": "^srd5\\.2\\.1:[a-z0-9-]+:[a-z0-9-]+$"},
+    "kind": {"type": "string"},
+    "name": {"type": "string", "minLength": 1},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["executable", "data-only", "partial", "unsupported", "manual-review"]},
+    "source_text": {"type": "string"},
+    "provenance": {
+      "type": "object",
+      "required": ["source_id", "document_version", "license_id", "source_sha256", "page_start", "page_end", "section"],
+      "properties": {
+        "source_id": {"const": "wotc-srd-5.2.1-en"},
+        "document_version": {"const": "5.2.1"},
+        "license_id": {"const": "CC-BY-4.0"},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "page_start": {"type": "integer", "minimum": 1},
+        "page_end": {"type": "integer", "minimum": 1},
+        "section": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "mechanics": {"type": "object"}
+  },
+  "additionalProperties": false
+}
