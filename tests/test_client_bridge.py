@@ -103,7 +103,7 @@ def test_hello_rejects_wrong_protocol_and_version() -> None:
     assert wrong_version["error"]["category"] == "incompatible_version"
 
 
-def test_command_accepts_events_and_snapshot() -> None:
+def test_command_accepts_ordered_events() -> None:
     bridge = session()
     response = bridge.handle_message(
         request(
@@ -115,8 +115,8 @@ def test_command_accepts_events_and_snapshot() -> None:
     assert response["kind"] == "command.accepted"
     assert response["ok"] is True
     payload = response["payload"]
+    assert list(payload) == ["events"]
     assert payload["events"][0]["sequence"] == 1
-    assert payload["snapshot"]["state"]["sequence"] == 1
     assert len(bridge.events) == 1
 
 
