@@ -97,8 +97,10 @@ controllers.
 6. `ui_modal`
 
 The active mode is stored in C2 `InteractionState`. Mode changes advance the existing interaction
-generation, which means delayed C1 query/preview responses from an older interaction can be rejected
-as stale.
+generation. `ClientStateCoordinator` re-emits query and preview payloads only when the response
+generation still equals the current interaction generation. Older results are discarded and reported
+through `stale_interaction_result_ignored`, so future scene/UI code does not need to implement its own
+stale-result filter.
 
 Move, target, and shape-preview modes are explicitly cancellable before an authoritative command is
 submitted. Cancelling them:
@@ -173,8 +175,11 @@ with the current move/target/shape interaction. Submitted commands are explicitl
 registration API.
 
 Cancelling or suspending the interaction cancels only those read-only requests through
-`ClientStateCoordinator`. This is lifecycle plumbing only: C3 does not implement movement paths,
-legal targets, LOS, cover, or AoE calculations.
+`ClientStateCoordinator`. Even when a transport-level cancellation races with a response, the
+coordinator generation check prevents an older interaction payload from being re-emitted.
+
+This is lifecycle plumbing only: C3 does not implement movement paths, legal targets, LOS, cover, or
+AoE calculations.
 
 ## App-shell ownership
 
@@ -200,6 +205,7 @@ loading, error, incompatibility, and shutdown states disable tactical input.
 - submitted-command protection from Cancel/mode/modal cancellation;
 - rejection -> retry behavior;
 - acceptance -> transient-mode reconciliation;
+- stale interaction-generation result rejection and current-generation re-emission;
 - mode-scoped preview cancellation;
 - selection preservation across authoritative snapshot refresh.
 
