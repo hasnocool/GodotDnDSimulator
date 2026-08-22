@@ -18,7 +18,9 @@ signal tactical_scene_ready(scene: Node)
 @export var auto_start_bridge := true
 @export var bridge_host := "127.0.0.1"
 @export var bridge_port := 4765
-@export_file("*.tscn") var tactical_scene_path := "res://scenes/tactical/tactical_stub.tscn"
+@export_file("*.tscn") var tactical_scene_path := (
+    "res://scenes/tactical/tactical_vertical_slice.tscn"
+)
 
 var transport_override: EngineTransport
 
@@ -187,24 +189,33 @@ func _on_bridge_ready(version: int, capabilities: PackedStringArray) -> void:
     ClientLog.write(
         "bridge",
         "Bridge negotiation complete",
-        "version=%d capabilities=%s" % [version, ",".join(Array(capabilities))],
+        "version=%d capabilities=%s" % [version, ",".join(capabilities)],
     )
     _set_shell_state(ShellState.SYNCHRONIZING, "Synchronizing authoritative state")
+    var snapshot_query := (
+        "tactical.snapshot"
+        if capabilities.has("tactical.vertical-slice.v1")
+        else "bridge.snapshot"
+    )
     var request_id := _client_state.request_query(
-        "bridge.snapshot",
+        snapshot_query,
         {},
         "shell-initial-snapshot",
     )
     if request_id.is_empty():
         _fail_shell(
             "Unable to request authoritative state",
-            "bridge.snapshot request was not submitted",
+            "%s request was not submitted" % snapshot_query,
         )
 
 
 func _on_bridge_incompatible(reason: String) -> void:
     ClientLog.write("bridge", "Incompatible bridge", reason, "error")
-    _set_shell_state(ShellState.INCOMPATIBLE, "Engine/client versions are incompatible", reason)
+    _set_shell_state(
+        ShellState.INCOMPATIBLE,
+        "Engine/client versions are incompatible",
+        reason,
+    )
 
 
 func _on_bridge_disconnected(reason: String) -> void:
@@ -302,6 +313,11 @@ func _instantiate_tactical_scene() -> bool:
     _content_root.add_child(_current_tactical_scene)
     if _current_tactical_scene.has_method("bind_client_state"):
         _current_tactical_scene.call("bind_client_state", _client_state)
+    if _current_tactical_scene.has_method("bind_interaction_controller"):
+        _current_tactical_scene.call(
+            "bind_interaction_controller",
+            _interaction_controller,
+        )
     _client_state.presentation.set_active_scene("tactical")
     _set_shell_state(ShellState.READY, "Client ready")
     ClientLog.write(
@@ -333,7 +349,9 @@ func _set_shell_state(state: int, message: String, detail: String = "") -> void:
     if _interaction_controller != null:
         _interaction_controller.set_input_enabled(state == ShellState.READY)
     if _status_label != null:
-        _status_label.text = message if detail.is_empty() else "%s\n%s" % [message, detail]
+        _status_label.text = (
+            message if detail.is_empty() else "%s\n%s" % [message, detail]
+        )
     if _status_panel != null:
         _status_panel.visible = state != ShellState.READY
     if _retry_button != null:
