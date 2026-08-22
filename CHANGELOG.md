@@ -43,14 +43,21 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Trigger and reaction-hook matching with requirement gating and deterministic reaction priority.
 - Representative v0.2 `CanonicalEntity`-shaped conformance fixtures that drive v0.3 executable mechanics without runtime dependency on importer code.
 - `docs/V0.3_RULES_RUNTIME.md` documenting runtime boundaries, stacking/effect semantics, determinism, conformance, and the v0.4 handoff.
+- Shared immutable v0.4 `ActorState` for heroes, NPCs, and creatures with abilities, HP/temp HP/AC, skills, saves, generic proficiencies, movement, senses, inventory/equipment, resources, conditions, options, and tags.
+- Actor adapters that reuse the v0.3 `RuleSubjectState`/effect pipeline for deterministic resource and condition updates without duplicating rules logic.
+- Data-driven character options and choice groups with cardinality, requirement, conflict, and granted-tag validation.
+- Initial headless `CharacterCreationSpec`/`CharacterCreationRequest`/`create_character()` API.
+- Versioned actor serialization (`schema_version: 1`), `schemas/v1/actor.schema.json`, canonical JSON output, and explicit v0-to-v1 migration support.
+- v0.4 actor/character regression coverage for shared state, effects, choices, creation, serialization, migrations, and malformed-input rejection.
+- `docs/V0.4_CHARACTER_RUNTIME.md` documenting the shared actor model, rule adapters, creation API, serialization, and v0.5/v0.6 handoff.
 
 ### Changed
 
 - `README.md` now documents the executable v0.1 foundation and local validation workflow.
 - Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.3.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
+- Development version advances to `0.4.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation focus advances from the v0.2 importer infrastructure to the v0.3 headless rules runtime while unfinished full-source v0.2 audit items remain tracked as carryover.
+- Active implementation focus advances from the v0.3 rules runtime to the v0.4 shared character runtime while unfinished CI/full-source audit items remain tracked as carryover.
 
 ### Deprecated
 
@@ -70,6 +77,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Added strict validation at command, event, snapshot, identifier, dice, and replay boundaries to reject malformed/untrusted input early.
 - Rules ingestion now rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
 - Rules runtime primitives fail closed on malformed ability/DC/proficiency/resource/modifier/duration/condition/selector/effect/hook/capability inputs and preserve original immutable state when effect or cost resolution fails.
+- Character runtime rejects malformed actor identity/state, duplicate abilities/proficiencies/movement/senses/resources/options, invalid inventory/equipment references, invalid option catalogs, and unsupported/corrupt actor serialization versions.
 
 <!--
 Release process notes:

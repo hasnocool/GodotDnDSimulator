@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.3 Rules runtime
+## Current focus: v0.4 Character runtime
 
-The v0.1 executable foundation and v0.2 importer infrastructure have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but they do not require duplicating importer/runtime work in v0.3.
+The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but v0.4 builds on the merged runtime rather than duplicating it.
 
 ### v0.1 carryover: repository and governance
 
@@ -138,7 +138,7 @@ The v0.1 executable foundation and v0.2 importer infrastructure have been merged
 
 ---
 
-## v0.3 Rules runtime
+## v0.3 Rules runtime carryover
 
 - [x] Ability score/modifier primitives.
 - [x] Proficiency primitives.
@@ -157,15 +157,15 @@ The v0.1 executable foundation and v0.2 importer infrastructure have been merged
 - [x] Ruleset capability declarations.
 - [x] Representative imported-rule conformance tests using v0.2 `CanonicalEntity`/provenance-shaped fixtures.
 
-### v0.3 validation
+### v0.3 validation carryover
 
 - [x] Keep all randomness behind the existing versioned deterministic RNG/dice abstraction.
 - [x] Keep rule-state transforms immutable/pure so failed costs/effect batches cannot partially mutate caller state.
 - [x] Add deterministic tests for modifier stacking, resources, requirements, targets, effects, conditions, durations, reactions, capability gating, and D20 outcomes.
 - [x] Document which semantics are official SRD behavior versus project-defined generic runtime primitives.
-- [ ] Confirm Ruff, Mypy, full repository coverage, importer determinism, governance, and Godot checks on the v0.3 PR head in CI.
+- [ ] Confirm Ruff, Mypy, full repository coverage, importer determinism, governance, and Godot checks on a merged-v0.3-compatible CI run.
 
-### v0.3 exit criterion
+### v0.3 exit criterion carryover
 
 - [ ] Demonstrate the complete v0.3 headless rules runtime passing repository CI with deterministic canonical-entity conformance and no Godot rule authority.
 
@@ -173,16 +173,32 @@ The v0.1 executable foundation and v0.2 importer infrastructure have been merged
 
 ## v0.4 Character runtime
 
-- [ ] Shared actor model for heroes/NPCs/creatures.
-- [ ] HP/temp HP/AC/defense state.
-- [ ] Skills/proficiencies.
-- [ ] Speeds/movement modes.
-- [ ] Senses/vision data.
-- [ ] Equipment/inventory.
-- [ ] Conditions/resources/effects on actors.
-- [ ] Character options and choice constraints.
-- [ ] Character serialization/migration tests.
-- [ ] Initial headless character-creation API.
+- [x] Shared actor model for heroes/NPCs/creatures.
+- [x] HP/temp HP/AC/defense state.
+- [x] Skills/proficiencies.
+- [x] Speeds/movement modes.
+- [x] Senses/vision data.
+- [x] Equipment/inventory.
+- [x] Conditions/resources/effects on actors through v0.3 rule-state adapters.
+- [x] Character options and choice constraints.
+- [x] Character serialization/migration tests and v1 actor schema.
+- [x] Initial headless character-creation API.
+
+### v0.4 validation
+
+- [x] Keep the actor model immutable and independent of Godot scene state.
+- [x] Reuse v0.3 resources/conditions/effects rather than adding a second mechanic pipeline.
+- [x] Represent SRD skills and skill-to-ability mappings as typed structured data.
+- [x] Reject duplicate/malformed actor collections, broken inventory/equipment references, invalid choices, and corrupt actor payloads.
+- [x] Add focused hero/NPC/creature, rule-adapter, creation, serialization, migration, and adversarial validation tests.
+- [x] Reach at least the repository coverage threshold for the new actor package in local testing.
+- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on the v0.4 PR head in CI.
+
+### v0.4 exit criterion
+
+- [ ] Demonstrate the complete v0.4 character runtime passing repository CI with deterministic actor serialization/creation and no Godot rule authority.
+
+---
 
 ## v0.5 Tactical combat
 
