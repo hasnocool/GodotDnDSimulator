@@ -125,6 +125,8 @@ Errors contain both `user_message` and `debug_detail`. Normal UI should prefer t
 
 `TcpJsonTransport` provides a non-blocking local/development transport using `StreamPeerTCP`. Messages are newline-delimited JSON. It defaults to `127.0.0.1:4765` but host/port are configurable, preserving a path to a later remote/server transport without rewriting tactical scenes.
 
+Bridge v1 caps each newline-delimited message at **1 MiB** on both the Godot and Python sides. Oversized inbound frames are rejected and the affected transport connection is closed rather than allowing unbounded buffering.
+
 The transport is polled from the Godot frame loop; it does not use blocking connect/read loops.
 
 `FakeEngineTransport` is deterministic and drives headless client tests without a live Python process.
@@ -175,7 +177,7 @@ The local host performs version negotiation, accepts the existing authoritative 
 
 Recorded snapshot/event fixtures live in `apps/godot-client/tests/fixtures/` and use the same v1 serialized contracts as the headless engine.
 
-`tests/test_client_bridge.py` independently covers the Python session/host, including a real localhost newline-delimited JSON/TCP round trip.
+`tests/test_client_bridge.py` independently covers the Python session/host, including a real localhost newline-delimited JSON/TCP round trip and oversized-frame rejection.
 
 The CI Godot job parses the project and executes the headless client bridge test script in addition to the existing Python lint/type/test/coverage gates.
 
