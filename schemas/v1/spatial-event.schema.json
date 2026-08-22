@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/spatial-event.schema.json",
+  "title": "GodotDnDSimulator Spatial Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sequence",
+    "event_type",
+    "entity_id",
+    "payload",
+    "schema_version"
+  ],
+  "properties": {
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "event_type": {
+      "const": "entity.moved"
+    },
+    "entity_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cost_feet",
+        "from_anchor",
+        "movement_mode",
+        "path",
+        "threat_entries",
+        "threat_exits",
+        "to_anchor"
+      ],
+      "properties": {
+        "cost_feet": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "from_anchor": {
+          "$ref": "#/$defs/cell"
+        },
+        "to_anchor": {
+          "$ref": "#/$defs/cell"
+        },
+        "movement_mode": {
+          "enum": ["walk", "climb", "swim", "fly", "burrow"]
+        },
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/cell"
+          }
+        },
+        "threat_entries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "threat_exits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "cell": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer"},
+        {"type": "integer"}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
