@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.6 Spatial authority
+## Current focus: v0.7 Godot vertical slice
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, and v0.5 tactical-combat implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.6 builds the missing headless spatial authority beside v0.5 combat rather than moving legality into Godot or duplicating action economy.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical-combat implementation, and v0.6 spatial-authority implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.7 now proves the integrated engine through a playable Godot tactical slice while keeping combat and spatial legality authoritative in the headless engine.
 
 ### v0.1 carryover: repository and governance
 
@@ -231,7 +231,7 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 char
 
 ---
 
-## v0.6 Spatial authority
+## v0.6 Spatial authority carryover
 
 - [x] Logical grid/space interface with a backend-independent `LogicalSpace` protocol and initial bounded square-grid implementation.
 - [x] Multi-cell occupancy/footprints and collision validation.
@@ -250,12 +250,12 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 char
 - [x] Headless spatial conformance, adversarial validation, replay, navigation-proposal, query, and combat-integration scenarios.
 - [x] Document spatial ownership, movement/replay semantics, Godot adapter boundary, and v0.7 handoff in `docs/V0.6_SPATIAL_AUTHORITY.md`.
 
-### v0.6 validation / exit criterion
+### v0.6 validation / exit criterion carryover
 
-- [ ] Confirm Ruff, strict Mypy, full pytest/coverage, governance/schema, importer determinism, and Godot checks execute successfully on the exact v0.6 PR head.
+- [ ] Confirm Ruff, strict Mypy, full pytest/coverage, governance/schema, importer determinism, and Godot checks execute successfully on the exact v0.6-compatible integrated head.
 - [ ] Validate `schemas/v1/spatial-event.schema.json` against representative serialized movement events in the executable suite.
 - [ ] Demonstrate headless movement, targeting distance/reach, LOS, cover, and AoE scenarios on the exact integrated head with no Godot rule authority.
-- [ ] Mark v0.6 complete only after the exact-head executable gates pass.
+- [ ] Mark v0.6 complete only after the executable gates pass on an integrated head.
 
 ---
 
@@ -263,19 +263,29 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 char
 
 Detailed client execution lives in `apps/godot-client/TODO.md`; keep root acceptance items synchronized with demonstrated behavior rather than duplicating client implementation details here.
 
-- [ ] Orthographic isometric camera rig.
-- [ ] Pan/zoom/90-degree rotation.
-- [ ] One tactical 3D map.
-- [ ] Engine-state actor rendering.
-- [ ] Selection/highlighting.
-- [ ] Reachable-movement preview.
-- [ ] Path preview/cost display.
-- [ ] LOS/cover/AoE debug overlays.
-- [ ] Engine command submission bridge.
-- [ ] Turn order/combat HUD/action bar.
-- [ ] Basic animation/VFX/audio event mapping.
-- [ ] Roof/foreground occlusion handling.
-- [ ] Complete playable encounter without client-side rule authority.
+- [x] Orthographic isometric camera rig.
+- [x] Pan/zoom/90-degree rotation.
+- [x] One tactical 3D map.
+- [x] Engine-state actor rendering.
+- [x] Selection/highlighting.
+- [x] Reachable-movement preview sourced from v0.6.
+- [x] Path preview/cost display sourced from v0.6.
+- [x] LOS/cover/AoE debug overlays sourced from v0.6/tactical previews.
+- [x] Engine command submission bridge for move/attack/end-turn intent.
+- [x] Turn order/combat HUD/action bar driven by authoritative state/queries.
+- [x] Basic animation/VFX/audio event mapping from already-resolved presentation events.
+- [x] Roof/foreground occlusion presentation handling without changing LOS authority.
+- [x] Complete playable Sunken Courtyard encounter without client-side rule authority.
+- [x] Deterministic Python vertical-slice and bridge regression suites.
+- [x] Headless Godot camera and tactical-slice integration suites added to `scripts/local_ci.sh`.
+- [x] Document v0.7 architecture, controls, bridge contracts, testing, and v0.8 handoff in `docs/V0.7_GODOT_VERTICAL_SLICE.md`.
+
+### v0.7 validation / exit criterion
+
+- [ ] Run Ruff, strict Mypy, full pytest/coverage, governance/schema/importer determinism, and every C1-C3/v0.7 Godot headless suite on the exact v0.7 PR head.
+- [ ] Confirm the exact v0.7 head parses under the repository Godot version with no script/resource errors.
+- [ ] Play the Sunken Courtyard battle through the Godot client from initial snapshot to encounter-ended state while all movement/target/combat outcomes remain engine-authoritative.
+- [ ] Mark v0.7 complete only after those executable and playable acceptance gates pass.
 
 ## v0.8 Spell runtime
 
