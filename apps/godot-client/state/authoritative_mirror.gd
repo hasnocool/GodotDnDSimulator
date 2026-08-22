@@ -50,6 +50,14 @@ func recent_events() -> Array:
     return result
 
 
+func reconstruction_view() -> Dictionary:
+    return {
+        "snapshot": snapshot(),
+        "events": recent_events(),
+        "sequence": _sequence,
+    }
+
+
 func ingest_snapshot(snapshot_value: Dictionary) -> bool:
     var state_value: Variant = snapshot_value.get("state", {})
     if typeof(state_value) != TYPE_DICTIONARY:
@@ -98,5 +106,8 @@ func ingest_events(events_value: Array) -> bool:
         _event_history.pop_front()
 
     _sequence = expected - 1
-    events_appended.emit(recent_events().slice(recent_events().size() - accepted.size()), _sequence)
+    var emitted_events: Array = []
+    for event in accepted:
+        emitted_events.append(event.duplicate(true))
+    events_appended.emit(emitted_events, _sequence)
     return true
