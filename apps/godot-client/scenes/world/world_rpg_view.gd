@@ -168,7 +168,7 @@ func _render_actions(payload: Dictionary) -> void:
                 func() -> void:
                     _submit(
                         "world.resolve_interaction",
-                        {"interaction_id": interaction_id, "bonus": 0},
+                        {"interaction_id": interaction_id},
                         "world:interaction",
                     )
             )
@@ -182,7 +182,7 @@ func _render_actions(payload: Dictionary) -> void:
             var row: Dictionary = row_value
             var button := Button.new()
             button.text = "%s%s" % [
-                "Boss: " if bool(row.get("boss", false)) else "Encounter: ",
+                "Boss victory: " if bool(row.get("boss", false)) else "Record tactical victory: ",
                 str(row.get("name", row.get("encounter_id", ""))),
             ]
             button.disabled = not bool(row.get("available", false))
@@ -286,7 +286,7 @@ func _render_dialogue(payload: Dictionary) -> void:
 func _on_query_completed(correlation_id: String, _generation: int, payload: Dictionary) -> void:
     match correlation_id:
         "world:snapshot":
-            var snapshot_value: Variant = payload.get("snapshot", {})
+            var snapshot_value: Variant = payload.get("world_snapshot", {})
             if typeof(snapshot_value) == TYPE_DICTIONARY:
                 _apply_snapshot(snapshot_value as Dictionary)
         "world:actions":
@@ -300,7 +300,7 @@ func _on_query_completed(correlation_id: String, _generation: int, payload: Dict
 func _on_command_payload(correlation_id: String, payload: Dictionary) -> void:
     if not correlation_id.begins_with("world:"):
         return
-    var snapshot_value: Variant = payload.get("snapshot", {})
+    var snapshot_value: Variant = payload.get("world_snapshot", {})
     if typeof(snapshot_value) == TYPE_DICTIONARY:
         _apply_snapshot(snapshot_value as Dictionary)
     _refresh_world()
