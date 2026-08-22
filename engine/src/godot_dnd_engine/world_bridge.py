@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
@@ -27,7 +28,7 @@ from .engine import SimulationEngine
 from .errors import SequenceError, ValidationError
 from .rules import Ability
 from .spell_slice import SpellEnabledTacticalSession
-from .world import WorldRuntime, demo_campaign, restore_world_runtime
+from .world import EncounterGate, WorldRuntime, demo_campaign, restore_world_runtime
 
 WORLD_CAPABILITIES = (
     "world.runtime.v1",
@@ -38,6 +39,7 @@ WORLD_CAPABILITIES = (
     "quests.v1",
     "shops.v1",
 )
+PARTY_PROXY_TEAM = "team:ember"
 
 
 class WorldClientBridgeSession(CharacterClientBridgeSession):
@@ -50,8 +52,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         creator: CharacterCreatorService,
         world: WorldRuntime,
     ) -> None:
-        super().__init__(engine, tactical, creator)
+        super().__init__(engine, tactical)
+        self.creator = creator
         self.world = world
+        self.active_world_encounter_id: str | None = None
 
     def capabilities(self) -> tuple[str, ...]:
         return (*super().capabilities(), *WORLD_CAPABILITIES)
@@ -73,27 +77,30 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     command.expected_sequence,
                     command.payload,
                 )
+            if command.command_type == "world.begin_encounter":
+                return self._begin_encounter(
+                    request,
+                    command.expected_sequence,
+                    command.payload,
+                )
             world_payload = dict(command.payload)
             if command.command_type == "world.resolve_interaction":
                 world_payload["bonus"] = self._authoritative_interaction_bonus(
                     world_payload
                 )
             if command.command_type == "world.complete_encounter":
-                self._require_tactical_victory()
+                encounter_id = _payload_id(
+                    world_payload,
+                    "encounter_id",
+                )
+                self._require_tactical_victory(encounter_id)
             result = self.world.handle_command(
                 command.command_type,
                 world_payload,
                 expected_sequence=command.expected_sequence,
             )
-            if (
-                command.command_type == "world.complete_encounter"
-                and self.spell_tactical is not None
-            ):
-                self.spell_tactical = SpellEnabledTacticalSession.create(
-                    campaign_id=self.engine.state.campaign_id,
-                    session_id=self.engine.state.session_id,
-                    seed=1000 + self.world.state.sequence,
-                )
+            if command.command_type == "world.complete_encounter":
+                self.active_world_encounter_id = None
             return _response(
                 request,
                 "command.accepted",
@@ -101,7 +108,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "world_snapshot": result["snapshot"],
                     "world_events": result["events"],
                     "presentation_events": result["presentation_events"],
-                    "result": {"world_sequence": self.world.state.sequence},
+                    "result": {
+                        "world_sequence": self.world.state.sequence,
+                        "active_encounter_id": self.active_world_encounter_id,
+                    },
                 },
             )
         return super()._command(request)
@@ -121,17 +131,102 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 )
             result = self.world.query(query_type, query)
             if query_type == "world.actions":
-                result = dict(result)
-                result["dialogues"] = [
-                    {
-                        "dialogue_id": dialogue.dialogue_id,
-                        "name": dialogue.nodes[0].speaker,
-                    }
-                    for dialogue in self.world.definition.dialogues
-                ]
-                result["premade_party_ids"] = sorted(self.creator.records)
+                result = self._world_actions_with_bridge_state(result)
             return _response(request, "query.result", payload=result)
         return super()._query(request)
+
+    def _world_actions_with_bridge_state(
+        self,
+        result: dict[str, object],
+    ) -> dict[str, object]:
+        rows = dict(result)
+        current_area = self.world.state.current_area_id
+        rows["dialogues"] = [
+            {
+                "dialogue_id": dialogue.dialogue_id,
+                "name": dialogue.nodes[0].speaker,
+            }
+            for dialogue in self.world.definition.dialogues
+            if dialogue.area_id == current_area
+            and self._dialogue_available(dialogue.dialogue_id)
+        ]
+        encounters_value = rows.get("encounters", [])
+        encounters: list[dict[str, object]] = []
+        if isinstance(encounters_value, list):
+            for value in encounters_value:
+                if not isinstance(value, dict):
+                    continue
+                row = dict(value)
+                row["active"] = (
+                    row.get("encounter_id")
+                    == self.active_world_encounter_id
+                )
+                encounters.append(row)
+        rows["encounters"] = encounters
+        rows["premade_party_ids"] = sorted(self.creator.records)
+        return rows
+
+    def _dialogue_available(self, dialogue_id: str) -> bool:
+        dialogue = next(
+            item
+            for item in self.world.definition.dialogues
+            if item.dialogue_id == dialogue_id
+        )
+        start = next(
+            item
+            for item in dialogue.nodes
+            if item.node_id == dialogue.start_node_id
+        )
+        if not start.choices:
+            return True
+        flags = self.world.state.flags
+        return any(
+            choice.required_flags.issubset(flags)
+            and not choice.forbidden_flags.intersection(flags)
+            for choice in start.choices
+        )
+
+    def _begin_encounter(
+        self,
+        request: dict[str, Any],
+        expected_sequence: int | None,
+        payload: Mapping[str, Any],
+    ) -> dict[str, object]:
+        self._require_world_sequence(expected_sequence)
+        encounter_id = _payload_id(payload, "encounter_id")
+        gate = self._world_encounter(encounter_id)
+        self._require_gate_available(gate)
+        if self.active_world_encounter_id is not None:
+            if (
+                self.spell_tactical is not None
+                and self.spell_tactical.tactical.encounter.status.value
+                != "ended"
+            ):
+                raise ValidationError(
+                    "finish or lose the active tactical encounter first"
+                )
+        self.spell_tactical = SpellEnabledTacticalSession.create(
+            campaign_id=self.engine.state.campaign_id,
+            session_id=self.engine.state.session_id,
+            seed=self._encounter_seed(encounter_id),
+        )
+        self.active_world_encounter_id = encounter_id
+        return _response(
+            request,
+            "command.accepted",
+            payload={
+                "world_snapshot": self.world.snapshot(),
+                "world_events": [],
+                "presentation_events": [],
+                "result": {
+                    "world_sequence": self.world.state.sequence,
+                    "active_encounter_id": encounter_id,
+                    "tactical_encounter_id": (
+                        self.spell_tactical.tactical.encounter.encounter_id
+                    ),
+                },
+            },
+        )
 
     def _load_world(
         self,
@@ -139,13 +234,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         expected_sequence: int | None,
         payload: Mapping[str, Any],
     ) -> dict[str, object]:
-        if (
-            expected_sequence is not None
-            and expected_sequence != self.world.state.sequence
-        ):
-            raise SequenceError(
-                "world load expected sequence does not match active world"
-            )
+        self._require_world_sequence(expected_sequence)
         snapshot_value = _require_mapping(
             payload.get("world_snapshot"),
             "world_snapshot",
@@ -154,6 +243,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
             self.world.definition,
             dict(snapshot_value),
         )
+        self.active_world_encounter_id = None
         return _response(
             request,
             "command.accepted",
@@ -161,11 +251,26 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 "world_snapshot": self.world.snapshot(),
                 "world_events": [],
                 "presentation_events": [],
-                "result": {"world_sequence": self.world.state.sequence},
+                "result": {
+                    "world_sequence": self.world.state.sequence,
+                    "active_encounter_id": None,
+                },
             },
         )
 
-    def _authoritative_interaction_bonus(self, payload: dict[str, object]) -> int:
+    def _require_world_sequence(self, expected_sequence: int | None) -> None:
+        if (
+            expected_sequence is not None
+            and expected_sequence != self.world.state.sequence
+        ):
+            raise SequenceError(
+                "expected world sequence does not match active world"
+            )
+
+    def _authoritative_interaction_bonus(
+        self,
+        payload: dict[str, object],
+    ) -> int:
         party = self.world.state.party_ids
         actor_id_value = payload.get("actor_id")
         actor_id = (
@@ -199,7 +304,44 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
             ) from exc
         return record.actor.ability_score(ability).modifier
 
-    def _require_tactical_victory(self) -> None:
+    def _world_encounter(self, encounter_id: str) -> EncounterGate:
+        gate = next(
+            (
+                item
+                for item in self.world.definition.encounters
+                if item.encounter_id == encounter_id
+            ),
+            None,
+        )
+        if gate is None:
+            raise ValidationError("unknown world encounter")
+        return gate
+
+    def _require_gate_available(self, gate: EncounterGate) -> None:
+        if gate.area_id != self.world.state.current_area_id:
+            raise ValidationError(
+                "world encounter is not in the current area"
+            )
+        if gate.encounter_id in self.world.state.completed_encounters:
+            raise ValidationError("world encounter is already complete")
+        if not gate.required_flags.issubset(self.world.state.flags):
+            raise ValidationError(
+                "world encounter prerequisites are not satisfied"
+            )
+
+    def _encounter_seed(self, encounter_id: str) -> int:
+        material = (
+            f"{self.engine.state.campaign_id}|{encounter_id}|"
+            f"{self.world.state.sequence}"
+        ).encode("utf-8")
+        digest = hashlib.sha256(material).digest()
+        return int.from_bytes(digest[:8], "big")
+
+    def _require_tactical_victory(self, encounter_id: str) -> None:
+        if self.active_world_encounter_id != encounter_id:
+            raise ValidationError(
+                "tactical result is not bound to requested world encounter"
+            )
         if self.spell_tactical is None:
             raise ValidationError(
                 "world encounter completion requires a tactical provider"
@@ -207,8 +349,27 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         status = self.spell_tactical.tactical.encounter.status.value
         if status != "ended":
             raise ValidationError(
-                "finish the current tactical encounter before recording victory"
+                "finish the active tactical encounter before recording victory"
             )
+        winner = self._tactical_winner_team()
+        if winner != PARTY_PROXY_TEAM:
+            self.active_world_encounter_id = None
+            raise ValidationError(
+                "the party did not win the bound tactical encounter"
+            )
+
+    def _tactical_winner_team(self) -> str | None:
+        if self.spell_tactical is None:
+            return None
+        for event in reversed(self.spell_tactical.tactical.recent_events):
+            if event.get("type") != "tactical.encounter_ended":
+                continue
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                return None
+            winner = payload.get("winner_team")
+            return winner if isinstance(winner, str) else None
+        return None
 
 
 async def serve(
@@ -358,10 +519,19 @@ def _seed_premade_characters(creator: CharacterCreatorService) -> None:
                 "ability_method_id": "standard-array",
                 "ability_scores": ability_scores,
                 "appearance": {},
-                "biography": "Premade hero for the Lanterns Below adventure.",
+                "biography": (
+                    "Premade hero for the Lanterns Below adventure."
+                ),
                 "personality": "Ready for adventure.",
             },
         )
+
+
+def _payload_id(payload: Mapping[str, Any], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValidationError(f"{key} must be a non-empty string")
+    return value.strip()
 
 
 def main() -> None:
