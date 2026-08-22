@@ -3,16 +3,20 @@ extends Node
 signal entry_added(entry: Dictionary)
 
 const MAX_ENTRIES := 500
-const CATEGORIES := PackedStringArray([
-    "bridge",
-    "state",
-    "input",
-    "tactical",
-    "ui",
-    "presentation",
-    "performance",
-])
-const LEVELS := PackedStringArray(["debug", "info", "warning", "error"])
+
+static func _categories() -> PackedStringArray:
+    return PackedStringArray([
+        "bridge",
+        "state",
+        "input",
+        "tactical",
+        "ui",
+        "presentation",
+        "performance",
+    ])
+
+static func _levels() -> PackedStringArray:
+    return PackedStringArray(["debug", "info", "warning", "error"])
 
 var _entries: Array[Dictionary] = []
 
@@ -23,7 +27,7 @@ func write(
     detail: String = "",
     level: String = "info",
 ) -> bool:
-    if not CATEGORIES.has(category) or not LEVELS.has(level) or message.is_empty():
+    if not _categories().has(category) or not _levels().has(level) or message.is_empty():
         return false
     var entry := {
         "category": category,

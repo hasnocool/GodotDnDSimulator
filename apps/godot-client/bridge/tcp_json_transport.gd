@@ -43,7 +43,7 @@ func poll(_delta: float) -> void:
 
 
 func send(message: Dictionary) -> Error:
-    if not is_connected():
+    if not _is_connected():
         return ERR_UNCONFIGURED
     var validation_error := Protocol.validate_message(message)
     if not validation_error.is_empty():
@@ -64,7 +64,7 @@ func stop() -> void:
         disconnected.emit("transport stopped")
 
 
-func is_connected() -> bool:
+func _is_connected() -> bool:
     return _peer.get_status() == StreamPeerSocket.STATUS_CONNECTED
 
 

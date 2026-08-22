@@ -177,7 +177,7 @@ func cancel_request(request_id: String) -> bool:
     _pending.erase(request_id)
     if _transport != null:
         _transport.cancel(request_id)
-        if _transport.is_connected():
+        if _transport._is_connected():
             var cancel_id := _next_request_id()
             _transport.send(
                 Protocol.make_cancel_request(
@@ -209,7 +209,7 @@ func request_resync(timeout_msec: int = DEFAULT_TIMEOUT_MSEC) -> String:
 
 
 func _can_submit(correlation_id: String, generation: int, timeout_msec: int) -> bool:
-    if not _ready or _transport == null or not _transport.is_connected():
+    if not _ready or _transport == null or not _transport._is_connected():
         request_failed.emit(
             correlation_id,
             Protocol.ErrorCategory.TRANSPORT,
@@ -385,7 +385,8 @@ func _handle_hello_response(message: Dictionary) -> void:
         bridge_incompatible.emit("engine reported an unexpected bridge protocol")
         return
     var raw_capabilities: Variant = payload.get("capabilities", [])
-    if typeof(raw_capabilities) != TYPE_ARRAY:
+    var is_array := typeof(raw_capabilities) == TYPE_ARRAY or typeof(raw_capabilities) == TYPE_PACKED_STRING_ARRAY
+    if not is_array:
         _ready = false
         bridge_incompatible.emit("engine capabilities must be an array")
         return
@@ -445,10 +446,15 @@ func _ingest_snapshot(snapshot_value: Variant) -> bool:
         _authoritative_validation_error("snapshot.state must be an object")
         return false
     var state: Dictionary = state_value
-    if typeof(state.get("sequence")) != TYPE_INT or int(state["sequence"]) < 0:
+    var seq_val: Variant = state.get("sequence")
+    var seq_type := typeof(seq_val)
+    if seq_type != TYPE_INT and seq_type != TYPE_FLOAT:
         _authoritative_validation_error("snapshot state sequence must be an integer >= 0")
         return false
-    var sequence := int(state["sequence"])
+    var sequence := int(seq_val)
+    if sequence < 0:
+        _authoritative_validation_error("snapshot state sequence must be an integer >= 0")
+        return false
     if _has_authoritative_state and sequence < _authoritative_sequence:
         stale_response_ignored.emit("snapshot:%d" % sequence, "snapshot would regress state")
         return false
@@ -470,10 +476,15 @@ func _ingest_events(events_value: Variant) -> bool:
             _authoritative_validation_error("event entries must be objects")
             return false
         var event: Dictionary = raw_event
-        if typeof(event.get("sequence")) != TYPE_INT or int(event["sequence"]) < 1:
+        var seq_val: Variant = event.get("sequence")
+        var seq_type := typeof(seq_val)
+        if seq_type != TYPE_INT and seq_type != TYPE_FLOAT:
             _authoritative_validation_error("event sequence must be an integer >= 1")
             return false
-        var sequence := int(event["sequence"])
+        var sequence := int(seq_val)
+        if sequence < 1:
+            _authoritative_validation_error("event sequence must be an integer >= 1")
+            return false
         if sequence <= _authoritative_sequence:
             stale_response_ignored.emit("event:%d" % sequence, "duplicate or stale event")
             continue

@@ -5,15 +5,16 @@ const PROTOCOL_NAME := "godot-dnd-bridge"
 const PROTOCOL_VERSION := 1
 const CLIENT_NAME := "godot-client"
 
-const CAPABILITIES := PackedStringArray([
-    "commands.v1",
-    "queries.v1",
-    "previews.v1",
-    "snapshots.v1",
-    "events.v1",
-    "request-cancel.v1",
-    "request-generation.v1",
-])
+static func _capabilities() -> PackedStringArray:
+    return PackedStringArray([
+        "commands.v1",
+        "queries.v1",
+        "previews.v1",
+        "snapshots.v1",
+        "events.v1",
+        "request-cancel.v1",
+        "request-generation.v1",
+    ])
 
 enum ErrorCategory {
     NONE,
@@ -91,7 +92,7 @@ static func make_hello(request_id: String) -> Dictionary:
         {
             "protocol": PROTOCOL_NAME,
             "client": CLIENT_NAME,
-            "capabilities": Array(CAPABILITIES),
+            "capabilities": _capabilities(),
         },
     )
 

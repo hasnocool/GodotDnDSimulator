@@ -11,6 +11,8 @@ run/main_scene="res://main.tscn"
 
 ClientSettings="*res://autoload/client_settings.gd"
 ClientLog="*res://autoload/client_log.gd"
+StateRegistry="*res://autoload/state_registry.gd"
+BridgeRegistry="*res://autoload/bridge_registry.gd"
 
 [display]
 
