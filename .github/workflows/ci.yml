@@ -107,6 +107,10 @@ jobs:
         shell: bash
         run: |
           "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --script res://tests/bridge_tests.gd
+      - name: Run Godot authoritative mirror tests
+        shell: bash
+        run: |
+          "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --script res://tests/authoritative_mirror_tests.gd
       - name: Run Godot client state and shell tests
         shell: bash
         run: |
