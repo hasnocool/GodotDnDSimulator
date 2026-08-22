@@ -98,7 +98,8 @@ func reset_defaults(persist: bool = true) -> void:
 func _normalize(key: String, candidate: Variant) -> Variant:
     match key:
         "ui_scale":
-            if typeof(candidate) not in [TYPE_FLOAT, TYPE_INT]:
+            var value_type := typeof(candidate)
+            if value_type != TYPE_FLOAT and value_type != TYPE_INT:
                 return null
             return clampf(float(candidate), 0.75, 2.0)
         "reduced_motion", "debug_overlay":
@@ -106,7 +107,8 @@ func _normalize(key: String, candidate: Variant) -> Variant:
                 return null
             return candidate
         "master_volume_db":
-            if typeof(candidate) not in [TYPE_FLOAT, TYPE_INT]:
+            var value_type := typeof(candidate)
+            if value_type != TYPE_FLOAT and value_type != TYPE_INT:
                 return null
             return clampf(float(candidate), -80.0, 6.0)
         _:
