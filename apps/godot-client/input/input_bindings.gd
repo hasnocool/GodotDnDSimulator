@@ -144,33 +144,90 @@ func _replace_events(
 func _default_events(action: StringName) -> Array[InputEvent]:
     match action:
         ClientInputActions.CAMERA_PAN_UP:
-            return [_key(KEY_W), _key(KEY_UP), _joy_button(JOY_BUTTON_DPAD_UP), _joy_axis(JOY_AXIS_LEFT_Y, -1.0)]
+            return _event_list([
+                _key(KEY_W),
+                _key(KEY_UP),
+                _joy_button(JOY_BUTTON_DPAD_UP),
+                _joy_axis(JOY_AXIS_LEFT_Y, -1.0),
+            ])
         ClientInputActions.CAMERA_PAN_DOWN:
-            return [_key(KEY_S), _key(KEY_DOWN), _joy_button(JOY_BUTTON_DPAD_DOWN), _joy_axis(JOY_AXIS_LEFT_Y, 1.0)]
+            return _event_list([
+                _key(KEY_S),
+                _key(KEY_DOWN),
+                _joy_button(JOY_BUTTON_DPAD_DOWN),
+                _joy_axis(JOY_AXIS_LEFT_Y, 1.0),
+            ])
         ClientInputActions.CAMERA_PAN_LEFT:
-            return [_key(KEY_A), _key(KEY_LEFT), _joy_button(JOY_BUTTON_DPAD_LEFT), _joy_axis(JOY_AXIS_LEFT_X, -1.0)]
+            return _event_list([
+                _key(KEY_A),
+                _key(KEY_LEFT),
+                _joy_button(JOY_BUTTON_DPAD_LEFT),
+                _joy_axis(JOY_AXIS_LEFT_X, -1.0),
+            ])
         ClientInputActions.CAMERA_PAN_RIGHT:
-            return [_key(KEY_D), _key(KEY_RIGHT), _joy_button(JOY_BUTTON_DPAD_RIGHT), _joy_axis(JOY_AXIS_LEFT_X, 1.0)]
+            return _event_list([
+                _key(KEY_D),
+                _key(KEY_RIGHT),
+                _joy_button(JOY_BUTTON_DPAD_RIGHT),
+                _joy_axis(JOY_AXIS_LEFT_X, 1.0),
+            ])
         ClientInputActions.CAMERA_ZOOM_IN:
-            return [_key(KEY_EQUAL), _mouse_button(MOUSE_BUTTON_WHEEL_UP), _joy_button(JOY_BUTTON_RIGHT_STICK)]
+            return _event_list([
+                _key(KEY_EQUAL),
+                _mouse_button(MOUSE_BUTTON_WHEEL_UP),
+                _joy_button(JOY_BUTTON_RIGHT_STICK),
+            ])
         ClientInputActions.CAMERA_ZOOM_OUT:
-            return [_key(KEY_MINUS), _mouse_button(MOUSE_BUTTON_WHEEL_DOWN), _joy_button(JOY_BUTTON_LEFT_STICK)]
+            return _event_list([
+                _key(KEY_MINUS),
+                _mouse_button(MOUSE_BUTTON_WHEEL_DOWN),
+                _joy_button(JOY_BUTTON_LEFT_STICK),
+            ])
         ClientInputActions.CAMERA_ROTATE_LEFT:
-            return [_key(KEY_Q), _joy_button(JOY_BUTTON_LEFT_SHOULDER)]
+            return _event_list([
+                _key(KEY_Q),
+                _joy_button(JOY_BUTTON_LEFT_SHOULDER),
+            ])
         ClientInputActions.CAMERA_ROTATE_RIGHT:
-            return [_key(KEY_E), _joy_button(JOY_BUTTON_RIGHT_SHOULDER)]
+            return _event_list([
+                _key(KEY_E),
+                _joy_button(JOY_BUTTON_RIGHT_SHOULDER),
+            ])
         ClientInputActions.CAMERA_FOCUS:
-            return [_key(KEY_F), _joy_button(JOY_BUTTON_Y)]
+            return _event_list([_key(KEY_F), _joy_button(JOY_BUTTON_Y)])
         ClientInputActions.SELECT:
-            return [_mouse_button(MOUSE_BUTTON_LEFT), _joy_button(JOY_BUTTON_A)]
+            return _event_list([
+                _mouse_button(MOUSE_BUTTON_LEFT),
+                _joy_button(JOY_BUTTON_A),
+            ])
         ClientInputActions.CONFIRM:
-            return [_key(KEY_ENTER), _key(KEY_SPACE), _joy_button(JOY_BUTTON_A)]
+            return _event_list([
+                _key(KEY_ENTER),
+                _key(KEY_SPACE),
+                _joy_button(JOY_BUTTON_A),
+            ])
         ClientInputActions.CANCEL:
-            return [_key(KEY_ESCAPE), _mouse_button(MOUSE_BUTTON_RIGHT), _joy_button(JOY_BUTTON_B)]
+            return _event_list([
+                _key(KEY_ESCAPE),
+                _mouse_button(MOUSE_BUTTON_RIGHT),
+                _joy_button(JOY_BUTTON_B),
+            ])
         ClientInputActions.CONTEXT:
-            return [_key(KEY_C), _mouse_button(MOUSE_BUTTON_MIDDLE), _joy_button(JOY_BUTTON_X)]
+            return _event_list([
+                _key(KEY_C),
+                _mouse_button(MOUSE_BUTTON_MIDDLE),
+                _joy_button(JOY_BUTTON_X),
+            ])
         _:
             return []
+
+
+func _event_list(values: Array) -> Array[InputEvent]:
+    var result: Array[InputEvent] = []
+    for value in values:
+        if value is InputEvent:
+            result.append(value as InputEvent)
+    return result
 
 
 func _key(physical_keycode: int) -> InputEventKey:
@@ -187,12 +244,14 @@ func _mouse_button(button_index: int) -> InputEventMouseButton:
 
 func _joy_button(button_index: int) -> InputEventJoypadButton:
     var event := InputEventJoypadButton.new()
+    event.device = -1
     event.button_index = button_index
     return event
 
 
 func _joy_axis(axis: int, axis_value: float) -> InputEventJoypadMotion:
     var event := InputEventJoypadMotion.new()
+    event.device = -1
     event.axis = axis
     event.axis_value = axis_value
     return event
@@ -233,25 +292,24 @@ func _event_to_descriptor(event: InputEvent) -> Dictionary:
 
 func _descriptor_to_event(descriptor: Dictionary) -> InputEvent:
     var event_type := str(descriptor.get("type", ""))
-    var device := int(descriptor.get("device", -1))
     match event_type:
         "key":
             if not descriptor.has("physical_keycode"):
                 return null
             var key_event := _key(int(descriptor["physical_keycode"]))
-            key_event.device = device
+            key_event.device = int(descriptor.get("device", 0))
             return key_event
         "mouse_button":
             if not descriptor.has("button_index"):
                 return null
             var mouse_event := _mouse_button(int(descriptor["button_index"]))
-            mouse_event.device = device
+            mouse_event.device = int(descriptor.get("device", 0))
             return mouse_event
         "joy_button":
             if not descriptor.has("button_index"):
                 return null
             var joy_button_event := _joy_button(int(descriptor["button_index"]))
-            joy_button_event.device = device
+            joy_button_event.device = int(descriptor.get("device", -1))
             return joy_button_event
         "joy_motion":
             if not descriptor.has("axis") or not descriptor.has("axis_value"):
@@ -260,7 +318,7 @@ func _descriptor_to_event(descriptor: Dictionary) -> InputEvent:
             if axis_value < -1.0 or axis_value > 1.0 or is_zero_approx(axis_value):
                 return null
             var joy_motion_event := _joy_axis(int(descriptor["axis"]), axis_value)
-            joy_motion_event.device = device
+            joy_motion_event.device = int(descriptor.get("device", -1))
             return joy_motion_event
         _:
             return null
