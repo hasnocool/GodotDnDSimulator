@@ -20,3 +20,4 @@ godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/input
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_camera_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_vertical_slice_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/spell_ui_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/character_creator_tests.gd
