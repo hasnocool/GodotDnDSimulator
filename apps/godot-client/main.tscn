@@ -1,16 +1,8 @@
 ; apps/godot-client/main.tscn
 [gd_scene load_steps=2 format=3]
 
-[ext_resource path="res://scripts/main.gd" type="Script" id="1_main"]
+[ext_resource path="res://scenes/shell/app_shell.tscn" type="PackedScene" id="1_shell"]
 
-[node name="GodotDnDSimulator" type="Node3D"]
-script = ExtResource("1_main")
+[node name="GodotDnDSimulator" type="Node"]
 
-[node name="CameraRig" type="Node3D" parent="."]
-rotation_degrees = Vector3(-35.264, 45, 0)
-
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
-position = Vector3(0, 0, 18)
-projection = 1
-size = 16.0
-current = true
+[node name="AppShell" parent="." instance=ExtResource("1_shell")]
