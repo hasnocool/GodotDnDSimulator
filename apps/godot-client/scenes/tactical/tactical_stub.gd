@@ -24,6 +24,12 @@ func authoritative_snapshot() -> Dictionary:
     return _client_state.authoritative.snapshot()
 
 
+func authoritative_reconstruction_view() -> Dictionary:
+    if _client_state == null:
+        return {}
+    return _client_state.authoritative.reconstruction_view()
+
+
 func _exit_tree() -> void:
     if _client_state != null and _client_state.authoritative_changed.is_connected(_on_authoritative_changed):
         _client_state.authoritative_changed.disconnect(_on_authoritative_changed)
