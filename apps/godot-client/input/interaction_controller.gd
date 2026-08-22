@@ -137,7 +137,7 @@ func cancel_active_mode() -> bool:
         return true
     if not InteractionModes.is_cancellable(mode):
         cancel_requested.emit(mode)
-        return false
+        return true
     _cancel_mode_requests()
     _command_intent.clear()
     _intent_correlation_id = ""
