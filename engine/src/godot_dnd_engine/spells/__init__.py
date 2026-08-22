@@ -21,12 +21,13 @@ from .model import (
     SpellcastingState,
 )
 from .query import SpellQueryService
-from .runtime import SpellRuntime, SpellTargetOutcome, SpellTransition
+from .runtime import ConcentrationCheck, SpellRuntime, SpellTargetOutcome, SpellTransition
 from .state import ActiveSpellEffect, SpellRuntimeState
 
 __all__ = [
     "SPELL_EVENT_SCHEMA_VERSION",
     "ActiveSpellEffect",
+    "ConcentrationCheck",
     "ConcentrationState",
     "SaveEffect",
     "SpellDefinition",
