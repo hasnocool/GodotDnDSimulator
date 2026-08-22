@@ -7,12 +7,12 @@ var _peer := StreamPeerTCP.new()
 var _host := "127.0.0.1"
 var _port := 4765
 var _receive_buffer := PackedByteArray()
-var _last_status := StreamPeerTCP.STATUS_NONE
+var _last_status := StreamPeerSocket.STATUS_NONE
 var _was_connected := false
 
 
 func start(config: Dictionary = {}) -> Error:
-    if _peer.get_status() != StreamPeerTCP.STATUS_NONE:
+    if _peer.get_status() != StreamPeerSocket.STATUS_NONE:
         return ERR_ALREADY_IN_USE
     if config.has("host"):
         if typeof(config["host"]) != TYPE_STRING or str(config["host"]).is_empty():
@@ -25,7 +25,7 @@ func start(config: Dictionary = {}) -> Error:
     if _port < 1 or _port > 65535:
         return ERR_INVALID_PARAMETER
     _receive_buffer.clear()
-    _last_status = StreamPeerTCP.STATUS_NONE
+    _last_status = StreamPeerSocket.STATUS_NONE
     _was_connected = false
     return _peer.connect_to_host(_host, _port)
 
@@ -36,7 +36,7 @@ func poll(_delta: float) -> void:
     if status != _last_status:
         _handle_status_change(status)
         _last_status = status
-    if status != StreamPeerTCP.STATUS_CONNECTED:
+    if status != StreamPeerSocket.STATUS_CONNECTED:
         return
     _read_available()
 
@@ -55,25 +55,25 @@ func stop() -> void:
     var notify := _was_connected
     _peer.disconnect_from_host()
     _receive_buffer.clear()
-    _last_status = StreamPeerTCP.STATUS_NONE
+    _last_status = StreamPeerSocket.STATUS_NONE
     _was_connected = false
     if notify:
         disconnected.emit("transport stopped")
 
 
 func is_connected() -> bool:
-    return _peer.get_status() == StreamPeerTCP.STATUS_CONNECTED
+    return _peer.get_status() == StreamPeerSocket.STATUS_CONNECTED
 
 
-func _handle_status_change(status: StreamPeerTCP.Status) -> void:
-    if status == StreamPeerTCP.STATUS_CONNECTED:
+func _handle_status_change(status: int) -> void:
+    if status == StreamPeerSocket.STATUS_CONNECTED:
         _was_connected = true
         connected.emit()
         return
-    if _was_connected and status in [StreamPeerTCP.STATUS_NONE, StreamPeerTCP.STATUS_ERROR]:
+    if _was_connected and status in [StreamPeerSocket.STATUS_NONE, StreamPeerSocket.STATUS_ERROR]:
         _was_connected = false
         disconnected.emit("tcp connection closed")
-    if status == StreamPeerTCP.STATUS_ERROR:
+    if status == StreamPeerSocket.STATUS_ERROR:
         transport_error.emit(
             Protocol.ErrorCategory.TRANSPORT,
             "Engine connection failed",
