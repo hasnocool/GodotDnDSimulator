@@ -18,6 +18,7 @@ from .model import (
     WorldState,
 )
 from .runtime import WorldRuntime, apply_world_event, event_to_dict, replay_world_events
+from .serialization import restore_world_runtime
 
 __all__ = [
     "AreaDefinition",
@@ -38,4 +39,5 @@ __all__ = [
     "demo_campaign",
     "event_to_dict",
     "replay_world_events",
+    "restore_world_runtime",
 ]
