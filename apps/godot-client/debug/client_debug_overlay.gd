@@ -50,10 +50,11 @@ func refresh() -> void:
         has_snapshot = _state.authoritative.has_snapshot()
         pending = _state.interaction.pending_count()
         active_scene = _state.presentation.active_scene_id()
-    var capability_text := ", ".join(Array(_capabilities))
+    var capability_text := ", ".join(_capabilities)
     if capability_text.is_empty():
         capability_text = "none"
-    _label.text = "\n".join([
+    var presentation_scene := active_scene if not active_scene.is_empty() else "none"
+    _label.text = "\n".join(PackedStringArray([
         "Client diagnostics",
         "Bridge: %s" % _bridge_status,
         "Protocol version: %d" % _bridge_version,
@@ -61,8 +62,8 @@ func refresh() -> void:
         "Authoritative sequence: %d" % sequence,
         "Snapshot loaded: %s" % str(has_snapshot),
         "Pending requests: %d" % pending,
-        "Presentation scene: %s" % (active_scene if not active_scene.is_empty() else "none"),
-    ])
+        "Presentation scene: %s" % presentation_scene,
+    ]))
 
 
 func diagnostic_text() -> String:
