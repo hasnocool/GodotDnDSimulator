@@ -37,10 +37,14 @@ class CommandEnvelope:
         require_id(self.session_id, "session")
         if self.actor_id is not None:
             require_id(self.actor_id, "actor")
+        if (
+            isinstance(self.version, bool)
+            or not isinstance(self.version, int)
+            or self.version < 1
+        ):
+            raise ValidationError("command version must be an integer >= 1")
         if not isinstance(self.command_type, str) or not self.command_type.strip():
             raise ValidationError("command_type must be a non-empty string")
-        if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 1:
-            raise ValidationError("command version must be an integer >= 1")
         if self.expected_sequence is not None and (
             isinstance(self.expected_sequence, bool)
             or not isinstance(self.expected_sequence, int)
@@ -69,11 +73,19 @@ class EventEnvelope:
         require_id(self.session_id, "session")
         require_id(self.correlation_id, "command")
         require_id(self.causation_id, "command")
-        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int) or self.sequence < 1:
+        if (
+            isinstance(self.sequence, bool)
+            or not isinstance(self.sequence, int)
+            or self.sequence < 1
+        ):
             raise ValidationError("event sequence must be an integer >= 1")
         if not isinstance(self.event_type, str) or not self.event_type.strip():
             raise ValidationError("event_type must be a non-empty string")
-        if isinstance(self.version, bool) or not isinstance(self.version, int) or self.version < 1:
+        if (
+            isinstance(self.version, bool)
+            or not isinstance(self.version, int)
+            or self.version < 1
+        ):
             raise ValidationError("event version must be an integer >= 1")
         if isinstance(self.tick, bool) or not isinstance(self.tick, int) or self.tick < 0:
             raise ValidationError("event tick must be an integer >= 0")
@@ -91,7 +103,11 @@ class GameState:
     def __post_init__(self) -> None:
         require_id(self.campaign_id, "campaign")
         require_id(self.session_id, "session")
-        if isinstance(self.sequence, bool) or not isinstance(self.sequence, int) or self.sequence < 0:
+        if (
+            isinstance(self.sequence, bool)
+            or not isinstance(self.sequence, int)
+            or self.sequence < 0
+        ):
             raise ValidationError("state sequence must be an integer >= 0")
         if isinstance(self.tick, bool) or not isinstance(self.tick, int) or self.tick < 0:
             raise ValidationError("state tick must be an integer >= 0")
@@ -117,7 +133,14 @@ class GameState:
                 return value
         return default
 
-    def with_counter(self, name: str, value: int, *, sequence: int, tick: int) -> GameState:
+    def with_counter(
+        self,
+        name: str,
+        value: int,
+        *,
+        sequence: int,
+        tick: int,
+    ) -> GameState:
         updated = dict(self.counters)
         updated[name] = value
         return GameState(
@@ -141,8 +164,17 @@ class SimulationSnapshot:
     def __post_init__(self) -> None:
         if not isinstance(self.rng_algorithm, str) or not self.rng_algorithm.strip():
             raise ValidationError("snapshot RNG algorithm must be a non-empty string")
-        for label, value in (("state", self.rng_state), ("increment", self.rng_increment)):
-            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= _MAX_UINT64:
-                raise ValidationError(f"snapshot RNG {label} must be an unsigned 64-bit integer")
+        for label, value in (
+            ("state", self.rng_state),
+            ("increment", self.rng_increment),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= _MAX_UINT64
+            ):
+                raise ValidationError(
+                    f"snapshot RNG {label} must be an unsigned 64-bit integer"
+                )
         if self.rng_increment % 2 == 0:
             raise ValidationError("snapshot RNG increment must be odd")

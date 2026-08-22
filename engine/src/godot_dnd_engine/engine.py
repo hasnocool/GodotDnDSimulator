@@ -83,9 +83,13 @@ class SimulationEngine:
             raise ValidationError("command campaign does not match engine state")
         if command.session_id != self.state.session_id:
             raise ValidationError("command session does not match engine state")
-        if command.expected_sequence is not None and command.expected_sequence != self.state.sequence:
+        if (
+            command.expected_sequence is not None
+            and command.expected_sequence != self.state.sequence
+        ):
             raise SequenceError(
-                f"expected state sequence {command.expected_sequence}, actual {self.state.sequence}"
+                f"expected state sequence {command.expected_sequence}, "
+                f"actual {self.state.sequence}"
             )
 
     def _resolve_roll_dice(self, command: CommandEnvelope) -> EventEnvelope:

@@ -20,11 +20,16 @@ def _load_schema(name: str) -> dict[str, object]:
 
 def test_all_v1_schemas_are_valid_draft_2020_12() -> None:
     for path in sorted(SCHEMA_DIR.glob("*.schema.json")):
-        Draft202012Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
 
 
 def test_emitted_event_and_snapshot_validate_against_schemas() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=5)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=5,
+    )
     event = engine.handle(
         CommandEnvelope(
             command_id="command:roll",
@@ -32,7 +37,11 @@ def test_emitted_event_and_snapshot_validate_against_schemas() -> None:
             session_id="session:test",
             actor_id="actor:hero",
             command_type="simulation.roll_dice",
-            payload={"expression": "1d20", "counter": "last", "reason": "schema test"},
+            payload={
+                "expression": "1d20",
+                "counter": "last",
+                "reason": "schema test",
+            },
         )
     )[0]
 

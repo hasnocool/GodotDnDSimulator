@@ -27,8 +27,16 @@ def _roll_command(*, expected_sequence: int = 0) -> CommandEnvelope:
 
 
 def test_identical_seed_and_command_produce_identical_event_and_state() -> None:
-    first = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=2026)
-    second = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=2026)
+    first = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=2026,
+    )
+    second = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=2026,
+    )
 
     first_events = first.handle(_roll_command())
     second_events = second.handle(_roll_command())
@@ -36,19 +44,29 @@ def test_identical_seed_and_command_produce_identical_event_and_state() -> None:
     assert [dumps_canonical(event_to_dict(event)) for event in first_events] == [
         dumps_canonical(event_to_dict(event)) for event in second_events
     ]
-    assert dumps_canonical(state_to_dict(first.state)) == dumps_canonical(state_to_dict(second.state))
+    assert dumps_canonical(state_to_dict(first.state)) == dumps_canonical(
+        state_to_dict(second.state)
+    )
     assert first.state.sequence == 1
     assert 6 <= first.state.counter("last_check") <= 25
 
 
 def test_command_sequence_optimistic_concurrency_guard() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=1)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=1,
+    )
     with pytest.raises(SequenceError):
         engine.handle(_roll_command(expected_sequence=2))
 
 
 def test_unknown_command_is_rejected_without_mutating_state() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=1)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=1,
+    )
     before = engine.state
     command = CommandEnvelope(
         command_id="command:unknown",
@@ -63,7 +81,11 @@ def test_unknown_command_is_rejected_without_mutating_state() -> None:
 
 
 def test_wrong_campaign_is_rejected() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=1)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=1,
+    )
     command = CommandEnvelope(
         command_id="command:wrong-campaign",
         campaign_id="campaign:other",

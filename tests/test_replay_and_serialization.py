@@ -22,7 +22,11 @@ from godot_dnd_engine.serialization import (
 
 def test_snapshot_and_event_log_reconstruct_exact_state() -> None:
     initial = GameState(campaign_id="campaign:test", session_id="session:test")
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=123)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=123,
+    )
 
     events = []
     events.extend(
@@ -34,7 +38,11 @@ def test_snapshot_and_event_log_reconstruct_exact_state() -> None:
                 actor_id="actor:hero",
                 command_type="simulation.roll_dice",
                 expected_sequence=0,
-                payload={"expression": "2d6+2", "counter": "damage", "reason": "fixture"},
+                payload={
+                    "expression": "2d6+2",
+                    "counter": "damage",
+                    "reason": "fixture",
+                },
             )
         )
     )
@@ -61,14 +69,22 @@ def test_snapshot_and_event_log_reconstruct_exact_state() -> None:
 
 
 def test_serialized_snapshot_restores_rng_continuation_exactly() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=321)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=321,
+    )
     engine.handle(
         CommandEnvelope(
             command_id="command:first-roll",
             campaign_id="campaign:test",
             session_id="session:test",
             command_type="simulation.roll_dice",
-            payload={"expression": "3d8", "counter": "first", "reason": "advance RNG"},
+            payload={
+                "expression": "3d8",
+                "counter": "first",
+                "reason": "advance RNG",
+            },
         )
     )
 
@@ -80,7 +96,11 @@ def test_serialized_snapshot_restores_rng_continuation_exactly() -> None:
         session_id="session:test",
         command_type="simulation.roll_dice",
         expected_sequence=1,
-        payload={"expression": "2d20+3", "counter": "next", "reason": "continuation"},
+        payload={
+            "expression": "2d20+3",
+            "counter": "next",
+            "reason": "continuation",
+        },
     )
 
     uninterrupted_event = engine.handle(next_command)[0]
@@ -93,7 +113,11 @@ def test_serialized_snapshot_restores_rng_continuation_exactly() -> None:
 
 
 def test_restore_rejects_unknown_rng_algorithm() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=1)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=1,
+    )
     data = snapshot_to_dict(engine.snapshot())
     rng = data["rng"]
     assert isinstance(rng, dict)
@@ -103,7 +127,11 @@ def test_restore_rejects_unknown_rng_algorithm() -> None:
 
 
 def test_replay_rejects_event_gap() -> None:
-    engine = SimulationEngine.create(campaign_id="campaign:test", session_id="session:test", seed=2)
+    engine = SimulationEngine.create(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        seed=2,
+    )
     event = engine.handle(
         CommandEnvelope(
             command_id="command:tick",
@@ -112,7 +140,11 @@ def test_replay_rejects_event_gap() -> None:
             command_type="simulation.advance_tick",
         )
     )[0]
-    wrong_start = GameState(campaign_id="campaign:test", session_id="session:test", sequence=2)
+    wrong_start = GameState(
+        campaign_id="campaign:test",
+        session_id="session:test",
+        sequence=2,
+    )
     with pytest.raises(SequenceError):
         replay_events(wrong_start, [event])
 

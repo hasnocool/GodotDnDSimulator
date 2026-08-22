@@ -34,11 +34,20 @@ def state_to_dict(state: GameState) -> dict[str, object]:
 
 def state_from_dict(data: Mapping[str, Any]) -> GameState:
     data = _require_mapping(data, "state")
-    required = {"schema_version", "campaign_id", "session_id", "sequence", "tick", "counters"}
+    required = {
+        "schema_version",
+        "campaign_id",
+        "session_id",
+        "sequence",
+        "tick",
+        "counters",
+    }
     if set(data) != required:
         raise ValidationError("state fields do not match schema v1")
     if data["schema_version"] != STATE_SCHEMA_VERSION:
-        raise ValidationError(f"unsupported state schema version: {data['schema_version']!r}")
+        raise ValidationError(
+            f"unsupported state schema version: {data['schema_version']!r}"
+        )
     counters = _require_mapping(data["counters"], "state counters")
     normalized_counters: list[tuple[str, int]] = []
     for name, value in counters.items():
@@ -76,7 +85,9 @@ def snapshot_from_dict(data: Mapping[str, Any]) -> SimulationSnapshot:
     if set(data) != {"schema_version", "state", "rng"}:
         raise ValidationError("snapshot fields do not match schema v1")
     if data["schema_version"] != SNAPSHOT_SCHEMA_VERSION:
-        raise ValidationError(f"unsupported snapshot schema version: {data['schema_version']!r}")
+        raise ValidationError(
+            f"unsupported snapshot schema version: {data['schema_version']!r}"
+        )
     state_data = _require_mapping(data["state"], "snapshot state")
     rng_data = _require_mapping(data["rng"], "snapshot RNG")
     if set(rng_data) != {"algorithm", "state", "increment"}:
@@ -126,7 +137,9 @@ def event_from_dict(data: Mapping[str, Any]) -> EventEnvelope:
     if set(data) != required:
         raise ValidationError("event fields do not match schema v1")
     if data["schema_version"] != EVENT_SCHEMA_VERSION:
-        raise ValidationError(f"unsupported event schema version: {data['schema_version']!r}")
+        raise ValidationError(
+            f"unsupported event schema version: {data['schema_version']!r}"
+        )
     payload = _require_mapping(data["payload"], "event payload")
     try:
         return EventEnvelope(

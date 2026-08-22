@@ -54,19 +54,25 @@ def run() -> list[str]:
     if "Command -> Validation -> Resolution -> Events -> Reducer -> New State" not in agents:
         errors.append("AGENTS.md no longer contains the canonical simulation flow")
     if "Authoritative Headless Engine" not in architecture:
-        errors.append("architecture contract no longer identifies the authoritative headless engine")
+        errors.append(
+            "architecture contract no longer identifies the authoritative headless engine"
+        )
 
     for path in sorted((ROOT / "engine").rglob("*.py")):
         first_line = path.read_text(encoding="utf-8").splitlines()[0]
         expected = f"# {path.relative_to(ROOT).as_posix()}"
         if first_line != expected:
-            errors.append(f"{path.relative_to(ROOT)} must start with filename comment {expected!r}")
+            errors.append(
+                f"{path.relative_to(ROOT)} must start with filename comment {expected!r}"
+            )
 
     for path in sorted((ROOT / "scripts").glob("*.py")):
         first_line = path.read_text(encoding="utf-8").splitlines()[0]
         expected = f"# {path.relative_to(ROOT).as_posix()}"
         if first_line != expected:
-            errors.append(f"{path.relative_to(ROOT)} must start with filename comment {expected!r}")
+            errors.append(
+                f"{path.relative_to(ROOT)} must start with filename comment {expected!r}"
+            )
 
     return errors
 
