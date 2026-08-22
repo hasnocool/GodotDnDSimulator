@@ -1,0 +1,8 @@
+{
+  "$id": "https://godotdndsimulator.local/schemas/rules/v1/character-option.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {"$ref": "entity-base.schema.json"},
+    {"properties": {"kind": {"const": "character-option"}}}
+  ]
+}

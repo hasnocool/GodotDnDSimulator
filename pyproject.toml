@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "godot-dnd-engine"
-version = "0.1.0.dev0"
+version = "0.2.0.dev0"
 description = "Deterministic headless simulation engine for GodotDnDSimulator"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,10 +13,18 @@ authors = [{ name = "GodotDnDSimulator contributors" }]
 dependencies = []
 
 [project.optional-dependencies]
+rules = [
+  "httpx>=0.28.1,<1",
+  "jsonschema>=4.26,<5",
+  "pypdf>=6.15,<7",
+]
 dev = [
-  "jsonschema>=4.23",
+  "httpx>=0.28.1,<1",
+  "jsonschema>=4.26,<5",
   "mypy>=1.15",
+  "pypdf>=6.15,<7",
   "pytest>=8.3",
+  "pytest-asyncio>=1.4,<2",
   "pytest-cov>=6.0",
   "ruff>=0.11",
 ]
@@ -33,7 +41,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["godot_dnd_engine"]
+source = ["godot_dnd_engine", "tools.rules_importer"]
 
 [tool.coverage.report]
 fail_under = 90
@@ -50,5 +58,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["godot_dnd_engine"]
 mypy_path = "engine/src"

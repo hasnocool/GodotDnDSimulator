@@ -28,11 +28,21 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Contributor guide plus structured bug/feature issue templates.
 - Architecture decisions for engine runtime, semantic/schema versioning, and stable identifiers.
 - Deterministic/replay/validation test suite with a 90% minimum coverage gate.
+- Machine-readable SRD 5.2.1 source allowlist with official URL, CC-BY-4.0 policy, and pinned SHA-256 verification.
+- Async cache-aware SRD fetcher with ETag/Last-Modified validators, source manifests, size limits, redirect restrictions, and post-cache checksum validation.
+- PDF extraction and normalization pipeline that preserves page/bookmark provenance and normalizes text, lists, tables, Unicode whitespace, and dice notation.
+- Versioned canonical rule schemas for rules, actions, abilities, condition/effect resources, character options, spells, items, creatures, and spatial primitives.
+- Deterministic normalized-document compiler, schema validation, canonical JSONL export, attribution bundle, unsupported-mechanics report, import report, and canonical output checksum.
+- Canonical SRD entity diffing for added/removed/changed/unchanged entities and prose-only versus mechanical changes.
+- `python -m tools.rules_importer.cli` fetch/build interface plus deterministic fixture smoke build.
+- Mocked HTTP, policy, extraction, normalization, compiler, schema, reporting, diffing, tamper, and deterministic-generation regression coverage for the v0.2 importer.
 
 ### Changed
 
 - `README.md` now documents the executable v0.1 foundation and local validation workflow.
 - Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
+- Development version advances to `0.2.0.dev0`; CI now lints, type-checks, tests, and coverage-checks both the engine and rules-import tooling.
+- Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
 
 ### Deprecated
 
@@ -50,6 +60,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 ### Security
 
 - Added strict validation at command, event, snapshot, identifier, dice, and replay boundaries to reject malformed/untrusted input early.
+- Rules ingestion now rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
 
 <!--
 Release process notes:

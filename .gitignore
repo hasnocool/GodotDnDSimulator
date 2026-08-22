@@ -11,6 +11,9 @@ dist/
 build/
 .venv/
 
+# Rules importer source cache
+.cache/
+
 # Godot
 .godot/
 *.tmp

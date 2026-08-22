@@ -20,7 +20,7 @@ env:
 
 jobs:
   engine:
-    name: Python engine
+    name: Python engine and rules tooling
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch without action runtime dependencies
@@ -41,11 +41,13 @@ jobs:
       - name: Ruff
         run: .venv/bin/ruff check .
       - name: Mypy
-        run: .venv/bin/mypy engine/src
+        run: .venv/bin/mypy engine/src tools/rules_importer
       - name: Pytest with coverage
-        run: .venv/bin/pytest --cov=godot_dnd_engine --cov-report=term-missing
-      - name: Determinism smoke test
+        run: .venv/bin/pytest --cov=godot_dnd_engine --cov=tools.rules_importer --cov-report=term-missing
+      - name: Engine determinism smoke test
         run: .venv/bin/python scripts/determinism_smoke.py
+      - name: Rules importer determinism smoke test
+        run: .venv/bin/python -m tools.rules_importer.smoke
 
   governance:
     name: Governance and schemas
@@ -68,9 +70,15 @@ jobs:
       - name: Validate JSON syntax
         shell: bash
         run: |
-          python3.12 -m json.tool schemas/v1/command.schema.json >/dev/null
-          python3.12 -m json.tool schemas/v1/event.schema.json >/dev/null
-          python3.12 -m json.tool schemas/v1/snapshot.schema.json >/dev/null
+          python3.12 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in sorted(Path("schemas").rglob("*.json")):
+              json.loads(path.read_text(encoding="utf-8"))
+              print(path)
+          json.loads(Path("config/rules/sources.json").read_text(encoding="utf-8"))
+          PY
 
   godot:
     name: Godot project validation
