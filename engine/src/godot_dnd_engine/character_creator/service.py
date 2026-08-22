@@ -18,10 +18,20 @@ class CharacterCreatorService:
     runtime: CharacterCreatorRuntime
     records: dict[str, CharacterRecord] = field(default_factory=dict)
 
-    def query(self, query_type: str, payload: dict[str, Any]) -> dict[str, object]:
+    def query(
+        self,
+        query_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, object]:
         if query_type == "characters.creator.schema":
             schema = self.runtime.schema()
-            schema["appearance_fields"] = ["body", "hair", "eyes", "voice", "portrait"]
+            schema["appearance_fields"] = [
+                "body",
+                "hair",
+                "eyes",
+                "voice",
+                "portrait",
+            ]
             schema["profile_fields"] = ["biography", "personality"]
             return schema
         if query_type == "characters.creator.preview":
@@ -32,23 +42,36 @@ class CharacterCreatorService:
         if query_type == "characters.levelup.choices":
             actor_id = _string(payload.get("actor_id"), "actor_id")
             return self.runtime.level_up_choices(self._record(actor_id))
-        raise UnsupportedCommandError(f"unsupported character creator query: {query_type}")
+        raise UnsupportedCommandError(
+            f"unsupported character creator query: {query_type}"
+        )
 
-    def command(self, command_type: str, payload: dict[str, Any]) -> dict[str, object]:
+    def command(
+        self,
+        command_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, object]:
         if command_type == "characters.create":
             draft = _draft(payload)
             if draft.actor_id in self.records:
-                raise ValidationError("character actor_id already exists in creator session")
+                raise ValidationError(
+                    "character actor_id already exists in creator session"
+                )
             record = self.runtime.create(draft)
             self.records[record.actor.actor_id] = record
             return {"record": record_to_dict(record)}
         if command_type == "characters.level_up":
             actor_id = _string(payload.get("actor_id"), "actor_id")
-            selected = _string_tuple(payload.get("selected_choice_ids", []), "selected_choice_ids")
+            selected = _string_tuple(
+                payload.get("selected_choice_ids", []),
+                "selected_choice_ids",
+            )
             record = self.runtime.level_up(self._record(actor_id), selected)
             self.records[actor_id] = record
             return {"record": record_to_dict(record)}
-        raise UnsupportedCommandError(f"unsupported character creator command: {command_type}")
+        raise UnsupportedCommandError(
+            f"unsupported character creator command: {command_type}"
+        )
 
     def _record(self, actor_id: str) -> CharacterRecord:
         record = self.records.get(actor_id)
@@ -80,35 +103,51 @@ def _draft(payload: dict[str, Any]) -> CharacterDraft:
         raise ValidationError("character draft must be an object")
     scores_value = draft_value.get("ability_scores")
     if not isinstance(scores_value, dict):
-        raise ValidationError("character draft ability_scores must be an object")
+        raise ValidationError(
+            "character draft ability_scores must be an object"
+        )
     scores: list[tuple[Ability, int]] = []
     for ability in Ability:
         score = scores_value.get(ability.value)
         if isinstance(score, bool) or not isinstance(score, int):
-            raise ValidationError(f"ability score {ability.value} must be an integer")
+            raise ValidationError(
+                f"ability score {ability.value} must be an integer"
+            )
         scores.append((ability, score))
     appearance_value = draft_value.get("appearance", {})
     if not isinstance(appearance_value, dict):
         raise ValidationError("character appearance must be an object")
     appearance: list[tuple[str, str]] = []
     for key, value in appearance_value.items():
-        if not isinstance(key, str) or not key.strip() or not isinstance(value, str):
-            raise ValidationError("character appearance entries must be string pairs")
+        if (
+            not isinstance(key, str)
+            or not key.strip()
+            or not isinstance(value, str)
+        ):
+            raise ValidationError(
+                "character appearance entries must be string pairs"
+            )
         appearance.append((key, value.strip()))
     return CharacterDraft(
         actor_id=_string(draft_value.get("actor_id"), "actor_id"),
         name=_string(draft_value.get("name"), "name"),
         selected_choice_ids=_string_tuple(
-            draft_value.get("selected_choice_ids", []), "selected_choice_ids"
+            draft_value.get("selected_choice_ids", []),
+            "selected_choice_ids",
         ),
         ability_method_id=_string(
-            draft_value.get("ability_method_id"), "ability_method_id"
+            draft_value.get("ability_method_id"),
+            "ability_method_id",
         ),
         base_ability_scores=tuple(scores),
         appearance=tuple(sorted(appearance)),
-        biography=_optional_string(draft_value.get("biography", ""), "biography"),
+        biography=_optional_string(
+            draft_value.get("biography", ""),
+            "biography",
+        ),
         personality=_optional_string(
-            draft_value.get("personality", ""), "personality"
+            draft_value.get("personality", ""),
+            "personality",
         ),
     )
 
@@ -128,6 +167,11 @@ def _optional_string(value: Any, label: str) -> str:
 def _string_tuple(value: Any, label: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise ValidationError(f"{label} must be an array")
-    if any(not isinstance(item, str) or not item.strip() for item in value):
-        raise ValidationError(f"{label} must contain non-empty strings")
-    return tuple(str(item) for item in value)
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ValidationError(
+                f"{label} must contain non-empty strings"
+            )
+        result.append(item)
+    return tuple(result)
