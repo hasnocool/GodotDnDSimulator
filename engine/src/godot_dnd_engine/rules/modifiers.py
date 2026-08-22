@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/modifiers.py
 """Deterministic generic modifier pipeline with explicit stacking semantics."""
 
 from __future__ import annotations

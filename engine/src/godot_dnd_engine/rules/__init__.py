@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/__init__.py
 """Public v0.3 headless rules runtime API."""
 
 from .capabilities import CORE_V03_CAPABILITIES, RulesetCapabilities

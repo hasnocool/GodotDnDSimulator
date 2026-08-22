@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/effects.py
 """Generic deterministic effect pipeline for resources and conditions."""
 
 from __future__ import annotations
@@ -88,13 +89,14 @@ def _apply_condition(
             before,
         )
     if effect.condition_stacking is ConditionStacking.REFRESH and matching:
-        conditions = tuple(
-            item for item in subject.conditions if item.condition_id != effect.condition_id
-        ) + (new_instance,)
+        conditions = (
+            *(item for item in subject.conditions if item.condition_id != effect.condition_id),
+            new_instance,
+        )
     elif effect.condition_stacking is ConditionStacking.STACK and matching:
-        conditions = subject.conditions + (new_instance,)
+        conditions = (*subject.conditions, new_instance)
     else:
-        conditions = subject.conditions + (new_instance,)
+        conditions = (*subject.conditions, new_instance)
 
     updated = subject.with_conditions(conditions)
     after = sum(

@@ -12,9 +12,10 @@ from godot_dnd_engine.rules import (
     ProficiencyRank,
     ResolutionContext,
     RollMode,
-    RulesRuntime,
     RulesetCapabilities,
+    RulesRuntime,
 )
+
 from tools.rules_importer.models import CanonicalEntity, Provenance
 
 ROOT = Path(__file__).resolve().parents[1]

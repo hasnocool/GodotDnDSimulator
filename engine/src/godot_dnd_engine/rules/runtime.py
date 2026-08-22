@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/runtime.py
 """Typed deterministic D20 and generic rules runtime orchestration."""
 
 from __future__ import annotations

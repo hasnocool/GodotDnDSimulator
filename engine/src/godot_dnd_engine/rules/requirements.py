@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/requirements.py
 """Serializable requirement predicates for actions, effects, and reactions."""
 
 from __future__ import annotations

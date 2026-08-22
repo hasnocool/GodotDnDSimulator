@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/capabilities.py
 """Ruleset capability declarations used to gate generic runtime features."""
 
 from __future__ import annotations
@@ -5,7 +6,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..errors import ValidationError
-
 
 CORE_V03_CAPABILITIES = frozenset(
     {

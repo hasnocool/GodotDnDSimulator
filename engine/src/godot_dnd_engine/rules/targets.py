@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/targets.py
 """Deterministic target selector primitives independent of Godot scene state."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/primitives.py
 """Core typed rule primitives for the v0.3 rules runtime."""
 
 from __future__ import annotations

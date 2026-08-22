@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/state.py
 """Immutable lightweight rule-state primitives used before the v0.4 actor model."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/resources.py
 """Atomic resource-cost resolution helpers."""
 
 from __future__ import annotations

@@ -49,8 +49,9 @@ def run() -> list[str]:
 
     v01_focus = "## Current focus: v0.1 Project foundation"
     v02_focus = "## Current focus: v0.2 Official SRD pipeline"
-    if v01_focus not in todo and v02_focus not in todo:
-        errors.append("TODO.md must declare the current milestone focus (v0.1 or v0.2)")
+    v03_focus = "## Current focus: v0.3 Rules runtime"
+    if v01_focus not in todo and v02_focus not in todo and v03_focus not in todo:
+        errors.append("TODO.md must declare the current milestone focus (v0.1, v0.2, or v0.3)")
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")
     if "Command -> Validation -> Resolution -> Events -> Reducer -> New State" not in agents:

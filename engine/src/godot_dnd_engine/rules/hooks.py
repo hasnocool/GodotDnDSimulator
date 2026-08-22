@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/rules/hooks.py
 """Trigger and reaction-hook matching for deterministic event-driven rules."""
 
 from __future__ import annotations
