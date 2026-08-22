@@ -1,14 +1,14 @@
 # engine/src/godot_dnd_engine/spells/runtime.py
-"""Deterministic generic spell resolver composed from rules, combat, and spatial authority."""
+"""Deterministic generic spell resolver composed from existing engine authorities."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
 
 from ..combat import ActionResource, CombatRuntime, DamagePacket, EncounterState, LifeState
 from ..dice import DiceExpression, roll_expression
 from ..errors import ValidationError
+from ..models import RNGCheckpoint
 from ..rng import DeterministicRNG
 from ..rules.capabilities import RulesetCapabilities
 from ..rules.modifiers import RuleModifier
@@ -16,7 +16,7 @@ from ..rules.primitives import Ability, D20TestKind, DifficultyClass
 from ..rules.runtime import ResolutionContext, RulesRuntime
 from ..rules.state import RuleWorldState
 from ..spatial import GridCell, SpatialQueryService, SpatialState
-from .events import SpellEvent
+from .events import SpellEvent, SpellEventValue
 from .model import (
     ConcentrationState,
     SaveEffect,
@@ -34,6 +34,7 @@ from .state import ActiveSpellEffect, SpellRuntimeState
 @dataclass(frozen=True, slots=True)
 class SpellTargetOutcome:
     target_id: str
+    roll: int | None = None
     attack_total: int | None = None
     save_total: int | None = None
     success: bool | None = None
@@ -54,6 +55,7 @@ class ConcentrationCheck:
     encounter: EncounterState
     maintained: bool
     total: int
+    event: SpellEvent | None = None
 
 
 class SpellRuntime:
@@ -74,7 +76,9 @@ class SpellRuntime:
             capabilities or RulesetCapabilities.srd_5_2_1_core(),
         )
         self.combat = CombatRuntime(rng, self.rules.capabilities)
-        self.definitions = {item.spell_id: item for item in definitions}
+        self.definitions: dict[str, SpellDefinition] = {
+            item.spell_id: item for item in definitions
+        }
 
     def definition(self, spell_id: str) -> SpellDefinition:
         definition = self.definitions.get(spell_id)
@@ -160,7 +164,6 @@ class SpellRuntime:
                 "reason": "Action is not available",
                 "spell_id": spell_id,
             }
-
         try:
             resolved_targets = self._resolve_targets(
                 encounter,
@@ -215,8 +218,11 @@ class SpellRuntime:
             raise ValidationError(str(preview.get("reason", "spell cast is not legal")))
 
         definition = self.definition(spell_id)
-        cast_level = int(preview["slot_level"])
-        targets = tuple(str(item) for item in preview["target_ids"])
+        cast_level = definition.cast_level(slot_level)
+        target_values = preview.get("target_ids", [])
+        if not isinstance(target_values, list):
+            raise ValidationError("spell preview target_ids are malformed")
+        targets = tuple(str(item) for item in target_values)
         current_state, current_encounter, events = self._prepare_cast(
             state,
             encounter,
@@ -235,20 +241,33 @@ class SpellRuntime:
                 target_id,
             )
             outcomes.append(outcome)
+            events.append(
+                self._target_event(
+                    state.sequence + len(events) + 1,
+                    caster_id,
+                    definition.spell_id,
+                    outcome,
+                )
+            )
 
-        duration_effects = tuple(
-            effect
-            for effect in definition.effects
-            if effect.ongoing or effect.kind is SpellEffectKind.CONDITION
-        )
-        if definition.duration_rounds is not None and duration_effects and targets:
+        duration_effects = self._duration_effects(definition)
+        duration_targets = self._duration_target_ids(definition, tuple(outcomes))
+        if (
+            definition.duration_rounds is not None
+            and duration_effects
+            and duration_targets
+        ):
             active = ActiveSpellEffect(
-                effect_id=f"spell-effect:{state.sequence + len(events) + 1}:{spell_id}",
-                spell_id=spell_id,
+                effect_id=(
+                    f"spell-effect:{state.sequence + len(events) + 1}:"
+                    f"{definition.spell_id}"
+                ),
+                spell_id=definition.spell_id,
                 caster_id=caster_id,
-                target_ids=targets,
+                target_ids=duration_targets,
                 effects=duration_effects,
                 remaining_rounds=definition.duration_rounds,
+                cast_level=cast_level,
                 concentration=definition.concentration,
             )
             current_state = replace(
@@ -260,12 +279,13 @@ class SpellRuntime:
             state.sequence + len(events) + 1,
             "spell.cast",
             caster_id,
-            spell_id,
+            definition.spell_id,
             targets,
             (
                 ("slot_level", cast_level),
                 ("concentration", definition.concentration),
             ),
+            rng_after=self._checkpoint(),
         )
         events.append(cast_event)
         current_state = replace(current_state, sequence=cast_event.sequence)
@@ -284,28 +304,48 @@ class SpellRuntime:
         current = encounter
         next_effects: list[ActiveSpellEffect] = []
         events: list[SpellEvent] = []
+        expired_concentration: set[tuple[str, str]] = set()
         for active in state.active_effects:
             definition = self.definition(active.spell_id)
+            total_amount = 0
+            applied_ongoing = False
             for target_id in active.target_ids:
                 if not self._is_combatant(current, target_id):
                     continue
                 if current.combatant(target_id).life_state is LifeState.DEAD:
                     continue
                 for effect in active.effects:
-                    if effect.ongoing:
-                        current, _ = self._apply_effect(
-                            current,
-                            active.caster_id,
-                            target_id,
-                            effect,
-                            cast_level=definition.level,
-                            base_level=definition.level,
-                            save_succeeded=False,
-                            scaling=None,
-                        )
+                    if not effect.ongoing:
+                        continue
+                    applied_ongoing = True
+                    current, amount = self._apply_effect(
+                        current,
+                        active.caster_id,
+                        target_id,
+                        effect,
+                        cast_level=active.cast_level,
+                        base_level=definition.level,
+                        save_succeeded=False,
+                        scaling=definition.scaling,
+                    )
+                    total_amount += amount
+            if applied_ongoing:
+                events.append(
+                    self._event(
+                        state.sequence + len(events) + 1,
+                        "spell.ongoing.resolved",
+                        active.caster_id,
+                        active.spell_id,
+                        active.target_ids,
+                        (("total_amount", total_amount),),
+                        rng_after=self._checkpoint(),
+                    )
+                )
             ticked = active.tick()
             if ticked is None:
                 current = self._remove_duration_conditions(current, active)
+                if active.concentration:
+                    expired_concentration.add((active.caster_id, active.spell_id))
                 events.append(
                     self._event(
                         state.sequence + len(events) + 1,
@@ -322,6 +362,11 @@ class SpellRuntime:
             active_effects=tuple(next_effects),
             sequence=state.sequence + len(events),
         )
+        next_state = self._sync_concentration_durations(
+            next_state,
+            tuple(next_effects),
+            expired_concentration,
+        )
         return SpellTransition(next_state, current, tuple(events), ())
 
     def check_concentration(
@@ -334,26 +379,53 @@ class SpellRuntime:
     ) -> ConcentrationCheck:
         caster_state = state.caster(caster_id)
         if caster_state.concentration is None:
-            return ConcentrationCheck(state, encounter, True, 0)
+            return ConcentrationCheck(state, encounter, True, 0, None)
         actor = encounter.combatant(caster_id).actor
-        context = ResolutionContext(
-            context_id=f"concentration:{state.sequence + 1}:{caster_id}",
-            test_kind=D20TestKind.SAVING_THROW,
-            actor_id=caster_id,
-            ability=Ability.CONSTITUTION,
-            proficiency_rank=actor.save_rank(Ability.CONSTITUTION),
-            difficulty_class=DifficultyClass(dc),
-            reason="Concentration",
-        )
         outcome = self.rules.resolve_save(
-            context,
+            ResolutionContext(
+                context_id=f"concentration:{state.sequence + 1}:{caster_id}",
+                test_kind=D20TestKind.SAVING_THROW,
+                actor_id=caster_id,
+                ability=Ability.CONSTITUTION,
+                proficiency_rank=actor.save_rank(Ability.CONSTITUTION),
+                difficulty_class=DifficultyClass(dc),
+                reason="Concentration",
+            ),
             ability_score=actor.ability_score(Ability.CONSTITUTION),
             proficiency_bonus=actor.proficiency_bonus,
         )
-        if outcome.success:
-            return ConcentrationCheck(state, encounter, True, outcome.total)
-        next_state, next_encounter = self._break_concentration(state, encounter, caster_id)
-        return ConcentrationCheck(next_state, next_encounter, False, outcome.total)
+        maintained = bool(outcome.success)
+        next_state = state
+        next_encounter = encounter
+        spell_id = caster_state.concentration.spell_id
+        if not maintained:
+            next_state, next_encounter = self._break_concentration(
+                state,
+                encounter,
+                caster_id,
+            )
+        event = self._event(
+            state.sequence + 1,
+            "spell.concentration.checked",
+            caster_id,
+            spell_id,
+            (),
+            (
+                ("dc", dc),
+                ("roll", outcome.selected_roll),
+                ("total", outcome.total),
+                ("maintained", maintained),
+            ),
+            rng_after=self._checkpoint(),
+        )
+        next_state = replace(next_state, sequence=event.sequence)
+        return ConcentrationCheck(
+            next_state,
+            next_encounter,
+            maintained,
+            outcome.total,
+            event,
+        )
 
     def end_concentration(
         self,
@@ -365,7 +437,11 @@ class SpellRuntime:
         if caster.concentration is None:
             return SpellTransition(state, encounter, (), ())
         spell_id = caster.concentration.spell_id
-        next_state, next_encounter = self._break_concentration(state, encounter, caster_id)
+        next_state, next_encounter = self._break_concentration(
+            state,
+            encounter,
+            caster_id,
+        )
         event = self._event(
             state.sequence + 1,
             "spell.concentration.ended",
@@ -439,6 +515,7 @@ class SpellRuntime:
         target_id: str,
     ) -> tuple[EncounterState, SpellTargetOutcome]:
         current = encounter
+        roll: int | None = None
         attack_total: int | None = None
         save_total: int | None = None
         success: bool | None = None
@@ -462,6 +539,7 @@ class SpellRuntime:
                 proficiency_bonus=caster.proficiency_bonus,
                 modifiers=(modifier,),
             )
+            roll = result.selected_roll
             attack_total = result.total
             armor_class = current.combatant(target_id).actor.defense.armor_class
             success = result.selected_roll == 20 or (
@@ -484,6 +562,7 @@ class SpellRuntime:
                 ability_score=target.ability_score(definition.save_ability),
                 proficiency_bonus=target.proficiency_bonus,
             )
+            roll = result.selected_roll
             save_total = result.total
             success = bool(result.success)
         else:
@@ -507,6 +586,7 @@ class SpellRuntime:
                 amounts.append(amount)
         return current, SpellTargetOutcome(
             target_id=target_id,
+            roll=roll,
             attack_total=attack_total,
             save_total=save_total,
             success=success,
@@ -644,8 +724,10 @@ class SpellRuntime:
             return (caster_id,)
         if definition.target_kind is SpellTargetKind.AREA:
             area = self._area_preview(spatial, definition, caster_id, point, direction)
-            ids = tuple(str(item) for item in area.get("entity_ids", []))
-            return tuple(item for item in ids if item in eligible)
+            raw_ids = area.get("entity_ids", [])
+            if not isinstance(raw_ids, list):
+                raise ValidationError("spatial area entity_ids are malformed")
+            return tuple(str(item) for item in raw_ids if str(item) in eligible)
         if definition.target_kind is SpellTargetKind.POINT:
             if point is None:
                 raise ValidationError("point-target spells require a point")
@@ -655,7 +737,11 @@ class SpellRuntime:
             0,
             cast_level - definition.level,
         ) * definition.scaling.extra_targets_per_slot
-        if not requested or len(requested) > max_targets or len(requested) != len(set(requested)):
+        if (
+            not requested
+            or len(requested) > max_targets
+            or len(requested) != len(set(requested))
+        ):
             raise ValidationError("spell target count is outside the allowed range")
         service = SpatialQueryService(
             spatial,
@@ -669,13 +755,13 @@ class SpellRuntime:
                 "spatial.distance",
                 {"source_entity_id": caster_id, "target_entity_id": target_id},
             )
-            if int(distance["distance_feet"]) > definition.range_feet:
+            if self._integer_result(distance, "distance_feet") > definition.range_feet:
                 raise ValidationError("spell target is outside range")
             los = service.execute(
                 "spatial.los",
                 {"source_entity_id": caster_id, "target_entity_id": target_id},
             )
-            if not bool(los["visible"]):
+            if not bool(los.get("visible", False)):
                 raise ValidationError("spell target is not visible")
         return requested
 
@@ -711,9 +797,17 @@ class SpellRuntime:
             self._validate_point_range(spatial, caster_id, point, definition.range_feet)
         shape: dict[str, object]
         if definition.area_shape == "sphere":
-            shape = {"kind": "sphere", "center": self._cell(point), "radius_feet": size}
+            shape = {
+                "kind": "sphere",
+                "center": self._cell(point),
+                "radius_feet": size,
+            }
         elif definition.area_shape == "cube":
-            shape = {"kind": "cube", "center": self._cell(point), "size_feet": size}
+            shape = {
+                "kind": "cube",
+                "center": self._cell(point),
+                "size_feet": size,
+            }
         elif definition.area_shape == "cylinder":
             shape = {
                 "kind": "cylinder",
@@ -778,16 +872,120 @@ class SpellRuntime:
             if not self._is_combatant(current, target_id):
                 continue
             for effect in active.effects:
-                if effect.kind is SpellEffectKind.CONDITION and effect.condition_id:
-                    if current.combatant(target_id).actor.to_rule_subject().has_condition(
-                        effect.condition_id
-                    ):
-                        current = self.combat.remove_condition(
-                            current,
-                            target_id=target_id,
-                            condition_id=effect.condition_id,
-                        ).state
+                if effect.kind is not SpellEffectKind.CONDITION or not effect.condition_id:
+                    continue
+                subject = current.combatant(target_id).actor.to_rule_subject()
+                if subject.has_condition(effect.condition_id):
+                    current = self.combat.remove_condition(
+                        current,
+                        target_id=target_id,
+                        condition_id=effect.condition_id,
+                    ).state
         return current
+
+    def _duration_effects(
+        self,
+        definition: SpellDefinition,
+    ) -> tuple[SpellEffectSpec, ...]:
+        return tuple(
+            effect
+            for effect in definition.effects
+            if effect.ongoing or effect.kind is SpellEffectKind.CONDITION
+        )
+
+    def _duration_target_ids(
+        self,
+        definition: SpellDefinition,
+        outcomes: tuple[SpellTargetOutcome, ...],
+    ) -> tuple[str, ...]:
+        duration_effects = self._duration_effects(definition)
+        result: list[str] = []
+        for outcome in outcomes:
+            if definition.resolution is SpellResolution.ATTACK and not outcome.success:
+                continue
+            if definition.resolution is SpellResolution.SAVE and outcome.success:
+                if all(
+                    effect.save_effect is SaveEffect.NEGATES
+                    for effect in duration_effects
+                ):
+                    continue
+            result.append(outcome.target_id)
+        return tuple(result)
+
+    def _sync_concentration_durations(
+        self,
+        state: SpellRuntimeState,
+        active_effects: tuple[ActiveSpellEffect, ...],
+        expired: set[tuple[str, str]],
+    ) -> SpellRuntimeState:
+        current = state
+        for caster in state.casters:
+            concentration = caster.concentration
+            if concentration is None:
+                continue
+            matching = next(
+                (
+                    effect
+                    for effect in active_effects
+                    if effect.concentration
+                    and effect.caster_id == caster.actor_id
+                    and effect.spell_id == concentration.spell_id
+                ),
+                None,
+            )
+            if matching is not None:
+                current = current.replace_caster(
+                    replace(
+                        current.caster(caster.actor_id),
+                        concentration=replace(
+                            concentration,
+                            remaining_rounds=matching.remaining_rounds,
+                        ),
+                    )
+                )
+            elif (caster.actor_id, concentration.spell_id) in expired:
+                current = current.replace_caster(
+                    replace(current.caster(caster.actor_id), concentration=None)
+                )
+        return current
+
+    def _target_event(
+        self,
+        sequence: int,
+        caster_id: str,
+        spell_id: str,
+        outcome: SpellTargetOutcome,
+    ) -> SpellEvent:
+        return self._event(
+            sequence,
+            "spell.target.resolved",
+            caster_id,
+            spell_id,
+            (outcome.target_id,),
+            (
+                ("roll", outcome.roll),
+                ("attack_total", outcome.attack_total),
+                ("save_total", outcome.save_total),
+                ("success", outcome.success),
+                ("amounts", outcome.amounts),
+            ),
+            rng_after=self._checkpoint(),
+        )
+
+    def _checkpoint(self) -> RNGCheckpoint:
+        state, increment = self.rng.snapshot()
+        return RNGCheckpoint(
+            algorithm=self.rng.ALGORITHM,
+            state=state,
+            increment=increment,
+        )
+
+    @staticmethod
+    def _integer_result(result: dict[str, object], key: str) -> int:
+        value = result.get(key)
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValidationError(f"spatial query {key} must be an integer")
+        return value
 
     @staticmethod
     def _cell(cell: GridCell | None) -> dict[str, int]:
@@ -806,7 +1004,9 @@ class SpellRuntime:
         caster_id: str,
         spell_id: str,
         target_ids: tuple[str, ...] = (),
-        payload: tuple[tuple[str, Any], ...] = (),
+        payload: tuple[tuple[str, SpellEventValue], ...] = (),
+        *,
+        rng_after: RNGCheckpoint | None = None,
     ) -> SpellEvent:
         return SpellEvent(
             sequence=sequence,
@@ -815,4 +1015,5 @@ class SpellRuntime:
             spell_id=spell_id,
             target_ids=target_ids,
             payload=payload,
+            rng_after=rng_after,
         )
