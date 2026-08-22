@@ -2,9 +2,11 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.1 Project foundation
+## Current focus: v0.2 Official SRD pipeline
 
-### Repository and governance
+The v0.1 executable foundation has been merged. Its remaining repository-administration and CI-proof items stay visible below as carryover; they do not block scoped v0.2 implementation work, but must not be silently forgotten.
+
+### v0.1 carryover: repository and governance
 
 - [x] Bootstrap repository.
 - [x] Add canonical `AGENTS.md` governance.
@@ -16,7 +18,7 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 - [x] Add governance CI that verifies required files and changelog/TODO discipline where practical.
 - [x] Decide and document release/versioning policy before first tagged release.
 
-### Project structure
+### v0.1 carryover: project structure
 
 - [x] Create top-level `apps/`, `engine/`, `content/`, `schemas/`, `tools/`, `tests/`, and `docs/adr/` structure.
 - [x] Add a minimal Godot 4.x project under `apps/godot-client/`.
@@ -24,7 +26,7 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 - [x] Decide the engine implementation language/runtime and document the rationale in an ADR.
 - [x] Define stable project IDs/namespaces for rules, actors, effects, events, and content packs.
 
-### Deterministic simulation foundations
+### v0.1 carryover: deterministic simulation foundations
 
 - [x] Define typed command envelope.
 - [x] Define typed domain event envelope.
@@ -36,7 +38,7 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 - [x] Define reducer/application interface from event(s) to state.
 - [x] Add a minimal command -> validation -> event -> reducer integration test.
 
-### State, events, saves, replay
+### v0.1 carryover: state, events, saves, replay
 
 - [x] Define event ordering and unique event IDs.
 - [x] Define campaign/session IDs.
@@ -47,77 +49,88 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 - [x] Add replay determinism test.
 - [x] Add corrupted/invalid save input validation tests.
 
-### Developer tooling and CI
+### v0.1 carryover: developer tooling and CI
 
 - [x] Choose formatting/linting/static-analysis tools for engine code.
 - [x] Add Godot project validation/headless test job.
 - [x] Add engine unit/integration test job.
 - [x] Add schema validation job.
-- [ ] Add generated-content determinism check once generation exists.
+- [x] Add generated-content determinism check using the v0.2 importer fixture build.
 - [ ] Add secret scanning/dependency security checks where supported.
-- [x] Add artifact/cache ignores for Godot/editor/build/test outputs.
+- [x] Add artifact/cache ignores for Godot/editor/build/test/rules-source outputs.
 
-### v0.1 exit criterion
+### v0.1 exit criterion carryover
 
 - [ ] Demonstrate a headless deterministic command producing a reproducible event and state transition in CI.
 
 ---
 
-## Next: v0.2 Official SRD pipeline
+## v0.2 Official SRD pipeline
 
 ### Legal/source boundary
 
-- [ ] Create an explicit rules-source allowlist.
-- [ ] Record selected SRD version, official source URL, license, retrieval date, and checksum.
-- [ ] Add `LICENSES/` and attribution output structure.
-- [ ] Document which D&D sources are intentionally excluded from ingestion.
-- [ ] Add importer guardrails that reject unknown/unapproved source identifiers.
+- [x] Create an explicit rules-source allowlist.
+- [ ] Record the actual approved-source retrieval timestamp alongside the selected SRD version, official source URL, license, and pinned checksum during the first full official fetch.
+- [x] Add `LICENSES/` and attribution output structure.
+- [x] Document which D&D sources are intentionally excluded from ingestion.
+- [x] Add importer guardrails that reject unknown/unapproved source identifiers and hosts.
 
 ### Fetch/archive
 
-- [ ] Implement approved-source fetcher.
-- [ ] Make fetcher resumable/idempotent where practical.
-- [ ] Store source metadata/checksum separately from generated canonical data.
-- [ ] Detect upstream source changes and require explicit review.
-- [ ] Ensure network/disk work does not block async/event-loop execution.
+- [x] Implement approved-source fetcher.
+- [x] Make fetcher resumable/idempotent where practical with ETag/Last-Modified cache validators.
+- [x] Store source metadata/checksum separately from generated canonical data.
+- [x] Detect upstream source changes through pinned SHA-256 verification and require explicit policy review.
+- [x] Ensure network/disk work does not block async/event-loop execution.
 
 ### Extract/normalize
 
-- [ ] Implement document extraction layer for the approved source format.
-- [ ] Normalize headings, paragraphs, lists, and tables without discarding provenance.
-- [ ] Preserve source section/page/anchor information where available.
-- [ ] Add extraction fixtures for representative text and tables.
+- [x] Implement PDF document extraction layer for the approved source format.
+- [x] Normalize headings, paragraphs, lists, tables, Unicode whitespace, and dice notation without discarding provenance.
+- [x] Preserve source section/page/bookmark information where available.
+- [x] Add extraction fixtures for representative text, headings, lists, and tables.
 
 ### Canonical schemas
 
-- [ ] Define common entity envelope with ID/version/source/license/provenance.
-- [ ] Define rule schema.
-- [ ] Define action/reaction schema.
-- [ ] Define ability/skill/save schema.
-- [ ] Define condition/effect/modifier/resource schema.
-- [ ] Define class/species/background/feature/feat schema.
-- [ ] Define spell schema.
-- [ ] Define item/weapon/armor/equipment schema.
-- [ ] Define creature/monster schema.
-- [ ] Define movement/vision/sense/terrain primitives.
-- [ ] Version all schemas.
+- [x] Define common entity envelope with ID/version/source/license/provenance.
+- [x] Define rule schema.
+- [x] Define action/reaction schema.
+- [x] Define ability/skill/save schema family.
+- [x] Define condition/effect/modifier/resource schema family.
+- [x] Define class/species/background/feature/feat schema family.
+- [x] Define spell schema.
+- [x] Define item/weapon/armor/equipment schema family.
+- [x] Define creature/monster schema.
+- [x] Define movement/vision/sense/terrain primitive schema.
+- [x] Version all schemas under `schemas/rules/v1/`.
 
 ### Compile/validate/export
 
-- [ ] Build normalized-document -> canonical-entity compiler.
-- [ ] Validate all generated entities against schemas.
-- [ ] Detect duplicate/unstable IDs.
-- [ ] Generate deterministic sorted output.
-- [ ] Produce unsupported-mechanic report.
-- [ ] Produce import summary/coverage report.
-- [ ] Produce attribution/license bundle from provenance metadata.
+- [x] Build normalized-document -> canonical-entity compiler.
+- [x] Validate generated entities against versioned kind-specific JSON Schemas.
+- [x] Detect duplicate/unstable IDs and fail rather than silently renumbering collisions.
+- [x] Generate deterministic sorted JSONL output.
+- [x] Produce unsupported-mechanic report.
+- [x] Produce import summary/coverage report with canonical output checksum.
+- [x] Produce attribution/license bundle from provenance/source policy metadata.
+- [x] Re-hash cached source bytes immediately before parsing to detect post-manifest tampering.
 
 ### Version diffing
 
-- [ ] Add canonical entity diff by SRD/source version.
-- [ ] Report added/changed/removed/unchanged entities.
-- [ ] Distinguish prose-only changes from executable/mechanical changes where possible.
-- [ ] Store enough metadata to review upstream errata safely.
+- [x] Add canonical entity diff by SRD/source version.
+- [x] Report added/changed/removed/unchanged entities.
+- [x] Distinguish prose-only changes from executable/mechanical changes where possible.
+- [x] Store source version/license/hash/retrieval/importer metadata needed to review upstream errata safely.
+
+### Validation before v0.2 completion
+
+- [x] Add mocked HTTP, source-policy, PDF extraction, normalization, compiler, schema, report, diff, and tamper regression tests.
+- [x] Add deterministic importer fixture smoke build that compares byte-for-byte output from two independent builds.
+- [x] Keep raw source PDFs in ignored local cache rather than Git.
+- [ ] Fetch the pinned official SRD 5.2.1 PDF with the production allowlist and record its retrieval manifest.
+- [ ] Run the complete 364-page official source through extraction/normalization/compilation/schema validation.
+- [ ] Review full-dataset stable-ID collisions, heading classification, entity counts, and unsupported/manual-review coverage.
+- [ ] Decide whether audited generated SRD canonical output should be committed or rebuilt as a release artifact.
 
 ### v0.2 exit criterion
 
