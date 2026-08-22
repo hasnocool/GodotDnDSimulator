@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/spell-event.schema.json",
+  "title": "GodotDnDSimulator Spell Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "sequence",
+    "event_type",
+    "caster_id",
+    "spell_id",
+    "target_ids",
+    "payload"
+  ],
+  "properties": {
+    "version": {"const": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "caster_id": {"type": "string", "minLength": 1},
+    "spell_id": {"type": "string", "minLength": 1},
+    "target_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {"type": "string"},
+          {"type": "integer"},
+          {"type": "boolean"},
+          {"type": "null"},
+          {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        ]
+      }
+    }
+  }
+}
