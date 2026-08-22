@@ -36,6 +36,7 @@ from .state import (
     DurationUnit,
     RuleSubjectState,
     RuleWorldState,
+    advance_condition_durations,
 )
 from .targets import TargetMode, TargetSelector, select_targets
 
@@ -76,6 +77,7 @@ __all__ = [
     "TargetMode",
     "TargetSelector",
     "Trigger",
+    "advance_condition_durations",
     "apply_effects",
     "collect_reactions",
     "evaluate_requirements",

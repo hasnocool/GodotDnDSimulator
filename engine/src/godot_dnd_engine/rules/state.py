@@ -124,6 +124,35 @@ class RuleSubjectState:
         )
 
 
+def advance_condition_durations(
+    subject: RuleSubjectState,
+    unit: DurationUnit,
+    amount: int = 1,
+) -> RuleSubjectState:
+    """Advance matching finite condition durations and remove expired conditions."""
+
+    if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+        raise ValidationError("condition duration advance amount must be an integer >= 0")
+    updated_conditions: list[ConditionInstance] = []
+    for condition in subject.conditions:
+        duration = condition.duration
+        if duration is None or duration.unit is not unit:
+            updated_conditions.append(condition)
+            continue
+        advanced = duration.advance(amount)
+        if advanced is None:
+            continue
+        updated_conditions.append(
+            ConditionInstance(
+                condition_id=condition.condition_id,
+                source_id=condition.source_id,
+                duration=advanced,
+                stacks=condition.stacks,
+            )
+        )
+    return subject.with_conditions(tuple(updated_conditions))
+
+
 @dataclass(frozen=True, slots=True)
 class RuleWorldState:
     subjects: tuple[RuleSubjectState, ...]

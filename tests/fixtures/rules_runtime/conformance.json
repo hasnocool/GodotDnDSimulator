@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "trained agility check",
+      "source_id": "wotc-srd-5.2.1-en",
+      "test_kind": "ability_check",
+      "ability": "dexterity",
+      "ability_score": 16,
+      "proficiency_rank": "full",
+      "proficiency_bonus": 3,
+      "difficulty_class": 15,
+      "advantage_sources": 1,
+      "disadvantage_sources": 0,
+      "seed": 2025
+    },
+    {
+      "name": "resilient save with cancelling circumstances",
+      "source_id": "wotc-srd-5.2.1-en",
+      "test_kind": "saving_throw",
+      "ability": "constitution",
+      "ability_score": 14,
+      "proficiency_rank": "full",
+      "proficiency_bonus": 3,
+      "difficulty_class": 14,
+      "advantage_sources": 2,
+      "disadvantage_sources": 1,
+      "seed": 2026
+    }
+  ]
+}
