@@ -48,8 +48,8 @@ correct engine contract.
 
 - [x] Add `apps/godot-client/AGENTS.md` with client-specific authority, bridge, testing, and UX rules.
 - [x] Add this detailed `apps/godot-client/TODO.md` client backlog.
-- [ ] Keep root `AGENTS.md` wired to require the local client contract/TODO for client work.
-- [ ] Keep Claude, Gemini, and Copilot repository adapters wired to the local client contract/TODO.
+- [x] Keep root `AGENTS.md` wired to require the local client contract/TODO for client work.
+- [x] Keep Claude, Gemini, and Copilot repository adapters wired to the local client contract/TODO.
 - [ ] Keep root `TODO.md` v0.7 pointing to this detailed client backlog.
 - [ ] Add client-specific validation to governance tooling if plain documentation references prove too
       easy to drift.
@@ -59,7 +59,7 @@ correct engine contract.
 Create these only as implementation needs them; empty directory scaffolding is not completion.
 
 - [ ] `autoload/` for presentation app shell/bridge registry/settings only.
-- [ ] `bridge/` for typed engine transport/protocol adapters.
+- [x] `bridge/` for typed engine transport/protocol adapters.
 - [ ] `state/` for authoritative mirror, interaction state, and presentation state.
 - [ ] `camera/` for tactical camera controllers/config.
 - [ ] `input/` for input mapping and interaction modes.
@@ -69,7 +69,7 @@ Create these only as implementation needs them; empty directory scaffolding is n
 - [ ] `ui/hud/`, `ui/actions/`, `ui/panels/`, `ui/common/` as corresponding UI arrives.
 - [ ] `presentation/` for event-to-animation/VFX/audio mapping.
 - [ ] `debug/` for authoritative tactical/debug overlays.
-- [ ] `tests/` for headless Godot client tests.
+- [x] `tests/` for headless Godot client tests.
 
 ---
 
@@ -77,36 +77,56 @@ Create these only as implementation needs them; empty directory scaffolding is n
 
 **Roadmap ownership:** prerequisite for v0.7 and reusable by later clients.
 
+Implementation is present on the C1 feature branch. Exact repository CI validation remains open
+because the current GitHub-hosted run terminates before creating any job steps.
+
 ### Contract
 
-- [ ] Define a Godot-facing engine bridge interface with no scene-specific dependencies.
-- [ ] Define typed client command request shape with command ID/correlation ID.
-- [ ] Define command accepted/rejected response handling.
-- [ ] Define authoritative snapshot/state ingestion contract.
-- [ ] Define ordered domain-event ingestion contract.
-- [ ] Define query interface for legal actions and read-only engine facts.
-- [ ] Define preview interface for movement/targeting/spatial queries once v0.6 contracts exist.
-- [ ] Define bridge version/capability negotiation.
-- [ ] Define explicit incompatible-version behavior.
-- [ ] Define error categories suitable for user-facing messaging plus debug detail.
+- [x] Define a Godot-facing engine bridge interface with no scene-specific dependencies.
+- [x] Define typed client command request shape with command ID/correlation ID.
+- [x] Define command accepted/rejected response handling.
+- [x] Define authoritative snapshot/state ingestion contract.
+- [x] Define ordered domain-event ingestion contract.
+- [x] Define query interface for legal actions and read-only engine facts.
+- [x] Define preview interface for movement/targeting/spatial queries once v0.6 contracts exist.
+- [x] Define bridge version/capability negotiation.
+- [x] Define explicit incompatible-version behavior.
+- [x] Define error categories suitable for user-facing messaging plus debug detail.
+- [x] Add versioned client bridge JSON Schema.
+- [x] Document the bridge protocol, authority boundary, transport, resync, and local host.
 
 ### Transport separation
 
-- [ ] Implement a transport-independent `EngineBridge` abstraction.
-- [ ] Implement a local/dev transport suitable for the vertical slice.
-- [ ] Keep transport shape capable of later remote/server use without rewriting tactical scenes.
-- [ ] Ensure transport/network/disk work never blocks the Godot frame loop.
-- [ ] Add cancellation/timeouts for requests that can outlive an interaction mode.
-- [ ] Reject stale command/preview responses using correlation/generation IDs where applicable.
+- [x] Implement a transport-independent `EngineBridge` abstraction.
+- [x] Implement a local/dev transport suitable for the vertical slice.
+- [x] Keep transport shape capable of later remote/server use without rewriting tactical scenes.
+- [x] Ensure transport/network/disk work never blocks the Godot frame loop.
+- [x] Add cancellation/timeouts for requests that can outlive an interaction mode.
+- [x] Reject stale command/preview responses using correlation/generation IDs where applicable.
+- [x] Reject authoritative event sequence gaps and require resynchronization rather than guessing state.
+- [x] Renegotiate capabilities and request authoritative resync after reconnect.
+- [x] Add a standard-library `asyncio` localhost host over the authoritative Python engine.
+- [x] Expose the local host through the `godot-dnd-client-bridge` CLI entry point.
 
 ### Fixtures/testing
 
-- [ ] Add deterministic recorded snapshot/event fixtures for client tests.
-- [ ] Add a fake/test bridge that can drive scenes without a live engine process.
-- [ ] Test accepted command -> authoritative update flow.
-- [ ] Test rejected command -> UI error/reconciliation flow.
-- [ ] Test out-of-order/stale response rejection.
-- [ ] Test bridge disconnect/reconnect/resync behavior at the presentation boundary when supported.
+- [x] Add deterministic recorded snapshot/event fixtures for client tests.
+- [x] Add a fake/test bridge that can drive scenes without a live engine process.
+- [x] Test accepted command -> authoritative update flow.
+- [x] Test rejected command -> UI error/reconciliation flow.
+- [x] Test out-of-order/stale response rejection.
+- [x] Test bridge disconnect/reconnect/resync behavior at the presentation boundary.
+- [x] Add Python bridge protocol/session tests including a real localhost TCP round-trip test.
+- [x] Add a Godot headless bridge test script and wire it into the Godot CI job.
+
+### C1 validation / exit criterion
+
+- [ ] Confirm Ruff, strict Mypy, full Python pytest/coverage, governance/schema checks, Godot 4.7.1
+      project parsing, and `res://tests/bridge_tests.gd` on the exact PR head.
+- [ ] Demonstrate the real Godot `TcpJsonTransport` negotiating with the Python localhost host in an
+      executable integration run before v0.7 gameplay depends on the live bridge.
+- [ ] Mark C1 complete only after the executable bridge checks pass without adding client-side rule
+      authority.
 
 ---
 

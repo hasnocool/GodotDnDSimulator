@@ -1,0 +1,30 @@
+[
+  {
+    "schema_version": 1,
+    "event_id": "event:0000000000000001",
+    "campaign_id": "campaign:bridge-fixture",
+    "session_id": "session:bridge-fixture",
+    "sequence": 1,
+    "event_type": "simulation.tick_advanced",
+    "version": 1,
+    "tick": 1,
+    "correlation_id": "command:bridge-fixture-1",
+    "causation_id": "command:bridge-fixture-1",
+    "payload": {"amount": 1},
+    "rng_after": null
+  },
+  {
+    "schema_version": 1,
+    "event_id": "event:0000000000000002",
+    "campaign_id": "campaign:bridge-fixture",
+    "session_id": "session:bridge-fixture",
+    "sequence": 2,
+    "event_type": "simulation.tick_advanced",
+    "version": 1,
+    "tick": 2,
+    "correlation_id": "command:bridge-fixture-2",
+    "causation_id": "command:bridge-fixture-2",
+    "payload": {"amount": 1},
+    "rng_after": null
+  }
+]

@@ -57,6 +57,11 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - `schemas/v1/combat-event.schema.json` and `docs/V0.5_TACTICAL_COMBAT.md` documenting the combat/event boundary and v0.6 spatial handoff.
 - Godot-client-local `AGENTS.md` defining the presentation/engine authority boundary, bridge/state/input architecture, testing rules, performance guidance, UX/accessibility expectations, and client PR definition of done.
 - Detailed `apps/godot-client/TODO.md` covering client architecture and execution from the v0.7 tactical vertical slice through spell UI, complete character creation, and the v1.0 RPG shell.
+- Versioned Godot client bridge v1 with request/correlation/generation IDs, capability negotiation, categorized failures, timeout/cancellation handling, ordered authoritative snapshot/event ingestion, and reconnect/resync semantics.
+- Transport-independent Godot `EngineBridge`, deterministic fake transport, and non-blocking newline-delimited JSON/TCP local transport.
+- Standard-library `asyncio` authoritative bridge host over `SimulationEngine`, exposed as `godot-dnd-client-bridge`, with command submission plus snapshot/resync/capability queries.
+- Client bridge v1 JSON Schema, deterministic snapshot/event fixtures, Python localhost TCP tests, and headless Godot bridge lifecycle tests.
+- `docs/GODOT_CLIENT_BRIDGE.md` documenting the client/engine authority boundary, bridge protocol, transport, synchronization, errors, local host, and v0.6/v0.7 extension path.
 
 ### Changed
 
@@ -67,6 +72,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Active implementation focus advances from the v0.4 character runtime to v0.5 tactical combat while unfinished CI/full-source audit items remain tracked as carryover.
 - v0.5 movement commands account for per-turn distance only; authoritative path/range/LOS/cover/terrain legality remains explicitly reserved for v0.6 spatial authority.
 - Root agent governance plus Claude, Gemini, and Copilot adapters now require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
+- Godot CI now executes the client bridge headless test script after project parsing; the C1 exit gate remains open until GitHub-hosted jobs actually execute and pass.
 
 ### Deprecated
 
@@ -88,6 +94,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Rules runtime primitives fail closed on malformed ability/DC/proficiency/resource/modifier/duration/condition/selector/effect/hook/capability inputs and preserve original immutable state when effect or cost resolution fails.
 - Character runtime rejects malformed actor identity/state, duplicate abilities/proficiencies/movement/senses/resources/options, invalid inventory/equipment references, invalid option catalogs, and unsupported/corrupt actor serialization versions.
 - Tactical combat rejects malformed encounter/event/attack/damage/reaction inputs, non-contiguous replay events, illegal turn ownership/resource use, and unsupported combat event schema versions.
+- Client bridge validation rejects incompatible protocol versions, malformed envelopes/state payloads, regressing snapshots, stale/duplicate responses, and non-contiguous authoritative event batches rather than guessing client state.
 
 <!--
 Release process notes:

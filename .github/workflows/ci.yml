@@ -103,3 +103,7 @@ jobs:
         shell: bash
         run: |
           "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --editor --quit
+      - name: Run Godot client bridge tests
+        shell: bash
+        run: |
+          "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --script res://tests/bridge_tests.gd

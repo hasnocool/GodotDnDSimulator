@@ -12,6 +12,9 @@ license = { text = "Proprietary project code; see repository licensing documenta
 authors = [{ name = "GodotDnDSimulator contributors" }]
 dependencies = []
 
+[project.scripts]
+godot-dnd-client-bridge = "godot_dnd_engine.client_bridge:main"
+
 [project.optional-dependencies]
 rules = [
   "httpx>=0.28.1,<1",
