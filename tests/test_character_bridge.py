@@ -13,7 +13,11 @@ from godot_dnd_engine.client_bridge import PROTOCOL_NAME, PROTOCOL_VERSION
 from godot_dnd_engine.engine import SimulationEngine
 
 
-def _request(kind: str, payload: dict[str, object], correlation: str = "creator:test") -> dict[str, object]:
+def _request(
+    kind: str,
+    payload: dict[str, object],
+    correlation: str = "creator:test",
+) -> dict[str, object]:
     return {
         "bridge_version": PROTOCOL_VERSION,
         "kind": kind,
@@ -32,7 +36,9 @@ def _bridge() -> CharacterClientBridgeSession:
             seed=23,
         ),
         None,
-        CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog())),
+        CharacterCreatorService(
+            CharacterCreatorRuntime(demo_character_catalog())
+        ),
     )
 
 
@@ -76,7 +82,11 @@ def test_character_bridge_advertises_creator_and_returns_engine_schema() -> None
     hello = bridge.handle_message(
         _request(
             "bridge.hello",
-            {"protocol": PROTOCOL_NAME, "client": "godot", "capabilities": []},
+            {
+                "protocol": PROTOCOL_NAME,
+                "client": "godot",
+                "capabilities": [],
+            },
         )
     )
     capabilities = _payload(hello)["capabilities"]
@@ -96,7 +106,7 @@ def test_character_bridge_advertises_creator_and_returns_engine_schema() -> None
     assert result["choices"]
 
 
-def test_character_create_and_level_up_flow_through_typed_bridge_commands() -> None:
+def test_character_create_and_level_up_through_typed_commands() -> None:
     bridge = _bridge()
     create_command = {
         "command_id": "command:create-character",
@@ -109,7 +119,11 @@ def test_character_create_and_level_up_flow_through_typed_bridge_commands() -> N
         "expected_sequence": 0,
     }
     created = bridge.handle_message(
-        _request("command.submit", {"command": create_command}, "creator:create")
+        _request(
+            "command.submit",
+            {"command": create_command},
+            "creator:create",
+        )
     )
     record = _payload(created)["result"]["record"]
     assert record["actor"]["name"] == "Mira Quill"
@@ -126,7 +140,9 @@ def test_character_create_and_level_up_flow_through_typed_bridge_commands() -> N
         )
     )
     choice_rows = _payload(choices)["choices"]
-    assert [item["choice_id"] for item in choice_rows] == ["advance:guardian-brace"]
+    assert [item["choice_id"] for item in choice_rows] == [
+        "advance:guardian-brace"
+    ]
 
     level_command = {
         "command_id": "command:level-character",
@@ -142,7 +158,11 @@ def test_character_create_and_level_up_flow_through_typed_bridge_commands() -> N
         "expected_sequence": 0,
     }
     advanced = bridge.handle_message(
-        _request("command.submit", {"command": level_command}, "creator:levelup")
+        _request(
+            "command.submit",
+            {"command": level_command},
+            "creator:levelup",
+        )
     )
     advanced_record = _payload(advanced)["result"]["record"]
     assert advanced_record["actor"]["level"] == 2
