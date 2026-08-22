@@ -15,12 +15,13 @@ enum ShellState {
 signal shell_state_changed(state: int, message: String)
 signal tactical_scene_ready(scene: Node)
 
+const CORE_TACTICAL_SCENE := "res://scenes/tactical/tactical_stub.tscn"
+const VERTICAL_SLICE_SCENE := "res://scenes/tactical/tactical_vertical_slice.tscn"
+
 @export var auto_start_bridge := true
 @export var bridge_host := "127.0.0.1"
 @export var bridge_port := 4765
-@export_file("*.tscn") var tactical_scene_path := (
-    "res://scenes/tactical/tactical_vertical_slice.tscn"
-)
+@export_file("*.tscn") var tactical_scene_path := CORE_TACTICAL_SCENE
 
 var transport_override: EngineTransport
 
@@ -191,12 +192,13 @@ func _on_bridge_ready(version: int, capabilities: PackedStringArray) -> void:
         "Bridge negotiation complete",
         "version=%d capabilities=%s" % [version, ",".join(capabilities)],
     )
+    var has_vertical_slice := capabilities.has("tactical.vertical-slice.v1")
+    var desired_scene := VERTICAL_SLICE_SCENE if has_vertical_slice else CORE_TACTICAL_SCENE
+    if desired_scene != tactical_scene_path:
+        tactical_scene_path = desired_scene
+        _tactical_scene_resource = null
     _set_shell_state(ShellState.SYNCHRONIZING, "Synchronizing authoritative state")
-    var snapshot_query := (
-        "tactical.snapshot"
-        if capabilities.has("tactical.vertical-slice.v1")
-        else "bridge.snapshot"
-    )
+    var snapshot_query := "tactical.snapshot" if has_vertical_slice else "bridge.snapshot"
     var request_id := _client_state.request_query(
         snapshot_query,
         {},
