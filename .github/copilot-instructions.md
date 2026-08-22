@@ -4,7 +4,10 @@ Read and follow `/AGENTS.md` as the canonical project contract before proposing 
 
 Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` plus relevant `/docs` synchronized.
 
-For every task touching `apps/godot-client/**`, first read and follow `/apps/godot-client/AGENTS.md` and `/apps/godot-client/TODO.md`. Root roadmap/TODO remain milestone authority; the client TODO is the detailed execution backlog.
+For any task that touches `apps/godot-client/**`, **before editing** also read and obey:
+
+- `/apps/godot-client/AGENTS.md` — client-specific authority, architecture, bridge, testing, performance, and UX contract;
+- `/apps/godot-client/TODO.md` — detailed client execution backlog subordinate to the root roadmap/TODO.
 
 ## Non-negotiable architecture
 
@@ -14,7 +17,6 @@ For every task touching `apps/godot-client/**`, first read and follow `/apps/god
 - Prefer generic triggers/requirements/targets/modifiers/effects over named spell/item/monster conditionals.
 - Spatial legality must be headlessly testable; Godot navigation is an adapter, not the rules authority.
 - AI/LLMs may submit typed commands but never directly mutate game state.
-- Godot client scenes depend on the transport-independent engine bridge, never sockets/processes directly.
 
 ## Rules/content
 
@@ -30,7 +32,7 @@ For every task touching `apps/godot-client/**`, first read and follow `/apps/god
 - Add tests for behavioral changes and regression tests for bug fixes.
 - Do not hand-edit generated rules/content owned by a generator.
 - Validate untrusted packs, imports, network input, and AI tool arguments.
-- Keep `/apps/godot-client/TODO.md` synchronized when client implementation changes its detailed backlog.
+- For Godot-client work, keep `/apps/godot-client/TODO.md` synchronized with implementation and follow its bridge/state/input/presentation boundaries.
 
 ## Git
 
@@ -40,4 +42,4 @@ For every task touching `apps/godot-client/**`, first read and follow `/apps/god
 - Update TODO/changelog/docs in the same PR.
 - Inspect the final diff and test results before declaring completion.
 
-If any instruction here conflicts with `/AGENTS.md`, `/AGENTS.md` wins.
+If any instruction here conflicts with `/AGENTS.md`, `/AGENTS.md` wins. Within `apps/godot-client/**`, the local client `AGENTS.md` may add stricter requirements but may not weaken the root contract.

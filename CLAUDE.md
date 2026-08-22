@@ -4,7 +4,10 @@
 
 Also read `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`, and the relevant documents under `docs/` before implementation.
 
-When a task touches anything under `apps/godot-client/**`, also read and obey `apps/godot-client/AGENTS.md` and `apps/godot-client/TODO.md` before editing client files. The root roadmap/TODO remain milestone authority; the client TODO is the detailed execution backlog.
+For any task that touches `apps/godot-client/**`, **before editing** also read and obey:
+
+- `apps/godot-client/AGENTS.md` — client-specific authority, architecture, bridge, testing, performance, and UX contract;
+- `apps/godot-client/TODO.md` — detailed client execution backlog subordinate to the root roadmap/TODO.
 
 Claude-specific reminders:
 
@@ -14,8 +17,8 @@ Claude-specific reminders:
 - Never let Godot presentation code become authoritative game state.
 - Route all randomness through deterministic project abstractions.
 - Add regression/conformance tests for behavioral changes.
-- Update `TODO.md`, `CHANGELOG.md`, relevant docs, and `apps/godot-client/TODO.md` when client work changes its detailed backlog.
+- Update `TODO.md`, `CHANGELOG.md`, and relevant docs in the same PR; for client work also keep `apps/godot-client/TODO.md` synchronized.
 - Use a feature/fix/docs/refactor/chore/test branch; do not develop directly on `main`.
 - Before reporting completion, inspect the final diff and state exactly what tests ran.
 
-If this file conflicts with `AGENTS.md`, `AGENTS.md` wins.
+If this file conflicts with `AGENTS.md`, `AGENTS.md` wins. Within `apps/godot-client/**`, the local client `AGENTS.md` may add stricter requirements but may not weaken the root contract.

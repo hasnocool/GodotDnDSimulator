@@ -1,6 +1,9 @@
 # Godot Client Agent Contract
 
-This file extends the repository-root `AGENTS.md` for every task that touches `apps/godot-client/**`. The root contract remains authoritative; this file may tighten client requirements but must never weaken repository architecture, determinism, licensing, testing, TODO, changelog, or Git rules.
+This file extends the repository-root `AGENTS.md` for every task that touches
+`apps/godot-client/**`. The root contract remains authoritative; this file may tighten client
+requirements but must never weaken repository architecture, determinism, licensing, testing,
+TODO, changelog, or Git rules.
 
 ## Mandatory reading for client work
 
@@ -12,24 +15,28 @@ Before editing anything under `apps/godot-client/`, read in this order:
 4. `/CHANGELOG.md`
 5. `/docs/ARCHITECTURE.md`
 6. `/docs/PROJECT_PLAN.md`
-7. `/apps/godot-client/AGENTS.md`
+7. `/apps/godot-client/AGENTS.md` (this file)
 8. `/apps/godot-client/TODO.md`
-9. the scenes/scripts/tests directly related to the task
+9. the Godot scenes/scripts/tests directly related to the task
 
-When client work crosses rules, content, saves, networking, or Git workflow, also read the corresponding repository documentation required by root `AGENTS.md`.
+If client work crosses into rules, content, saves, networking, or Git workflow, also read the
+corresponding repository documentation required by the root `AGENTS.md`.
 
 ## Client mission
 
-The Godot client is a **presentation, input, and UX adapter** over authoritative headless engine state. It should make the deterministic RPG feel polished without creating a second rules engine.
+The Godot client is a **presentation, input, and UX adapter** over authoritative headless engine
+state. It should make the deterministic RPG feel polished without creating a second rules engine.
+
+Conceptually:
 
 ```text
 player input
     |
     v
-Godot intent / typed request
+Godot intent / typed command request
     |
     v
-client engine bridge
+engine bridge
     |
     v
 AUTHORITATIVE HEADLESS ENGINE
@@ -50,124 +57,232 @@ Godot may:
 
 - render authoritative actors, maps, spatial data, HUD values, previews, and event history;
 - gather keyboard, mouse, controller, and UI intent;
-- request legal-action/query/preview data from the engine;
+- request legal-action/query data from the engine;
 - submit typed commands through the engine bridge;
-- cache presentation-only state such as camera, hover, selection, panels, settings, and animation progress;
-- animate already-resolved domain events.
+- predict or preview only when the result is clearly non-authoritative and reconciled to engine
+  output;
+- animate already-resolved domain events;
+- cache presentation-only state such as camera position, hovered object, open panel, local settings,
+  animation progress, and selected visual theme.
 
 Godot must not:
 
-- decide attacks, damage, saves, resource costs, conditions, initiative, movement legality, path cost, LOS, cover, targeting legality, AoE membership, or other rule outcomes;
+- decide whether an attack hits, damage amounts, saves, resource costs, conditions, initiative,
+  movement legality, path cost, LOS, cover, targeting legality, AoE membership, or other rules
+  outcomes;
 - directly mutate authoritative actor/campaign/combat/spatial state;
-- maintain an independent authoritative rules copy in GDScript;
-- use Godot navigation as spatial-rules authority;
-- invent gameplay randomness with Godot RNG APIs;
-- hardcode named spell/item/monster mechanics into UI scripts.
+- maintain an independent authoritative copy of game rules in GDScript;
+- use Godot navigation as the rules authority for movement legality;
+- invent random gameplay outcomes with Godot RNG APIs;
+- hardcode named spell/item/monster behavior into UI scripts.
 
-If the client needs information it cannot obtain cleanly, extend the typed engine command/query/preview contract instead of duplicating the rule in Godot.
+If the client needs information it cannot obtain cleanly, extend the typed engine/query/preview
+contract instead of duplicating the rule in Godot.
 
-## State separation
+## Client state model
 
-Keep three concepts distinct:
+Keep three state categories visibly separate:
 
-1. **Authoritative mirror** — read-only client representation of engine snapshots/events.
-2. **Interaction state** — local intent such as selected/hovered actor, targeting mode, pending request, and generation IDs.
-3. **Presentation state** — camera, animation, VFX, audio, UI layout/settings, and other non-authoritative visuals.
+1. **Authoritative mirror** — immutable/read-only client representation of engine snapshots/events.
+2. **Interaction state** — selection, hover, targeting mode, pending intent, drag state, open menus.
+3. **Presentation state** — camera, animation, particles, audio, interpolation, occlusion fades,
+   local accessibility/settings.
 
-Never hide authoritative gameplay state only in scene nodes. Scene reload/reconstruction must be possible from authoritative state plus presentation settings.
+Never write interaction or presentation state back into the authoritative mirror as if it were a
+resolved game outcome.
 
-## Bridge rules
+## Engine bridge rules
 
-Client bridge work must follow `docs/GODOT_CLIENT_BRIDGE.md` when that document exists.
+The engine bridge is the only normal path between Godot and authoritative simulation.
 
-- Scene scripts depend on a transport-independent bridge abstraction, not sockets/processes directly.
-- Every request has a request ID and correlation ID.
-- Preview/query work that can become stale must carry a generation ID.
-- Command accepted/rejected outcomes are explicit.
-- Authoritative snapshots/events are sequence-validated before presentation.
-- Event sequence gaps require resync; never guess missing state.
-- Version/capability mismatches fail closed with a visible incompatible state.
-- Transport/network/disk work must not block the frame loop.
-- Long-lived requests need cancellation/timeouts.
-- Reconnect requires renegotiation and resynchronization.
-- Later remote/server transports must not require tactical scene rewrites.
+It must eventually support:
 
-## Spatial boundary
+- typed command submission with correlation IDs;
+- snapshot/state ingestion;
+- ordered domain-event ingestion;
+- legal-action and rule-query APIs;
+- spatial/path/LOS/cover/AoE preview queries once v0.6 exists;
+- version/capability negotiation;
+- explicit errors/rejections surfaced to UI;
+- deterministic test fixtures that can drive the client without a live campaign;
+- a transport boundary that can later support in-process/local and remote/server implementations
+  without rewriting scenes.
 
-Godot navigation may provide geometry/navigation observations, but v0.6 headless spatial authority owns legality, distance/reach, occupancy, movement cost, terrain, LOS, cover, elevation, and AoE membership.
+Do not let individual Control/Node3D scripts call arbitrary engine internals. Prefer a small bridge
+plus presentation stores/controllers.
 
-Movement/targeting UI renders engine query results. It does not recreate spatial rules locally.
+## Scene and source ownership
+
+As the client grows, prefer this separation:
+
+```text
+apps/godot-client/
+  AGENTS.md
+  TODO.md
+  project.godot
+  main.tscn
+  autoload/       # app shell, bridge registration, settings; no rules authority
+  bridge/         # engine transport/protocol adapters
+  state/          # authoritative mirror + presentation/interaction stores
+  scenes/
+    shell/        # startup/loading/root composition
+    tactical/     # battle map and encounter presentation
+    actors/       # reusable actor presentation scenes
+    world/        # exploration/world presentation when later milestones require it
+  ui/
+    hud/          # tactical HUD, turn order, resources
+    actions/      # action bar, targeting prompts
+    panels/       # character/inventory/journal/etc. as future milestones arrive
+    common/       # reusable controls
+  camera/         # orthographic rig/input behavior
+  input/          # intent mapping and interaction modes
+  presentation/   # event -> animation/VFX/audio mapping
+  debug/          # grid/path/LOS/cover/IDs/performance overlays
+  assets/         # project-owned or properly licensed client assets
+  tests/          # headless Godot presentation/integration tests
+```
+
+Do not create these directories merely to satisfy the diagram; add them when a scoped TODO requires
+them. Avoid giant scene scripts and global autoloads that become implicit game-state owners.
+
+## Input and command flow
+
+Input should move through explicit intent states rather than directly mutating scenes.
+
+Preferred flow:
+
+```text
+raw input -> input mapping -> interaction controller -> preview/query -> typed command -> engine
+                                                                  |
+                                                                  v
+                                                         rejection / events
+                                                                  |
+                                                                  v
+                                                            presentation
+```
+
+Keyboard/mouse/controller bindings belong in reusable input mappings. UI buttons and hotkeys for
+the same action should converge on the same intent/command path.
+
+## Spatial-client boundary
+
+For v0.6+ integration:
+
+- Godot physics/navigation may provide geometry/nav observations to an adapter.
+- The headless spatial authority decides occupancy, legal movement, cost, range/reach, LOS, cover,
+  terrain effects, elevation rules, and AoE membership.
+- Movement/path previews displayed by Godot must be based on engine/spatial query results.
+- Debug overlays should be able to show both rendered/nav geometry and authoritative logical data so
+  disagreements are diagnosable.
 
 ## Presentation events
 
-Animations, VFX, audio, floating text, camera emphasis, and combat-log formatting consume authoritative events. They may lag, be skipped, or run in reduced-motion/instant modes without changing authoritative progression.
+Animations, VFX, sound, floating text, camera emphasis, and UI transitions should subscribe to
+resolved events/presentation messages. They may delay or interpolate visuals but must not delay or
+change authoritative state.
 
-Do not gate engine progress on animation completion unless a future explicit presentation synchronization protocol says otherwise.
+Event presentation must tolerate:
 
-## Input and UI
+- replay at accelerated speed;
+- skipped/cancelled animations;
+- save/load into the middle of an encounter;
+- reconnect/resynchronization later;
+- missing optional art/audio assets;
+- duplicate visual refresh without duplicate authoritative commands.
 
-- Prefer semantic input actions over hardcoded key checks.
-- Keep interaction modes explicit and cancellable.
-- One confirmed intent must submit at most one authoritative command.
-- Disable/reconcile duplicate rapid confirmations while a command is pending.
-- Engine-provided legal actions and rejection reasons drive action availability; UI lists are not a second rules database.
-- Keyboard/controller accessibility should remain structurally possible as mouse UX grows.
-- Important states must not rely on color alone.
+## Camera baseline
 
-## Godot implementation rules
+The intended tactical camera is true 3D orthographic/isometric. The client TODO owns the concrete
+implementation, but agents should preserve these design goals:
 
-- Prefer small reusable scenes/scripts over monolithic scene controllers.
-- Keep scene composition declarative where practical.
-- Do not put blocking socket/process/file/database work in `_process`, `_physics_process`, input callbacks, or UI signal handlers.
-- Avoid per-frame allocations and repeated tree searches in hot paths when a stable reference/cache works.
-- Keep stable engine IDs explicit in presentation objects; do not use node paths as domain identity.
-- Treat bridge/network/content data as untrusted and validate before use.
-- Keep optional asset failure recoverable with placeholders/fallbacks.
+- pan with keyboard and pointer/edge or drag input as appropriate;
+- bounded, smooth orthographic zoom;
+- deterministic 90-degree view rotation around the tactical focus/pivot;
+- focus selected/current actor without transferring gameplay authority to the camera;
+- map-defined bounds and sensible behavior at different aspect ratios;
+- camera motion that can be disabled/reduced for accessibility.
 
-## Testing
+## UI/UX rules
 
-Behavioral client changes need tests at the narrowest useful layer.
+- UI displays engine-derived facts and available actions; it does not infer hidden rule legality.
+- Disable or annotate unavailable actions from engine-provided reasons rather than reproducing rules.
+- Maintain clear selected/hovered/targeted states.
+- Keep targeting modes cancellable.
+- Surface engine command rejection/error details in a user-friendly form and retain technical detail
+  in debug tooling/logs.
+- Design for keyboard/mouse first while keeping controller navigation and remapping structurally
+  possible.
+- Avoid relying on color alone for tactical meaning.
+- Keep text/layout usable under UI scaling.
 
-Prefer:
+## Godot coding rules
 
-- headless GDScript tests for bridge/state/input/controller logic;
-- deterministic recorded snapshot/event fixtures;
-- fake bridge transports for scene tests;
-- replay-driven presentation tests for event routing;
-- Godot integration tests only where engine-independent pure tests are insufficient.
+- Target the repository-pinned Godot 4.x version unless the version is intentionally updated in the
+  same PR.
+- Prefer typed GDScript, explicit return types, and small scripts with one ownership role.
+- Prefer signals/callable interfaces over deep `get_node("../../...")` coupling.
+- Use groups only for presentation discovery, not as hidden rule-state databases.
+- Avoid per-frame polling when signals/event-driven updates can do the work.
+- Avoid allocations, scene-tree scans, JSON parsing, disk/network I/O, or heavy computation in
+  `_process()` / `_physics_process()` hot paths.
+- Cache stable node references.
+- Do not commit `.godot/`, editor caches, imported transient outputs, credentials, or debugging junk.
+- Keep assets source-controlled only when their license/provenance permits redistribution.
 
-Every bridge bug should gain a regression test when practical. Do not weaken authoritative ordering/version checks to make presentation tests easier.
+## Testing requirements for client changes
+
+Use the cheapest layer that proves the behavior:
+
+- engine/headless tests for rules and spatial legality;
+- pure GDScript tests for presentation-state/controller logic where practical;
+- headless Godot scene tests for scene wiring, command routing, camera/input behavior, HUD binding,
+  overlays, and event presentation;
+- golden/screenshot tests only when they are stable and genuinely useful;
+- a vertical-slice smoke test that can load the tactical scene headlessly without parse/import errors.
+
+Every bug fix should add a regression test when practical. Never fix a client failure by moving rule
+logic into Godot.
+
+## Performance targets and diagnostics
+
+Do not optimize blindly, but build observability early. Track or make inspectable when relevant:
+
+- frame time/FPS;
+- rendered actor count;
+- draw calls/visible geometry where useful;
+- bridge request latency;
+- queued presentation events;
+- scene-load time;
+- path/LOS/overlay query latency;
+- avoidable per-frame allocations.
+
+Prefer graceful degradation of optional effects over changing simulation behavior.
 
 ## Client TODO discipline
 
-`apps/godot-client/TODO.md` is the detailed client execution backlog. Root `ROADMAP.md` and root `TODO.md` remain milestone authority.
+`apps/godot-client/TODO.md` is the detailed execution backlog for this client. Root `/TODO.md` and
+`/ROADMAP.md` remain milestone authority.
 
-When beginning client work:
+For every client task:
 
-- identify the owning client phase/item;
-- verify dependencies on engine milestones are actually available;
-- split oversized items before coding;
-- do not mark scaffolding as complete behavior.
+- select or add a scoped item in `apps/godot-client/TODO.md` before implementation;
+- keep the item under the correct client phase and root roadmap milestone;
+- mark it complete only when the observable behavior and applicable validation exist;
+- update root `/TODO.md` when a root milestone checkbox changes state;
+- update `/CHANGELOG.md` for meaningful client workflow or behavior changes;
+- record newly discovered client follow-ups in the client TODO rather than silently expanding scope.
 
-When finishing:
+## Definition of done for client PRs
 
-- mark only observed/tested outcomes complete;
-- add discovered follow-ups under the correct client phase;
-- keep root TODO/changelog/docs synchronized when milestone-visible behavior changes.
+In addition to the root definition of done:
 
-## Client PR definition of done
-
-A client PR is not complete until applicable items are true:
-
-- root and client agent contracts were followed;
-- work maps to a root milestone and client TODO item;
-- Godot remains non-authoritative;
-- bridge/state/spatial boundaries are preserved;
-- blocking frame-loop I/O was not introduced;
-- tests/fixtures were added or updated and results reported;
-- client TODO is accurate;
-- root TODO/changelog/docs are updated when required;
-- final diff contains no unrelated editor/cache/generated artifacts;
-- compatibility/version implications are documented.
-
-If this file conflicts with root `/AGENTS.md`, root `AGENTS.md` wins.
+- `apps/godot-client/TODO.md` accurately reflects completed and follow-up work;
+- authoritative versus presentation ownership is obvious in the diff;
+- new interactions go through the intended bridge/intent path;
+- client-side previews are clearly non-authoritative and reconciled to engine results;
+- headless Godot validation/tests run when applicable;
+- scene/resource paths are valid;
+- no editor cache/generated junk is committed;
+- keyboard/mouse/controller/accessibility implications were considered for user-facing interaction;
+- performance-sensitive frame paths were reviewed for unnecessary polling/allocation;
+- the PR explains any new client-engine contract or future compatibility implication.
