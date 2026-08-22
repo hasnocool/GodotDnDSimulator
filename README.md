@@ -34,19 +34,92 @@ Canonical rules data + provenance
 
 The executable foundation uses **Python 3.12+** for the authoritative engine and **Godot 4.7.1+** for the presentation client. The decision and tradeoffs are recorded in [`docs/adr/0001-engine-runtime.md`](docs/adr/0001-engine-runtime.md).
 
-Implemented foundation pieces include versioned stable IDs, immutable command/event/state contracts, deterministic `pcg32-v1` RNG/dice, reducers, snapshot/event replay with RNG continuation, v1 JSON schemas, a presentation-only Godot scaffold, and repository CI/governance tooling.
+Implemented foundation pieces include:
+
+- versioned namespaced IDs for campaigns, sessions, actors, commands, events, rules, effects, and packs;
+- typed immutable command/event/state contracts;
+- `pcg32-v1` deterministic RNG with a published regression vector;
+- deterministic dice expressions with raw-roll audit metadata;
+- command validation and optimistic sequence checks;
+- pure event reducers;
+- versioned snapshot/event JSON serialization;
+- event-log replay from a snapshot with RNG continuation;
+- JSON Schemas for v1 command, event, and snapshot contracts;
+- a minimal Godot 4.7.1 orthographic 3D project that owns presentation only;
+- Python, schema/governance, and Godot headless CI jobs.
+
+The proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
 
 ## v0.2 SRD pipeline
 
 The v0.2 phase adds a development-time, provenance-first importer under `tools/rules_importer/`. Runtime gameplay does **not** depend on the importer or PDF/network libraries.
 
-The production source policy allowlists the reviewed D&D SRD 5.2.1 English PDF under CC-BY-4.0, pins the expected checksum, records provenance, and rejects unknown source IDs/hosts/licenses/media types or checksum drift. The remaining complete official-source audit and v0.2 exit criterion remain tracked in [`TODO.md`](TODO.md).
+The production source policy currently allowlists only:
+
+```text
+source_id: wotc-srd-5.2.1-en
+source:    D&D SRD 5.2.1 English PDF
+license:   CC-BY-4.0
+raw PDF:   transient local cache only
+```
+
+The allowlist pins the reviewed official URL and expected SHA-256. The fetcher rejects unapproved source IDs/hosts/licenses/media types, verifies downloaded and cached bytes, records retrieval metadata, and fails closed if the upstream checksum changes.
+
+Pipeline:
+
+```text
+allowlisted source
+      ↓
+async fetch + cache validators
+      ↓
+SHA-256 verification + source manifest
+      ↓
+PDF extraction + bookmarks/pages
+      ↓
+normalization
+      ↓
+canonical entity compilation
+      ↓
+versioned JSON Schema validation
+      ↓
+entities.jsonl + reports + attribution
+      ↓
+version/source diff tooling
+```
+
+The compiler currently emits provenance-rich **data-only** canonical entities. The remaining full-official-source fetch, 364-page audit, generated-data decision, and v0.2 exit criterion remain tracked in [`TODO.md`](TODO.md).
+
+Raw SRD PDFs are ignored by Git. Generated/audited canonical output should only be committed or released after the complete official-source import has been reviewed.
 
 See [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) and [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md).
 
 ## v0.3 rules runtime
 
-The merged v0.3 runtime under `engine/src/godot_dnd_engine/rules/` provides deterministic ability/proficiency/D20/DC/save resolution, advantage/disadvantage, modifiers, resources/costs, requirements, target selectors, effects, conditions/durations, reactions/hooks, and ruleset capabilities without adding Godot authority or another RNG system.
+The merged v0.3 implementation adds a deterministic, headless rules runtime under `engine/src/godot_dnd_engine/rules/` without adding Godot authority or a second RNG system.
+
+Implemented runtime families include:
+
+- ability scores and modifiers;
+- character proficiency progression and none/half/full/double proficiency ranks;
+- typed ability-check, saving-throw, and attack-roll D20 contexts;
+- deterministic advantage/disadvantage with cancellation;
+- typed difficulty classes and save resolution;
+- audit-rich D20 outcomes;
+- generic modifiers with priority and explicit stack/highest/lowest/replace policies;
+- bounded resources and atomic costs;
+- tag/resource/condition/capability requirements;
+- deterministic presentation-independent target selectors;
+- pure resource/condition effect batches;
+- condition unique/refresh/stack behavior;
+- tick/turn/round/permanent durations and deterministic expiry;
+- trigger/reaction-hook matching;
+- ruleset capability declarations.
+
+The runtime uses the existing versioned `pcg32-v1` RNG through the established dice service. It has no filesystem, network, database, wall-clock, or Godot dependency.
+
+A lightweight immutable `RuleSubjectState`/`RuleWorldState` provides enough state for generic v0.3 mechanics without prematurely defining the richer hero/NPC/creature actor model. v0.4 adapts its character runtime to these primitives instead of reimplementing D20, modifier, resource, condition, target, or reaction behavior.
+
+Representative conformance tests use the actual v0.2 `CanonicalEntity`/`Provenance` shape with structured `mechanics` fields, proving the importer/runtime contract without making runtime code import development-time tools.
 
 See [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md).
 
