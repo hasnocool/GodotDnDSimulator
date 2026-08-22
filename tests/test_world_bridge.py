@@ -4,14 +4,22 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from godot_dnd_engine.character_creator import CharacterCreatorRuntime, CharacterCreatorService, demo_character_catalog
+from godot_dnd_engine.character_creator import (
+    CharacterCreatorRuntime,
+    CharacterCreatorService,
+    demo_character_catalog,
+)
 from godot_dnd_engine.client_bridge import PROTOCOL_NAME, PROTOCOL_VERSION
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.world import WorldRuntime, demo_campaign
 from godot_dnd_engine.world_bridge import WorldClientBridgeSession
 
 
-def _request(kind: str, payload: dict[str, object], correlation: str = "world:test") -> dict[str, object]:
+def _request(
+    kind: str,
+    payload: dict[str, object],
+    correlation: str = "world:test",
+) -> dict[str, object]:
     return {
         "bridge_version": PROTOCOL_VERSION,
         "kind": kind,
@@ -59,7 +67,7 @@ def test_world_bridge_advertises_playable_rpg_capabilities() -> None:
     assert "characters.creator.v1" in capabilities
 
 
-def test_world_snapshot_query_and_typed_command_flow() -> None:
+def test_world_snapshot_query_and_typed_command_flow_are_stream_isolated() -> None:
     bridge = _bridge()
     snapshot = bridge.handle_message(
         _request(
@@ -68,7 +76,9 @@ def test_world_snapshot_query_and_typed_command_flow() -> None:
             "world:snapshot",
         )
     )
-    assert _payload(snapshot)["snapshot"]["state"]["mode"] == "world"
+    snapshot_payload = _payload(snapshot)
+    assert "snapshot" not in snapshot_payload
+    assert snapshot_payload["world_snapshot"]["state"]["mode"] == "world"
 
     command = {
         "command_id": "command:world-start",
@@ -84,9 +94,23 @@ def test_world_snapshot_query_and_typed_command_flow() -> None:
         _request("command.submit", {"command": command}, "world:start")
     )
     payload = _payload(response)
-    assert payload["snapshot"]["state"]["sequence"] == 1
-    assert payload["events"][0]["type"] == "world.started"
+    assert "snapshot" not in payload
+    assert payload["world_snapshot"]["state"]["sequence"] == 1
+    assert payload["world_events"][0]["type"] == "world.started"
     assert payload["presentation_events"][0]["type"] == "world.started"
+
+
+def test_world_actions_include_engine_supplied_dialogue_descriptors() -> None:
+    bridge = _bridge()
+    result = bridge.handle_message(
+        _request(
+            "query.request",
+            {"query_type": "world.actions", "query": {}},
+            "world:actions",
+        )
+    )
+    rows = _payload(result)["dialogues"]
+    assert any(row["dialogue_id"] == "dialogue:warden-ilar" for row in rows)
 
 
 def test_world_bridge_keeps_creator_and_world_sequences_independent() -> None:
