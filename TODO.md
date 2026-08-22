@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.4 Character runtime
+## Current focus: v0.5 Tactical combat
 
-The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but v0.4 builds on the merged runtime rather than duplicating it.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, and v0.4 character runtime have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but v0.5 builds on the merged actor/rules runtime rather than duplicating it.
 
 ### v0.1 carryover: repository and governance
 
@@ -171,7 +171,7 @@ The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have b
 
 ---
 
-## v0.4 Character runtime
+## v0.4 Character runtime carryover
 
 - [x] Shared actor model for heroes/NPCs/creatures.
 - [x] HP/temp HP/AC/defense state.
@@ -184,7 +184,7 @@ The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have b
 - [x] Character serialization/migration tests and v1 actor schema.
 - [x] Initial headless character-creation API.
 
-### v0.4 validation
+### v0.4 validation carryover
 
 - [x] Keep the actor model immutable and independent of Godot scene state.
 - [x] Reuse v0.3 resources/conditions/effects rather than adding a second mechanic pipeline.
@@ -192,9 +192,9 @@ The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have b
 - [x] Reject duplicate/malformed actor collections, broken inventory/equipment references, invalid choices, and corrupt actor payloads.
 - [x] Add focused hero/NPC/creature, rule-adapter, creation, serialization, migration, and adversarial validation tests.
 - [x] Reach at least the repository coverage threshold for the new actor package in local testing.
-- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on the v0.4 PR head in CI.
+- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on a merged-v0.4-compatible CI run.
 
-### v0.4 exit criterion
+### v0.4 exit criterion carryover
 
 - [ ] Demonstrate the complete v0.4 character runtime passing repository CI with deterministic actor serialization/creation and no Godot rule authority.
 
@@ -202,17 +202,34 @@ The v0.1 foundation, v0.2 importer infrastructure, and v0.3 rules runtime have b
 
 ## v0.5 Tactical combat
 
-- [ ] Encounter lifecycle.
-- [ ] Initiative/round/turn order.
-- [ ] Action economy.
-- [ ] Movement accounting.
-- [ ] Attack resolution.
-- [ ] Damage/healing pipeline.
-- [ ] Defense/resistance/immunity/vulnerability hooks.
-- [ ] Reaction windows.
-- [ ] Combat conditions.
-- [ ] Incapacitation/death-state rules supported by licensed content.
-- [ ] Deterministic combat log/replay fixtures.
+- [x] Encounter lifecycle.
+- [x] Initiative/round/turn order.
+- [x] Action economy.
+- [x] Movement accounting without taking over v0.6 path/spatial legality.
+- [x] Attack resolution using the existing deterministic v0.3 D20 runtime.
+- [x] Damage/healing pipeline including temporary HP.
+- [x] Defense/resistance/immunity/vulnerability hooks.
+- [x] Reaction windows.
+- [x] Combat conditions through data-driven restriction rules.
+- [x] Incapacitation/death-state rules supported by licensed content through explicit zero-HP policy.
+- [x] Deterministic combat event log/replay fixtures.
+
+### v0.5 validation
+
+- [x] Reuse the repository `pcg32-v1` RNG/dice abstraction for initiative, attacks, damage dice, and death saves.
+- [x] Keep combat mutations event-sourced through versioned `CombatEvent` records and a pure reducer.
+- [x] Add canonical v1 combat-event JSON/JSONL serialization and schema validation surface.
+- [x] Keep attacks/damage generic and data-driven; do not add named item/spell/monster conditionals.
+- [x] Keep Godot presentation and v0.6 path/range/LOS/cover/terrain/AoE authority outside combat.
+- [x] Add deterministic and adversarial tests for initiative, turns, actions, reactions, attacks, defenses, HP/state changes, conditions, malformed events, and replay parity.
+- [x] Reach at least the repository coverage threshold for the combat package in local testing.
+- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on the v0.5 PR head in CI.
+
+### v0.5 exit criterion
+
+- [ ] Demonstrate a complete deterministic headless encounter whose authoritative state is reproducible from the same preparing actors plus ordered v1 combat events, passing repository CI with no Godot or v0.6 spatial rule authority.
+
+---
 
 ## v0.6 Spatial authority
 
