@@ -32,7 +32,7 @@ Canonical rules data + provenance
 
 ## v0.1 implementation foundation
 
-The first executable foundation uses **Python 3.12+** for the authoritative engine and **Godot 4.7.1+** for the presentation client. The decision and tradeoffs are recorded in [`docs/adr/0001-engine-runtime.md`](docs/adr/0001-engine-runtime.md).
+The executable foundation uses **Python 3.12+** for the authoritative engine and **Godot 4.7.1+** for the presentation client. The decision and tradeoffs are recorded in [`docs/adr/0001-engine-runtime.md`](docs/adr/0001-engine-runtime.md).
 
 Implemented foundation pieces include:
 
@@ -43,12 +43,55 @@ Implemented foundation pieces include:
 - command validation and optimistic sequence checks;
 - pure event reducers;
 - versioned snapshot/event JSON serialization;
-- event-log replay from a snapshot;
+- event-log replay from a snapshot with RNG continuation;
 - JSON Schemas for v1 command, event, and snapshot contracts;
 - a minimal Godot 4.7.1 orthographic 3D project that owns presentation only;
 - Python, schema/governance, and Godot headless CI jobs.
 
-The current proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
+The proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
+
+## v0.2 SRD pipeline
+
+The next phase adds a development-time, provenance-first importer under `tools/rules_importer/`. Runtime gameplay does **not** depend on the importer or PDF/network libraries.
+
+The production source policy currently allowlists only:
+
+```text
+source_id: wotc-srd-5.2.1-en
+source:    D&D SRD 5.2.1 English PDF
+license:   CC-BY-4.0
+raw PDF:   transient local cache only
+```
+
+The allowlist pins the reviewed official URL and expected SHA-256. The fetcher rejects unapproved source IDs/hosts/licenses/media types, verifies downloaded and cached bytes, records retrieval metadata, and fails closed if the upstream checksum changes.
+
+Pipeline:
+
+```text
+allowlisted source
+      ↓
+async fetch + cache validators
+      ↓
+SHA-256 verification + source manifest
+      ↓
+PDF extraction + bookmarks/pages
+      ↓
+normalization
+      ↓
+canonical entity compilation
+      ↓
+versioned JSON Schema validation
+      ↓
+entities.jsonl + reports + attribution
+      ↓
+version/source diff tooling
+```
+
+The compiler currently emits provenance-rich **data-only** canonical entities. Executable D&D mechanics belong to the later rules-runtime/effect-pipeline milestones rather than being hidden inside the importer.
+
+Raw SRD PDFs are ignored by Git. Generated/audited canonical output should only be committed or released after the complete official-source import has been reviewed.
+
+See [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) and [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md).
 
 ## Local validation
 
@@ -57,10 +100,11 @@ With Python 3.12+:
 ```bash
 python -m pip install -e '.[dev]'
 ruff check .
-mypy engine/src
-pytest --cov=godot_dnd_engine --cov-report=term-missing
+mypy engine/src tools/rules_importer
+pytest --cov=godot_dnd_engine --cov=tools.rules_importer --cov-report=term-missing
 python scripts/check_governance.py
 python scripts/determinism_smoke.py
+python -m tools.rules_importer.smoke
 ```
 
 With Godot 4.7.1 installed:
@@ -68,6 +112,31 @@ With Godot 4.7.1 installed:
 ```bash
 godot --headless --path apps/godot-client --editor --quit
 ```
+
+### Rules importer
+
+Fetch and checksum-verify the approved SRD into the ignored local cache:
+
+```bash
+python -m tools.rules_importer.cli fetch
+```
+
+Fetch (or reuse the verified cache), extract, normalize, compile, validate, and export:
+
+```bash
+python -m tools.rules_importer.cli build
+```
+
+Default paths:
+
+```text
+source policy   config/rules/sources.json
+raw cache       .cache/rules/
+rule schemas    schemas/rules/v1/
+generated data  content/generated/srd-5.2.1/
+```
+
+The full official-source build is still a v0.2 completion criterion; fixture success alone does not mark the milestone complete.
 
 ## Design commitments
 
@@ -93,6 +162,7 @@ Start here:
 - [`TODO.md`](TODO.md) — active implementation backlog and milestone exit criteria.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — authoritative engine/Godot/tooling boundaries.
 - [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md) — licensed rules-source policy, provenance, import, compilation, diffing, and attribution.
+- [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) — implemented importer commands, contracts, outputs, tests, and completion gates.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
 - [`docs/adr/`](docs/adr/) — durable architecture decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
@@ -118,9 +188,9 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 ## Current milestone
 
-**v0.1 — Project foundation**
+**v0.2 — Official SRD pipeline**
 
-The executable foundation is now substantially in place. Remaining v0.1 work is tracked in [`TODO.md`](TODO.md), with CI required to prove the milestone exit criterion before advancing to the SRD pipeline.
+The importer infrastructure, schemas, deterministic fixture build, provenance controls, and diff/report tooling are implemented. The milestone remains open until the pinned official SRD 5.2.1 PDF is fetched and the complete 364-page dataset is successfully compiled, validated, audited, and reproduced as recorded in [`TODO.md`](TODO.md).
 
 ## First playable target
 
