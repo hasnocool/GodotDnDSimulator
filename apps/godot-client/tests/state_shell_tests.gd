@@ -7,6 +7,7 @@ const MirrorScript = preload("res://state/authoritative_mirror.gd")
 const InteractionScript = preload("res://state/interaction_state.gd")
 const PresentationScript = preload("res://state/presentation_state.gd")
 const CoordinatorScript = preload("res://state/client_state_coordinator.gd")
+const AppShellScript = preload("res://scenes/shell/app_shell.gd")
 const AppShellScene = preload("res://scenes/shell/app_shell.tscn")
 
 var _failures := 0
@@ -58,6 +59,11 @@ func _test_authoritative_mirror_is_read_only() -> void:
         "contiguous authoritative event is accepted",
     )
     _check(mirror.sequence() == 1, "accepted event advances mirror sequence")
+    var reconstruction := mirror.reconstruction_view()
+    _check(
+        reconstruction["events"].size() == 1,
+        "reconstruction view preserves post-snapshot authoritative events",
+    )
 
 
 func _test_interaction_state_is_separate_and_explicit() -> void:
@@ -134,7 +140,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
     await process_frame
 
     _check(
-        shell.shell_state() == shell.ShellState.BRIDGE_INITIALIZING,
+        shell.shell_state() == AppShellScript.ShellState.BRIDGE_INITIALIZING,
         "shell exposes bridge initialization state",
     )
     _check(not transport.sent_messages.is_empty(), "shell begins bridge negotiation")
@@ -156,7 +162,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
     await process_frame
 
     _check(
-        shell.shell_state() == shell.ShellState.SYNCHRONIZING,
+        shell.shell_state() == AppShellScript.ShellState.SYNCHRONIZING,
         "shell exposes authoritative synchronization state",
     )
     var snapshot_request: Dictionary = transport.sent_messages.back()
@@ -181,9 +187,9 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
 
     for _index in range(60):
         await process_frame
-        if shell.shell_state() == shell.ShellState.READY:
+        if shell.shell_state() == AppShellScript.ShellState.READY:
             break
-    _check(shell.shell_state() == shell.ShellState.READY, "shell reaches ready state")
+    _check(shell.shell_state() == AppShellScript.ShellState.READY, "shell reaches ready state")
     _check(shell.client_state().authoritative.has_snapshot(), "shell owns authoritative mirror")
     _check(shell.tactical_content() != null, "shell loads tactical presentation entry scene")
     _check(
@@ -221,6 +227,11 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
         new_scene.call("bound_sequence") == 1,
         "reloaded presentation reconstructs from existing authoritative mirror",
     )
+    var reconstructed: Dictionary = new_scene.call("authoritative_reconstruction_view")
+    _check(
+        reconstructed["events"].size() == 1,
+        "reloaded scene can reconstruct from snapshot plus retained events",
+    )
     _check(
         shell.client_state().authoritative.sequence() == 1,
         "scene reload does not mutate authoritative state",
@@ -245,7 +256,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
     )
 
     shell.shutdown()
-    _check(shell.shell_state() == shell.ShellState.SHUTDOWN, "shell exposes shutdown state")
+    _check(shell.shell_state() == AppShellScript.ShellState.SHUTDOWN, "shell exposes shutdown state")
     _check(shell.client_state().interaction.pending_count() == 0, "shutdown clears pending requests")
     root.remove_child(shell)
     shell.queue_free()
