@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
@@ -67,7 +68,11 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "world command campaign does not match bridge campaign"
                 )
             if command.command_type == "world.load":
-                return self._load_world(request, command.expected_sequence, command.payload)
+                return self._load_world(
+                    request,
+                    command.expected_sequence,
+                    command.payload,
+                )
             world_payload = dict(command.payload)
             if command.command_type == "world.resolve_interaction":
                 world_payload["bonus"] = self._authoritative_interaction_bonus(
@@ -132,7 +137,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         self,
         request: dict[str, Any],
         expected_sequence: int | None,
-        payload: dict[str, Any],
+        payload: Mapping[str, Any],
     ) -> dict[str, object]:
         if (
             expected_sequence is not None
@@ -255,6 +260,24 @@ async def serve(
         await server.serve_forever()
 
 
+def _ability_scores(
+    strength: int,
+    dexterity: int,
+    constitution: int,
+    intelligence: int,
+    wisdom: int,
+    charisma: int,
+) -> dict[str, int]:
+    return {
+        "strength": strength,
+        "dexterity": dexterity,
+        "constitution": constitution,
+        "intelligence": intelligence,
+        "wisdom": wisdom,
+        "charisma": charisma,
+    }
+
+
 def _seed_premade_characters(creator: CharacterCreatorService) -> None:
     rows = (
         (
@@ -267,7 +290,7 @@ def _seed_premade_characters(creator: CharacterCreatorService) -> None:
             "skill:perception",
             "equipment:defender-kit",
             "featurechoice:interpose",
-            {"strength": 15, "dexterity": 12, "constitution": 14, "intelligence": 8, "wisdom": 13, "charisma": 10},
+            _ability_scores(15, 12, 14, 8, 13, 10),
         ),
         (
             "actor:premade-aster",
@@ -279,7 +302,7 @@ def _seed_premade_characters(creator: CharacterCreatorService) -> None:
             "skill:perception",
             "equipment:explorer-kit",
             "spellchoice:echo-burst",
-            {"strength": 8, "dexterity": 14, "constitution": 13, "intelligence": 15, "wisdom": 12, "charisma": 10},
+            _ability_scores(8, 14, 13, 15, 12, 10),
         ),
         (
             "actor:premade-tovan",
@@ -291,7 +314,7 @@ def _seed_premade_characters(creator: CharacterCreatorService) -> None:
             "skill:insight",
             "equipment:defender-kit",
             "featurechoice:interpose",
-            {"strength": 14, "dexterity": 15, "constitution": 13, "intelligence": 8, "wisdom": 12, "charisma": 10},
+            _ability_scores(14, 15, 13, 8, 12, 10),
         ),
         (
             "actor:premade-sable",
@@ -303,7 +326,7 @@ def _seed_premade_characters(creator: CharacterCreatorService) -> None:
             "skill:insight",
             "equipment:explorer-kit",
             "spellchoice:echo-burst",
-            {"strength": 8, "dexterity": 13, "constitution": 14, "intelligence": 15, "wisdom": 12, "charisma": 10},
+            _ability_scores(8, 13, 14, 15, 12, 10),
         ),
     )
     for (
