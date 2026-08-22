@@ -11,7 +11,8 @@
     "caster_id",
     "spell_id",
     "target_ids",
-    "payload"
+    "payload",
+    "rng_after"
   ],
   "properties": {
     "version": {"const": 1},
@@ -32,9 +33,25 @@
           {"type": "integer"},
           {"type": "boolean"},
           {"type": "null"},
-          {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+          {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          {"type": "array", "items": {"type": "integer"}}
         ]
       }
+    },
+    "rng_after": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "state", "increment"],
+          "properties": {
+            "algorithm": {"type": "string", "minLength": 1},
+            "state": {"type": "integer", "minimum": 0},
+            "increment": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
     }
   }
 }
