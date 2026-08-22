@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose work tied to the roadmap or a clearly justified architecture need
+title: "feat: "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the observable capability rather than an implementation detail.
+    validations:
+      required: true
+  - type: input
+    id: milestone
+    attributes:
+      label: Roadmap milestone / TODO
+      placeholder: "v0.3 / Generic modifier pipeline"
+    validations:
+      required: true
+  - type: textarea
+    id: architecture
+    attributes:
+      label: Architecture impact
+      description: Explain authority, determinism, save/replay, schema, Godot, or licensing implications.

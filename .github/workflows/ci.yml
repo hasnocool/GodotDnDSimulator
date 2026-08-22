@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "docs/**"
+      - "refactor/**"
+      - "test/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: Python engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Ruff
+        run: ruff check .
+      - name: Mypy
+        run: mypy engine/src
+      - name: Pytest with coverage
+        run: pytest --cov=godot_dnd_engine --cov-report=term-missing
+      - name: Determinism smoke test
+        run: python scripts/determinism_smoke.py
+
+  governance:
+    name: Governance and schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Governance checks
+        run: python scripts/check_governance.py
+      - name: Validate JSON syntax
+        run: python -m json.tool schemas/v1/command.schema.json >/dev/null && python -m json.tool schemas/v1/event.schema.json >/dev/null && python -m json.tool schemas/v1/snapshot.schema.json >/dev/null
+
+  godot:
+    name: Godot project validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: chickensoft-games/setup-godot@v2.4.1
+        with:
+          version: 4.7.1
+          use-dotnet: false
+          include-templates: false
+      - name: Verify Godot version
+        run: godot --version
+      - name: Parse project headlessly
+        run: godot --headless --path apps/godot-client --editor --quit
