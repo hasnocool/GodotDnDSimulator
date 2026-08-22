@@ -36,13 +36,21 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Canonical SRD entity diffing for added/removed/changed/unchanged entities and prose-only versus mechanical changes.
 - `python -m tools.rules_importer.cli` fetch/build interface plus deterministic fixture smoke build.
 - Mocked HTTP, policy, extraction, normalization, compiler, schema, reporting, diffing, tamper, and deterministic-generation regression coverage for the v0.2 importer.
+- Typed v0.3 rules runtime with ability scores, proficiency, generic D20 tests, DC/save resolution, and deterministic advantage/disadvantage.
+- Generic deterministic modifier pipeline with explicit set/add/minimum/maximum operations, priority, stacking groups, and applied/suppressed audit output.
+- Immutable lightweight rule subject/world state with bounded resources, atomic resource costs, generic requirements, deterministic target selectors, and ruleset capability declarations.
+- Generic effect pipeline for resource deltas and condition application/removal, including unique/refresh/stack semantics and deterministic duration expiry.
+- Trigger and reaction-hook matching with requirement gating and deterministic reaction priority.
+- Representative v0.2 `CanonicalEntity`-shaped conformance fixtures that drive v0.3 executable mechanics without runtime dependency on importer code.
+- `docs/V0.3_RULES_RUNTIME.md` documenting runtime boundaries, stacking/effect semantics, determinism, conformance, and the v0.4 handoff.
 
 ### Changed
 
 - `README.md` now documents the executable v0.1 foundation and local validation workflow.
 - Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.2.0.dev0`; CI now lints, type-checks, tests, and coverage-checks both the engine and rules-import tooling.
+- Development version advances to `0.3.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
+- Active implementation focus advances from the v0.2 importer infrastructure to the v0.3 headless rules runtime while unfinished full-source v0.2 audit items remain tracked as carryover.
 
 ### Deprecated
 
@@ -61,6 +69,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 
 - Added strict validation at command, event, snapshot, identifier, dice, and replay boundaries to reject malformed/untrusted input early.
 - Rules ingestion now rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
+- Rules runtime primitives fail closed on malformed ability/DC/proficiency/resource/modifier/duration/condition/selector/effect/hook/capability inputs and preserve original immutable state when effect or cost resolution fails.
 
 <!--
 Release process notes:
