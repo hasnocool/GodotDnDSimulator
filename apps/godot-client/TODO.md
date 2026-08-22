@@ -117,7 +117,7 @@ because the current GitHub-hosted run terminates before creating any job steps.
 - [x] Test out-of-order/stale response rejection.
 - [x] Test bridge disconnect/reconnect/resync behavior at the presentation boundary.
 - [x] Add Python bridge protocol/session tests including a real localhost TCP round-trip test.
-- [x] Add a Godot headless bridge test script and wire it into the Godot CI job.
+- [x] Add a Godot headless bridge test script and wire it into the local CI script.
 
 ### C1 validation / exit criterion
 
@@ -176,7 +176,7 @@ application shell. Exact Godot CI execution remains a separate validation gate.
 - [x] Test shell hello -> snapshot synchronization -> asynchronous tactical load -> ready flow.
 - [x] Test tactical scene reconstruction from the same snapshot-plus-event mirror after scene reload.
 - [x] Test debug sequence/version/capability display and clean shutdown.
-- [x] Wire `res://tests/state_shell_tests.gd` into the Godot CI job after the C1 bridge suite.
+- [x] Wire `res://tests/state_shell_tests.gd` into the local CI script after the C1 bridge suite.
 - [x] Document C2 ownership, lifecycle, reconstruction, settings, diagnostics, and C3 handoff.
 
 ### C2 validation / exit criterion
@@ -228,7 +228,7 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 - [x] Test move/target/shape cancellation and UI modal suspend/restore.
 - [x] Test duplicate-confirm suppression, rejection retry, and accepted-command reconciliation.
 - [x] Test mode-scoped preview cancellation and selection preservation across authoritative refresh.
-- [x] Wire the C3 input/interaction suite into the Godot CI job after the C1/C2 suites.
+- [x] Wire the C3 input/interaction suite into the local CI script after the C1/C2 suites.
 - [x] Document C3 authority, semantic actions, bindings, modes, modal behavior, command lifecycle, and
       C4 handoff in `docs/GODOT_CLIENT_INPUT.md`.
 

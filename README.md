@@ -46,7 +46,7 @@ Implemented foundation pieces include:
 - event-log replay from a snapshot with RNG continuation;
 - JSON Schemas for v1 command, event, and snapshot contracts;
 - a minimal Godot 4.7.1 orthographic 3D project that owns presentation only;
-- Python, schema/governance, and Godot headless CI jobs.
+- Local Python, schema/governance, and Godot headless CI via `scripts/local_ci.sh`.
 
 The proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
 
