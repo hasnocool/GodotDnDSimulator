@@ -47,7 +47,9 @@ def run() -> list[str]:
     agents = _read("AGENTS.md")
     architecture = _read("docs/ARCHITECTURE.md")
 
-    if "## Current focus: v0.1 Project foundation" not in todo and "## Current focus: v0.2 Official SRD pipeline" not in todo:
+    v01_focus = "## Current focus: v0.1 Project foundation"
+    v02_focus = "## Current focus: v0.2 Official SRD pipeline"
+    if v01_focus not in todo and v02_focus not in todo:
         errors.append("TODO.md must declare the current milestone focus (v0.1 or v0.2)")
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")
