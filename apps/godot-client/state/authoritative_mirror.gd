@@ -77,6 +77,9 @@ func ingest_snapshot(snapshot_value: Dictionary) -> bool:
 
 
 func ingest_events(events_value: Array) -> bool:
+    if not _has_snapshot:
+        return false
+
     var accepted: Array[Dictionary] = []
     var expected := _sequence + 1
 
