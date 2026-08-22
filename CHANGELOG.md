@@ -86,18 +86,26 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Godot spell palette and tactical spell interaction layer generated from engine-provided spell/slot metadata, with engine-approved creature/point/AoE previews required before command submission.
 - Original representative spell fixtures and Python/Godot regression coverage for attack, save-for-half, healing, concentration, conditions, ongoing durations, area membership, and upcasting.
 - `docs/V0.8_SPELL_RUNTIME.md` documenting v0.8 mechanics, authority boundaries, bridge/UI contracts, determinism, and validation expectations.
+- v0.9 authoritative character creator domain with data-driven creation steps, groups, choice requirements/conflicts, ability-score policies, profile metadata, and level-up choices.
+- `CharacterCreatorRuntime` that composes validated creation selections into the existing immutable v0.4 `ActorState` and advances level/proficiency/HP/options without introducing Godot authority.
+- `CharacterCreatorService` plus additive `characters.creator.v1`, `characters.creator.commands.v1`, and `characters.levelup.v1` bridge capabilities for schema, preview, create, record, and level-up flows.
+- External creator-catalog serialization/deserialization adapters so audited canonical rules data and original content packs can drive the same runtime without code or Godot changes.
+- Capability-gated Godot character creator overlay with engine-generated species/background/class/skill/equipment/spell-feature controls, ability assignment, appearance hooks, biography/personality, review validation, creation, and level-up UI.
+- `schemas/v1/character-record.schema.json`, Python creator/bridge/schema regressions, and `res://tests/character_creator_tests.gd` headless client coverage.
+- `docs/V0.9_CHARACTER_CREATOR.md` documenting creator authority, data contracts, bridge/UI flow, validation, and v1.0 handoff.
+- Restored `.github/workflows/ci.yml` with Python/governance and Godot headless jobs so future PR heads can be validated when repository Actions runners execute normally.
 
 ### Changed
 
 - `README.md` documents the executable architecture and local validation workflow.
 - Release policy is semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.8.0.dev0`; CI continues to lint, type-check, test, coverage-check, validate schemas/governance, and execute headless Godot suites.
+- Development version advances to `0.9.0.dev0`; validation now includes creator runtime, character-record schema, and headless creator interaction suites.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation focus advances through v0.8 spell runtime while unfinished earlier CI/full-source audit items remain tracked as carryover.
+- Active implementation advances through v0.9 complete character creator while unfinished earlier CI/full-source audit items remain tracked as carryover.
 - v0.5 movement-budget accounting has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
 - Root agent governance plus Claude, Gemini, and Copilot adapters require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
-- Godot CI executes the client bridge, state/shell, input/interaction, camera, v0.7 tactical-slice, and v0.8 spell-interaction headless suites.
-- The default `godot-dnd-client-bridge` entry point now uses the spell-aware v0.8 host while `--core-only` preserves the minimal core-engine bridge mode.
+- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, and v0.9 character creator suites.
+- The default `godot-dnd-client-bridge` entry point now uses the v0.9 character-aware host; `--core-only` disables tactical/spell providers while retaining character-creator services.
 
 ### Deprecated
 
@@ -119,6 +127,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Spell duration state retains the actual cast slot level so ongoing upcast effects do not silently fall back to the base spell level.
 - Spell RNG consumption is checkpointed in the spell event stream so replay/resume tooling can restore the exact future deterministic random stream.
 - Removed an unresolved changelog merge marker left from earlier integration history.
+- Creator catalog deserialization converts malformed enum/content values into project validation errors instead of leaking raw enum exceptions across the content boundary.
 
 ### Security
 
@@ -131,6 +140,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Client authoritative-mirror getters return deep copies and reject regressing snapshots/event gaps so presentation code cannot mutate stored engine state through shared dictionaries or partially advance reconstruction state.
 - Spatial authority fails closed on malformed spaces, footprints, overlaps, movement modes, stale navigation proposals, blocked/over-budget paths, non-contiguous or corrupt movement events, invalid area shapes, and unsupported read-only spatial queries.
 - Spell authority rejects unknown/unprepared spells, unavailable slots/actions, invalid target counts/selectors, out-of-range/non-visible targets, invalid points/shapes, stale sequence intent, and malformed spell event/checkpoint payloads rather than allowing Godot to infer legality.
+- Character creator authority rejects unknown choices, invalid group cardinality, unmet requirements/conflicts, malformed ability assignments/catalog data, duplicate actor IDs, unsupported advancement choices, and invalid profile payloads before creating or advancing an actor.
 
 <!--
 Release process notes:
