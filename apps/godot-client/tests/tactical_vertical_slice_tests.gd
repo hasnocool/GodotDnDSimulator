@@ -222,7 +222,26 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         "client trusts authoritative attack preview and submits typed intent",
     )
 
+    transport.queue_message(
+        Protocol.make_response(
+            "command.result",
+            str(strike_command["request_id"]),
+            str(strike_command["correlation_id"]),
+            int(strike_command["generation"]),
+            true,
+            {"snapshot": _snapshot(int(strike_command["generation"]), {"x": 1, "y": 2}, 25)},
+        )
+    )
+    for _index in range(60):
+        await process_frame
+        if not shell.client_state().interaction.pending_requests().has(strike_request_id):
+            break
+
+    var selected_actor: String = shell.client_state().interaction.selected_actor_id()
+    _check(selected_actor == "actor:ember", "ember is selected for area debug")
+    
     scene.call("_on_area_debug_requested")
+    await process_frame
     var area := _last_preview(transport, "spatial.area")
     _check(not area.is_empty(), "AoE debug overlay asks engine for area membership")
 
