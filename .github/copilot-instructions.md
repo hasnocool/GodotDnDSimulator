@@ -4,6 +4,11 @@ Read and follow `/AGENTS.md` as the canonical project contract before proposing 
 
 Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` plus relevant `/docs` synchronized.
 
+For any task that touches `apps/godot-client/**`, **before editing** also read and obey:
+
+- `/apps/godot-client/AGENTS.md` — client-specific authority, architecture, bridge, testing, performance, and UX contract;
+- `/apps/godot-client/TODO.md` — detailed client execution backlog subordinate to the root roadmap/TODO.
+
 ## Non-negotiable architecture
 
 - Authoritative game/rules state belongs in the headless engine, not Godot UI/scene scripts.
@@ -27,6 +32,7 @@ Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` pl
 - Add tests for behavioral changes and regression tests for bug fixes.
 - Do not hand-edit generated rules/content owned by a generator.
 - Validate untrusted packs, imports, network input, and AI tool arguments.
+- For Godot-client work, keep `/apps/godot-client/TODO.md` synchronized with implementation and follow its bridge/state/input/presentation boundaries.
 
 ## Git
 
@@ -36,4 +42,4 @@ Always align work with `/ROADMAP.md` and `/TODO.md`, and keep `/CHANGELOG.md` pl
 - Update TODO/changelog/docs in the same PR.
 - Inspect the final diff and test results before declaring completion.
 
-If any instruction here conflicts with `/AGENTS.md`, `/AGENTS.md` wins.
+If any instruction here conflicts with `/AGENTS.md`, `/AGENTS.md` wins. Within `apps/godot-client/**`, the local client `AGENTS.md` may add stricter requirements but may not weaken the root contract.
