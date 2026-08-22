@@ -25,6 +25,7 @@ from .serialization import (
     deserialize_event,
     deserialize_log,
     event_to_dict,
+    rng_from_events,
     serialize_event,
     serialize_log,
 )
@@ -58,6 +59,7 @@ __all__ = [
     "deserialize_log",
     "event_to_dict",
     "replay_combat",
+    "rng_from_events",
     "serialize_event",
     "serialize_log",
 ]
