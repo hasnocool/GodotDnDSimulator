@@ -132,6 +132,24 @@ def test_modifier_pipeline_can_bound_d20_total() -> None:
     assert outcome.total <= 12
 
 
+def test_attack_roll_does_not_preempt_v05_attack_resolution() -> None:
+    context = ResolutionContext(
+        "resolution:attack",
+        D20TestKind.ATTACK_ROLL,
+        actor_id="actor:hero",
+        target_id="actor:target",
+        ability=Ability.STRENGTH,
+        difficulty_class=DifficultyClass(1),
+    )
+    outcome = _runtime(42).resolve_d20(
+        context,
+        ability_score=AbilityScore(Ability.STRENGTH, 18),
+        proficiency_bonus=3,
+    )
+    assert outcome.selected_roll in range(1, 21)
+    assert outcome.success is None
+
+
 def test_ruleset_capabilities_fail_closed() -> None:
     limited = RulesetCapabilities("ruleset:test", "1", frozenset({"d20_tests"}))
     runtime = RulesRuntime(DeterministicRNG.from_seed(1), limited)
