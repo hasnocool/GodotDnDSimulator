@@ -16,7 +16,7 @@ from .model import (
 
 
 def demo_character_catalog() -> CharacterCreatorCatalog:
-    """Return original content that exercises all v0.9 creation/advancement families."""
+    """Return original content that exercises all v0.9 creation families."""
 
     choices = (
         CreationChoice(
@@ -86,10 +86,30 @@ def demo_character_catalog() -> CharacterCreatorCatalog:
             feature_ids=("feature:prepared-study",),
             grants_tags=frozenset({"class:scholar"}),
         ),
-        CreationChoice("skill:athletics", CreationStep.SKILLS, "Athletics", skill_proficiencies=(Skill.ATHLETICS,)),
-        CreationChoice("skill:arcana", CreationStep.SKILLS, "Arcana", skill_proficiencies=(Skill.ARCANA,)),
-        CreationChoice("skill:insight", CreationStep.SKILLS, "Insight", skill_proficiencies=(Skill.INSIGHT,)),
-        CreationChoice("skill:perception", CreationStep.SKILLS, "Perception", skill_proficiencies=(Skill.PERCEPTION,)),
+        CreationChoice(
+            "skill:athletics",
+            CreationStep.SKILLS,
+            "Athletics",
+            skill_proficiencies=(Skill.ATHLETICS,),
+        ),
+        CreationChoice(
+            "skill:arcana",
+            CreationStep.SKILLS,
+            "Arcana",
+            skill_proficiencies=(Skill.ARCANA,),
+        ),
+        CreationChoice(
+            "skill:insight",
+            CreationStep.SKILLS,
+            "Insight",
+            skill_proficiencies=(Skill.INSIGHT,),
+        ),
+        CreationChoice(
+            "skill:perception",
+            CreationStep.SKILLS,
+            "Perception",
+            skill_proficiencies=(Skill.PERCEPTION,),
+        ),
         CreationChoice(
             "equipment:explorer-kit",
             CreationStep.EQUIPMENT,
@@ -140,13 +160,30 @@ def demo_character_catalog() -> CharacterCreatorCatalog:
         ),
     )
     groups = (
-        CreationGroup("group:species", CreationStep.SPECIES, ("species:riverborn", "species:stonekin")),
-        CreationGroup("group:background", CreationStep.BACKGROUND, ("background:wayfarer", "background:archivist")),
-        CreationGroup("group:class", CreationStep.CLASS, ("class:guardian", "class:scholar")),
+        CreationGroup(
+            "group:species",
+            CreationStep.SPECIES,
+            ("species:riverborn", "species:stonekin"),
+        ),
+        CreationGroup(
+            "group:background",
+            CreationStep.BACKGROUND,
+            ("background:wayfarer", "background:archivist"),
+        ),
+        CreationGroup(
+            "group:class",
+            CreationStep.CLASS,
+            ("class:guardian", "class:scholar"),
+        ),
         CreationGroup(
             "group:skills",
             CreationStep.SKILLS,
-            ("skill:athletics", "skill:arcana", "skill:insight", "skill:perception"),
+            (
+                "skill:athletics",
+                "skill:arcana",
+                "skill:insight",
+                "skill:perception",
+            ),
             minimum=2,
             maximum=2,
         ),
