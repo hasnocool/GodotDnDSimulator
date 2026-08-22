@@ -1,0 +1,44 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://scenes/shell/app_shell.gd" type="Script" id="1_shell"]
+[ext_resource path="res://debug/client_debug_overlay.tscn" type="PackedScene" id="2_debug"]
+
+[node name="AppShell" type="Node"]
+script = ExtResource("1_shell")
+
+[node name="ContentRoot" type="Node3D" parent="."]
+
+[node name="ShellUI" type="CanvasLayer" parent="."]
+
+[node name="StatusPanel" type="PanelContainer" parent="ShellUI"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 470.0
+offset_bottom = 184.0
+
+[node name="Margin" type="MarginContainer" parent="ShellUI/StatusPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="ShellUI/StatusPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="ShellUI/StatusPanel/Margin/VBox"]
+layout_mode = 2
+text = "GodotDnDSimulator"
+
+[node name="Status" type="Label" parent="ShellUI/StatusPanel/Margin/VBox"]
+layout_mode = 2
+text = "Starting client"
+autowrap_mode = 2
+
+[node name="Retry" type="Button" parent="ShellUI/StatusPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+text = "Retry engine connection"
+
+[node name="ClientDebugOverlay" parent="ShellUI" instance=ExtResource("2_debug")]
