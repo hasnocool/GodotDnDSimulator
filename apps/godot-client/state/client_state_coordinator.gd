@@ -9,6 +9,13 @@ signal command_completed(
     user_message: String,
     debug_detail: String,
 )
+signal query_completed(correlation_id: String, generation: int, payload: Dictionary)
+signal preview_completed(correlation_id: String, generation: int, payload: Dictionary)
+signal stale_interaction_result_ignored(
+    correlation_id: String,
+    response_generation: int,
+    current_generation: int,
+)
 signal bridge_bound()
 signal bridge_unbound()
 
@@ -178,18 +185,24 @@ func _on_command_rejected(
 
 func _on_query_result(
     correlation_id: String,
-    _generation: int,
-    _payload: Dictionary,
+    generation: int,
+    payload: Dictionary,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "query")
+    if not _result_generation_is_current(correlation_id, generation):
+        return
+    query_completed.emit(correlation_id, generation, payload.duplicate(true))
 
 
 func _on_preview_result(
     correlation_id: String,
-    _generation: int,
-    _payload: Dictionary,
+    generation: int,
+    payload: Dictionary,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "preview")
+    if not _result_generation_is_current(correlation_id, generation):
+        return
+    preview_completed.emit(correlation_id, generation, payload.duplicate(true))
 
 
 func _on_request_failed(
@@ -211,6 +224,18 @@ func _on_request_failed(
 
 func _on_bridge_disconnected(_reason: String) -> void:
     interaction.clear_all_pending()
+
+
+func _result_generation_is_current(correlation_id: String, generation: int) -> bool:
+    var current_generation := interaction.generation()
+    if generation == current_generation:
+        return true
+    stale_interaction_result_ignored.emit(
+        correlation_id,
+        generation,
+        current_generation,
+    )
+    return false
 
 
 func _has_pending_kind(correlation_id: String, request_kind: String) -> bool:
