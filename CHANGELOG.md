@@ -20,6 +20,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Versioned `pcg32-v1` deterministic RNG and auditable dice expressions/roll metadata.
 - Pure event reducers, optimistic command sequencing, canonical JSON serialization, snapshot/event replay, and strict input validation.
 - Complete simulation snapshots that persist both authoritative state and the exact RNG stream position for deterministic save/load continuation.
+- Random events now carry typed RNG checkpoints so snapshot-plus-event replay restores the exact future random stream.
 - Versioned JSON Schemas for v1 command, event, and snapshot contracts.
 - Namespaced stable IDs for campaigns, sessions, actors, commands, events, rules, effects, and content packs.
 - Minimal Godot 4.7.1 3D orthographic presentation project under `apps/godot-client/`.
@@ -44,6 +45,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 ### Fixed
 
 - Snapshot restore now resumes the deterministic RNG stream instead of only restoring visible game state.
+- Replaying events after an older snapshot now advances RNG state through recorded event checkpoints before future commands execute.
 
 ### Security
 
