@@ -26,6 +26,7 @@ class WorldRuntime:
     def __init__(self, definition: CampaignDefinition, *, seed: int) -> None:
         self.definition = definition
         self.rng = DeterministicRNG.from_seed(seed)
+        self.initial_rng = self.rng.snapshot()
         self.state = WorldState(
             sequence=0,
             current_area_id=definition.start_area_id,
@@ -37,8 +38,10 @@ class WorldRuntime:
             ),
             inventory=(),
             equipped=(),
+            shop_stock=_initial_shop_stock(definition),
             currency=25,
             active_dialogue=None,
+            completed_interactions=frozenset(),
             completed_encounters=frozenset(),
             journal=(f"Arrived in {definition.title}.",),
             rest_count=0,
@@ -58,9 +61,15 @@ class WorldRuntime:
 
     def snapshot(self) -> dict[str, object]:
         rng_state, rng_increment = self.rng.snapshot()
+        initial_state, initial_increment = self.initial_rng
         return {
             "schema_version": 1,
             "state": self.state_to_dict(),
+            "rng_initial": {
+                "algorithm": self.rng.ALGORITHM,
+                "state": initial_state,
+                "increment": initial_increment,
+            },
             "rng": {
                 "algorithm": self.rng.ALGORITHM,
                 "state": rng_state,
@@ -93,8 +102,12 @@ class WorldRuntime:
             },
             "inventory": dict(self.state.inventory),
             "equipped": dict(self.state.equipped),
+            "shop_stock": dict(self.state.shop_stock),
             "currency": self.state.currency,
             "active_dialogue": active_dialogue,
+            "completed_interactions": sorted(
+                self.state.completed_interactions
+            ),
             "completed_encounters": sorted(self.state.completed_encounters),
             "journal": list(self.state.journal),
             "rest_count": self.state.rest_count,
@@ -112,7 +125,10 @@ class WorldRuntime:
         if query_type == "world.map":
             return {
                 "current_area_id": self.state.current_area_id,
-                "areas": [self._map_area_row(item.area_id) for item in self.definition.areas],
+                "areas": [
+                    self._map_area_row(item.area_id)
+                    for item in self.definition.areas
+                ],
             }
         if query_type == "world.journal":
             return {
@@ -252,6 +268,7 @@ class WorldRuntime:
     ) -> tuple[WorldEvent, ...]:
         dialogue_id = _string(payload.get("dialogue_id"), "dialogue_id")
         dialogue = self._dialogue(dialogue_id)
+        self._require_here(dialogue.area_id)
         return (
             self._emit(
                 "dialogue.started",
@@ -299,6 +316,8 @@ class WorldRuntime:
             payload.get("interaction_id"),
             "interaction_id",
         )
+        if interaction_id in self.state.completed_interactions:
+            raise ValidationError("interaction was already completed")
         bonus = _integer(payload.get("bonus", 0), "bonus")
         interaction = self._interaction(interaction_id)
         self._require_here(interaction.area_id)
@@ -348,7 +367,9 @@ class WorldRuntime:
         )
         if item is None:
             raise ValidationError("item is not sold by this shop")
-        if item.stock is not None and quantity > item.stock:
+        stock_key = _stock_key(shop.shop_id, item_id)
+        remaining = self.state.shop_stock_map().get(stock_key)
+        if remaining is not None and quantity > remaining:
             raise ValidationError("requested quantity exceeds shop stock")
         cost = item.buy_price * quantity
         if cost > self.state.currency:
@@ -360,6 +381,7 @@ class WorldRuntime:
                     "shop_id": shop.shop_id,
                     "item_id": item_id,
                     "quantity": quantity,
+                    "stock_key": stock_key,
                     "currency_delta": -cost,
                 },
             ),
@@ -475,6 +497,10 @@ class WorldRuntime:
                     "name": item.name,
                     "ability": item.ability,
                     "dc": item.dc,
+                    "completed": (
+                        item.interaction_id
+                        in self.state.completed_interactions
+                    ),
                 }
                 for item in self.definition.interactions
                 if item.area_id == area_id
@@ -539,6 +565,7 @@ class WorldRuntime:
         )
 
     def _shop_view(self, shop: ShopDefinition) -> dict[str, object]:
+        stock = self.state.shop_stock_map()
         return {
             "shop_id": shop.shop_id,
             "name": shop.name,
@@ -548,7 +575,9 @@ class WorldRuntime:
                     "item_id": item.item_id,
                     "buy_price": item.buy_price,
                     "sell_price": item.sell_price,
-                    "stock": item.stock,
+                    "stock": stock.get(
+                        _stock_key(shop.shop_id, item.item_id)
+                    ),
                 }
                 for item in shop.items
             ],
@@ -601,11 +630,13 @@ def apply_world_event(state: WorldState, event: WorldEvent) -> WorldState:
     quests = dict(state.quests)
     inventory = dict(state.inventory)
     equipped = dict(state.equipped)
+    shop_stock = dict(state.shop_stock)
     journal = list(state.journal)
     party_ids = state.party_ids
     area_id = state.current_area_id
     active_dialogue = state.active_dialogue
-    completed = set(state.completed_encounters)
+    completed_interactions = set(state.completed_interactions)
+    completed_encounters = set(state.completed_encounters)
     currency = state.currency
     rest_count = state.rest_count
 
@@ -638,6 +669,9 @@ def apply_world_event(state: WorldState, event: WorldEvent) -> WorldState:
     elif event.event_type == "world.interaction_resolved":
         for item in payload.get("set_flags", []):
             flags.add(str(item))
+        if bool(payload.get("success", False)):
+            interaction_id = str(payload["interaction_id"])
+            completed_interactions.add(interaction_id)
         reward_item = payload.get("reward_item_id")
         if reward_item is not None:
             item_id = str(reward_item)
@@ -648,6 +682,10 @@ def apply_world_event(state: WorldState, event: WorldEvent) -> WorldState:
         quantity = int(payload["quantity"])
         delta = quantity if event.event_type == "shop.bought" else -quantity
         inventory[item_id] = inventory.get(item_id, 0) + delta
+        if event.event_type == "shop.bought":
+            stock_key = str(payload["stock_key"])
+            if stock_key in shop_stock:
+                shop_stock[stock_key] -= quantity
         if inventory[item_id] <= 0:
             inventory.pop(item_id, None)
             equipped = {
@@ -663,7 +701,7 @@ def apply_world_event(state: WorldState, event: WorldEvent) -> WorldState:
         rest_count = int(payload["rest_count"])
     elif event.event_type == "world.encounter_completed":
         encounter_id = str(payload["encounter_id"])
-        completed.add(encounter_id)
+        completed_encounters.add(encounter_id)
         for item in payload.get("set_flags", []):
             flags.add(str(item))
     else:
@@ -683,9 +721,11 @@ def apply_world_event(state: WorldState, event: WorldEvent) -> WorldState:
         quests=tuple(sorted(quests.items())),
         inventory=tuple(sorted(inventory.items())),
         equipped=tuple(sorted(equipped.items())),
+        shop_stock=tuple(sorted(shop_stock.items())),
         currency=currency,
         active_dialogue=active_dialogue,
-        completed_encounters=frozenset(completed),
+        completed_interactions=frozenset(completed_interactions),
+        completed_encounters=frozenset(completed_encounters),
         journal=tuple(journal),
         rest_count=rest_count,
     )
@@ -714,6 +754,23 @@ def replay_world_events(
     for event in events:
         state = apply_world_event(state, event)
     return state
+
+
+def _initial_shop_stock(
+    definition: CampaignDefinition,
+) -> tuple[tuple[str, int], ...]:
+    rows: list[tuple[str, int]] = []
+    for shop in definition.shops:
+        for item in shop.items:
+            if item.stock is not None:
+                rows.append(
+                    (_stock_key(shop.shop_id, item.item_id), item.stock)
+                )
+    return tuple(sorted(rows))
+
+
+def _stock_key(shop_id: str, item_id: str) -> str:
+    return f"{shop_id}|{item_id}"
 
 
 def _string(value: object, label: str) -> str:
