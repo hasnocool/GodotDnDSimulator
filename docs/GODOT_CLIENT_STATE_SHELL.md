@@ -221,7 +221,7 @@ This data is diagnostic only and cannot mutate engine state.
 - debug sequence/version/capability display;
 - clean shutdown.
 
-The Godot CI job now runs this suite after the C1 bridge suite.
+The local CI script now runs this suite after the C1 bridge suite.
 
 ## Deliberate non-goals
 

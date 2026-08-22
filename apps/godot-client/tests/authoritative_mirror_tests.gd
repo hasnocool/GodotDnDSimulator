@@ -8,6 +8,7 @@ var _failures := 0
 func _initialize() -> void:
     _test_events_require_snapshot_baseline()
     _test_snapshot_resets_post_snapshot_event_history()
+    _test_json_numeric_sequences()
     if _failures == 0:
         print("Godot authoritative mirror tests: PASS")
         quit(0)
@@ -37,6 +38,22 @@ func _test_snapshot_resets_post_snapshot_event_history() -> void:
     _check(mirror.ingest_snapshot(_snapshot(1)), "newer snapshot is accepted")
     _check(mirror.recent_events().is_empty(), "new snapshot supersedes retained event history")
     _check(mirror.sequence() == 1, "new snapshot sequence becomes reconstruction baseline")
+
+
+func _test_json_numeric_sequences() -> void:
+    var mirror = MirrorScript.new()
+    var snapshot := _snapshot(0)
+    snapshot["state"]["sequence"] = 0.0
+    _check(mirror.ingest_snapshot(snapshot), "integral JSON snapshot sequence is accepted")
+    _check(
+        mirror.ingest_events([{"sequence": 1.0, "event_type": "test.json-number"}]),
+        "integral JSON event sequence is accepted",
+    )
+    _check(
+        not mirror.ingest_events([{"sequence": 2.5, "event_type": "test.fractional"}]),
+        "fractional event sequence is rejected",
+    )
+    _check(mirror.sequence() == 1, "rejected fractional sequence does not advance state")
 
 
 func _snapshot(sequence: int) -> Dictionary:

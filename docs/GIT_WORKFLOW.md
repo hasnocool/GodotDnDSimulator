@@ -202,6 +202,8 @@ When failure is flaky/infrastructure-related:
 - create a follow-up reliability issue/TODO if the flake is real;
 - do not normalize recurring flakes as acceptable.
 
+If GitHub-hosted CI is unavailable or billing-locked, prefer the documented local CI script (`scripts/local_ci.sh`) as the executable gate while recording the infrastructure limitation in the PR/thread.
+
 ## Updating a branch
 
 Prefer normal fast-forward/rebase practices that do not lose reviewed work.

@@ -13,6 +13,7 @@ func _initialize() -> void:
     _test_command_rejection()
     _test_stale_generation_is_ignored()
     _test_event_gap_requests_resync()
+    _test_fractional_sequence_is_rejected()
     _test_disconnect_reconnect_requests_resync()
     _test_timeout_and_cancellation()
     _test_incompatible_version_fails_closed()
@@ -50,7 +51,7 @@ func _test_command_acceptance_and_authoritative_events() -> void:
             event_batches.append(events)
     )
 
-    var request_id := bridge.submit_command(
+    var request_id: String = bridge.submit_command(
         _command("command:bridge-accepted"),
         "interaction:accepted",
     )
@@ -126,7 +127,7 @@ func _test_stale_generation_is_ignored() -> void:
         func(request_id: String, reason: String) -> void:
             stale.append([request_id, reason])
     )
-    var request_id := bridge.request_preview(
+    var request_id: String = bridge.request_preview(
         "movement.path",
         {"destination": "cell:2,3"},
         "interaction:path",
@@ -171,6 +172,35 @@ func _test_event_gap_requests_resync() -> void:
     bridge.poll(0.0)
     _check(bridge.authoritative_sequence() == 0, "event gap does not partially advance state")
     _check(resync_reasons.size() == 1, "event gap requests resync")
+
+
+func _test_fractional_sequence_is_rejected() -> void:
+    var pair := _ready_bridge()
+    var bridge = pair["bridge"]
+    var transport = pair["transport"]
+    var failures: Array = []
+    bridge.request_failed.connect(
+        func(
+            _request_id: String,
+            correlation_id: String,
+            category: int,
+            user_message: String,
+            debug_detail: String,
+        ) -> void:
+            failures.append([correlation_id, category, user_message, debug_detail])
+    )
+    transport.queue_message(
+        Protocol.make_envelope(
+            "authoritative.events",
+            "",
+            "",
+            0,
+            {"events": [{"sequence": 1.5, "event_type": "test.fractional"}]},
+        )
+    )
+    bridge.poll(0.0)
+    _check(bridge.authoritative_sequence() == 0, "fractional sequence does not advance state")
+    _check(failures.size() == 1, "fractional sequence emits a validation failure")
 
 
 func _test_disconnect_reconnect_requests_resync() -> void:
@@ -224,6 +254,7 @@ func _test_timeout_and_cancellation() -> void:
     var failures: Array = []
     bridge.request_failed.connect(
         func(
+            _request_id: String,
             correlation_id: String,
             category: int,
             user_message: String,
@@ -231,7 +262,7 @@ func _test_timeout_and_cancellation() -> void:
         ) -> void:
             failures.append([correlation_id, category, user_message, debug_detail])
     )
-    var request_id := bridge.request_query(
+    var request_id: String = bridge.request_query(
         "actor.inspect",
         {"actor_id": "actor:test"},
         "interaction:timeout",
@@ -293,7 +324,7 @@ func _hello_accepted(hello: Dictionary) -> Dictionary:
         true,
         {
             "protocol": Protocol.PROTOCOL_NAME,
-            "capabilities": Array(Protocol.CAPABILITIES),
+            "capabilities": Protocol._capabilities(),
         },
     )
 

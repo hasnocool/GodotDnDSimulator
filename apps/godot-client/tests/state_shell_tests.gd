@@ -7,10 +7,12 @@ const MirrorScript = preload("res://state/authoritative_mirror.gd")
 const InteractionScript = preload("res://state/interaction_state.gd")
 const PresentationScript = preload("res://state/presentation_state.gd")
 const CoordinatorScript = preload("res://state/client_state_coordinator.gd")
-const AppShellScript = preload("res://scenes/shell/app_shell.gd")
-const AppShellScene = preload("res://scenes/shell/app_shell.tscn")
 
 var _failures := 0
+var _app_shell_script: GDScript
+var _app_shell_scene: PackedScene
+var _settings: Node
+var _log: Node
 
 
 func _initialize() -> void:
@@ -18,14 +20,18 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-    ClientSettings.reset_defaults(false)
-    ClientLog.clear()
+    _settings = root.get_node("ClientSettings")
+    _log = root.get_node("ClientLog")
+    _app_shell_script = load("res://scenes/shell/app_shell.gd") as GDScript
+    _app_shell_scene = load("res://scenes/shell/app_shell.tscn") as PackedScene
+    _settings.reset_defaults(false)
+    _log.clear()
     _test_authoritative_mirror_is_read_only()
     _test_interaction_state_is_separate_and_explicit()
     _test_presentation_activity_does_not_gate_authority()
     _test_coordinator_cancels_pending_requests()
     await _test_app_shell_lifecycle_and_scene_reconstruction()
-    ClientSettings.reset_defaults(false)
+    _settings.reset_defaults(false)
     if _failures == 0:
         print("Godot client state/shell tests: PASS")
         quit(0)
@@ -115,7 +121,7 @@ func _test_coordinator_cancels_pending_requests() -> void:
     _check(bridge.initialize(transport) == OK, "test bridge initializes")
     _accept_hello(bridge, transport)
 
-    var request_id := coordinator.request_query(
+    var request_id: String = coordinator.request_query(
         "bridge.capabilities",
         {},
         "interaction:pending",
@@ -133,14 +139,14 @@ func _test_coordinator_cancels_pending_requests() -> void:
 
 
 func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
-    var shell = AppShellScene.instantiate()
+    var shell = _app_shell_scene.instantiate()
     var transport = FakeTransportScript.new()
     shell.transport_override = transport
     root.add_child(shell)
     await process_frame
 
     _check(
-        shell.shell_state() == AppShellScript.ShellState.BRIDGE_INITIALIZING,
+        shell.shell_state() == _app_shell_script.ShellState.BRIDGE_INITIALIZING,
         "shell exposes bridge initialization state",
     )
     _check(not transport.sent_messages.is_empty(), "shell begins bridge negotiation")
@@ -155,14 +161,14 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
             true,
             {
                 "protocol": Protocol.PROTOCOL_NAME,
-                "capabilities": Array(Protocol.CAPABILITIES),
+                "capabilities": Protocol._capabilities(),
             },
         )
     )
     await process_frame
 
     _check(
-        shell.shell_state() == AppShellScript.ShellState.SYNCHRONIZING,
+        shell.shell_state() == _app_shell_script.ShellState.SYNCHRONIZING,
         "shell exposes authoritative synchronization state",
     )
     var snapshot_request: Dictionary = transport.sent_messages.back()
@@ -187,9 +193,9 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
 
     for _index in range(60):
         await process_frame
-        if shell.shell_state() == AppShellScript.ShellState.READY:
+        if shell.shell_state() == _app_shell_script.ShellState.READY:
             break
-    _check(shell.shell_state() == AppShellScript.ShellState.READY, "shell reaches ready state")
+    _check(shell.shell_state() == _app_shell_script.ShellState.READY, "shell reaches ready state")
     _check(shell.client_state().authoritative.has_snapshot(), "shell owns authoritative mirror")
     _check(shell.tactical_content() != null, "shell loads tactical presentation entry scene")
     _check(
@@ -237,7 +243,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
         "scene reload does not mutate authoritative state",
     )
 
-    ClientSettings.set_value("debug_overlay", true, false)
+    _settings.set_value("debug_overlay", true, false)
     await process_frame
     var debug_overlay = shell.get_node("ShellUI/ClientDebugOverlay")
     _check(debug_overlay.visible, "debug mode reveals diagnostics overlay")
@@ -256,7 +262,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
     )
 
     shell.shutdown()
-    _check(shell.shell_state() == AppShellScript.ShellState.SHUTDOWN, "shell exposes shutdown state")
+    _check(shell.shell_state() == _app_shell_script.ShellState.SHUTDOWN, "shell exposes shutdown state")
     _check(shell.client_state().interaction.pending_count() == 0, "shutdown clears pending requests")
     root.remove_child(shell)
     shell.queue_free()
@@ -274,7 +280,7 @@ func _accept_hello(bridge, transport) -> void:
             true,
             {
                 "protocol": Protocol.PROTOCOL_NAME,
-                "capabilities": Array(Protocol.CAPABILITIES),
+                "capabilities": Protocol._capabilities(),
             },
         )
     )

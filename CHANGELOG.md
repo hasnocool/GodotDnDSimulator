@@ -67,12 +67,18 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Asynchronous tactical presentation entry loading, scene reconstruction from snapshot-plus-event mirror state, local presentation/accessibility settings, structured client diagnostics, and a debug overlay for bridge/state visibility.
 - Headless C2 state/shell tests covering state separation, cancellation, presentation independence, shell startup/synchronization, scene reconstruction, diagnostics, and shutdown.
 - `docs/GODOT_CLIENT_STATE_SHELL.md` documenting C2 ownership, lifecycle, reconstruction, settings, diagnostics, deliberate non-goals, and C3 handoff.
+<<<<<<< HEAD
 - Deterministic v0.6 headless spatial authority with a backend-independent logical-space protocol, bounded square-grid implementation, multi-cell footprints, occupancy, collision, distance/reach, terrain, elevation, movement modes, path legality, pathfinding, movement cost, and reachable-space queries.
 - Elevation-aware logical LOS, explicit cover classifications, and reusable sphere/cube/cylinder/cone/line area queries with no named ability special cases.
 - Geometric threat-zone entry/exit inputs, a Godot/navigation proposal contract that remains subordinate to engine validation, and a JSON-shaped `SpatialQueryService` for client/tool integration.
 - Versioned `SpatialEvent` v1 movement facts, pure reducer, canonical JSON/JSONL serialization, deterministic spatial replay, and `schemas/v1/spatial-event.schema.json`.
 - Narrow v0.5/v0.6 movement integration that validates the spatial route first and spends the exact authoritative cost through the existing combat movement-budget API.
 - Headless spatial conformance, adversarial validation, replay, query, navigation-proposal, and combat-integration test suites plus `docs/V0.6_SPATIAL_AUTHORITY.md`.
+- C3 semantic Godot input actions with keyboard, mouse, D-pad, analog-stick, and controller-button defaults plus descriptor-based persistent remapping under `user://`.
+- Centralized C3 `ClientInteractionController` with inspect/select/move/target/shape/modal modes, generation-scoped transitions, mode-owned cancellation, UI-focus protection, and single-submit command intents.
+- Authoritative command-completion reconciliation so rejected intents remain correctable/retryable while accepted transient interactions return to selection only after engine acceptance.
+- Headless C3 input/interaction tests covering remapping, modal/focus safety, cancellation, duplicate confirmations, rejection retry, acceptance reconciliation, and selection preservation.
+- `docs/GODOT_CLIENT_INPUT.md` documenting C3 semantic actions, remapping, interaction modes, UI focus/modal behavior, command lifecycle, authority boundary, and C4 handoff.
 
 ### Changed
 
@@ -86,6 +92,8 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Godot CI now executes the client bridge headless test script after project parsing; the C1 exit gate remains open until GitHub-hosted jobs actually execute and pass.
 - The Godot main scene now composes the C2 app shell; the original orthographic camera scaffold lives in the tactical presentation entry scene rather than the obsolete one-script bootstrap.
 - Godot CI now also executes `res://tests/state_shell_tests.gd` after the C1 bridge tests.
+- The C2 app shell now owns one persistent input-binding registry and interaction controller, enabling tactical input only while the shell is ready so scene reloads do not duplicate input ownership.
+- Godot CI now also executes `res://tests/input_interaction_tests.gd` after the existing C1/C2 client suites.
 
 ### Deprecated
 
@@ -99,6 +107,9 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 
 - Snapshot restore now resumes the deterministic RNG stream instead of only restoring visible game state.
 - Replaying events after an older snapshot now advances RNG state through recorded event checkpoints before future commands execute.
+- Raw tactical input no longer acts while a Godot UI control owns focus, and repeated confirmation while an authoritative command is pending cannot create a second submission from the same armed intent.
+- Godot bridge and authoritative-mirror sequence validation now accepts integral numbers decoded from JSON while rejecting fractional values, and standalone client tests no longer depend on editor class-cache or autoload compilation order.
+- Bridge request failures now reconcile interaction state by request ID so cancelling a correlated preview cannot reject or unlock a still-pending authoritative command.
 
 ### Security
 
