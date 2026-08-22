@@ -1,29 +1,63 @@
 {
   "cases": [
     {
-      "name": "trained agility check",
-      "source_id": "wotc-srd-5.2.1-en",
-      "test_kind": "ability_check",
-      "ability": "dexterity",
-      "ability_score": 16,
-      "proficiency_rank": "full",
-      "proficiency_bonus": 3,
-      "difficulty_class": 15,
-      "advantage_sources": 1,
-      "disadvantage_sources": 0,
+      "entity": {
+        "entity_id": "srd5.2.1:rule:playing-the-game:trained-agility-check",
+        "kind": "rule",
+        "name": "Trained Agility Check",
+        "schema_version": 1,
+        "status": "executable",
+        "source_text": "",
+        "provenance": {
+          "source_id": "wotc-srd-5.2.1-en",
+          "document_version": "5.2.1",
+          "license_id": "CC-BY-4.0",
+          "source_sha256": "89749000000000000000000000000000000000000000000000000000000e3d87",
+          "page_start": 1,
+          "page_end": 1,
+          "section": "Playing the Game"
+        },
+        "mechanics": {
+          "test_kind": "ability_check",
+          "ability": "dexterity",
+          "ability_score": 16,
+          "proficiency_rank": "full",
+          "proficiency_bonus": 3,
+          "difficulty_class": 15,
+          "advantage_sources": 1,
+          "disadvantage_sources": 0
+        }
+      },
       "seed": 2025
     },
     {
-      "name": "resilient save with cancelling circumstances",
-      "source_id": "wotc-srd-5.2.1-en",
-      "test_kind": "saving_throw",
-      "ability": "constitution",
-      "ability_score": 14,
-      "proficiency_rank": "full",
-      "proficiency_bonus": 3,
-      "difficulty_class": 14,
-      "advantage_sources": 2,
-      "disadvantage_sources": 1,
+      "entity": {
+        "entity_id": "srd5.2.1:rule:playing-the-game:resilient-save",
+        "kind": "rule",
+        "name": "Resilient Save",
+        "schema_version": 1,
+        "status": "executable",
+        "source_text": "",
+        "provenance": {
+          "source_id": "wotc-srd-5.2.1-en",
+          "document_version": "5.2.1",
+          "license_id": "CC-BY-4.0",
+          "source_sha256": "89749000000000000000000000000000000000000000000000000000000e3d87",
+          "page_start": 1,
+          "page_end": 1,
+          "section": "Playing the Game"
+        },
+        "mechanics": {
+          "test_kind": "saving_throw",
+          "ability": "constitution",
+          "ability_score": 14,
+          "proficiency_rank": "full",
+          "proficiency_bonus": 3,
+          "difficulty_class": 14,
+          "advantage_sources": 2,
+          "disadvantage_sources": 1
+        }
+      },
       "seed": 2026
     }
   ]
