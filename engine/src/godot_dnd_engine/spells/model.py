@@ -9,6 +9,7 @@ from enum import StrEnum
 from ..dice import DiceExpression
 from ..errors import ValidationError
 from ..rules.primitives import Ability
+from ..rules.targets import TargetSelector
 
 
 class SpellResolution(StrEnum):
@@ -177,6 +178,7 @@ class SpellDefinition:
     max_targets: int = 1
     requires_preparation: bool = True
     save_ability: Ability | None = None
+    selector: TargetSelector | None = None
     concentration: bool = False
     duration_rounds: int | None = None
     area_shape: str | None = None
