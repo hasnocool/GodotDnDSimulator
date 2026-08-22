@@ -7,6 +7,8 @@ from godot_dnd_engine.character_creator import (
     CharacterCreatorRuntime,
     CharacterCreatorService,
     CharacterDraft,
+    catalog_from_data,
+    catalog_to_data,
     demo_character_catalog,
 )
 from godot_dnd_engine.errors import ValidationError
@@ -18,7 +20,11 @@ def _runtime() -> CharacterCreatorRuntime:
 
 
 def _draft(*, class_id: str = "class:scholar") -> CharacterDraft:
-    feature = "spellchoice:echo-burst" if class_id == "class:scholar" else "featurechoice:interpose"
+    feature = (
+        "spellchoice:echo-burst"
+        if class_id == "class:scholar"
+        else "featurechoice:interpose"
+    )
     return CharacterDraft(
         actor_id="actor:creator-hero",
         name="Aster Vale",
@@ -56,6 +62,14 @@ def test_creator_schema_is_engine_generated_and_covers_all_steps() -> None:
     assert all(item["unlock_level"] == 1 for item in choices)
 
 
+def test_catalog_roundtrip_proves_runtime_can_use_external_data() -> None:
+    original = demo_character_catalog()
+    restored = catalog_from_data(catalog_to_data(original))
+    assert restored == original
+    schema = CharacterCreatorRuntime(restored).schema()
+    assert schema["catalog_id"] == original.catalog_id
+
+
 def test_preview_and_create_apply_choice_bundles_to_shared_actor_state() -> None:
     runtime = _runtime()
     draft = _draft()
@@ -88,7 +102,9 @@ def test_creator_rejects_bad_group_cardinality_and_ability_assignment() -> None:
                 actor_id=draft.actor_id,
                 name=draft.name,
                 selected_choice_ids=tuple(
-                    item for item in draft.selected_choice_ids if item != "background:archivist"
+                    item
+                    for item in draft.selected_choice_ids
+                    if item != "background:archivist"
                 ),
                 ability_method_id=draft.ability_method_id,
                 base_ability_scores=draft.base_ability_scores,
@@ -130,7 +146,9 @@ def test_service_stores_created_records_and_rejects_duplicate_actor_ids() -> Non
         "name": draft.name,
         "selected_choice_ids": list(draft.selected_choice_ids),
         "ability_method_id": draft.ability_method_id,
-        "ability_scores": {ability.value: score for ability, score in draft.base_ability_scores},
+        "ability_scores": {
+            ability.value: score for ability, score in draft.base_ability_scores
+        },
         "appearance": dict(draft.appearance),
         "biography": draft.biography,
         "personality": draft.personality,
