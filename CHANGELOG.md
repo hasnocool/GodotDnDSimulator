@@ -67,15 +67,21 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Asynchronous tactical presentation entry loading, scene reconstruction from snapshot-plus-event mirror state, local presentation/accessibility settings, structured client diagnostics, and a debug overlay for bridge/state visibility.
 - Headless C2 state/shell tests covering state separation, cancellation, presentation independence, shell startup/synchronization, scene reconstruction, diagnostics, and shutdown.
 - `docs/GODOT_CLIENT_STATE_SHELL.md` documenting C2 ownership, lifecycle, reconstruction, settings, diagnostics, deliberate non-goals, and C3 handoff.
+- Deterministic v0.6 headless spatial authority with a backend-independent logical-space protocol, bounded square-grid implementation, multi-cell footprints, occupancy, collision, distance/reach, terrain, elevation, movement modes, path legality, pathfinding, movement cost, and reachable-space queries.
+- Elevation-aware logical LOS, explicit cover classifications, and reusable sphere/cube/cylinder/cone/line area queries with no named ability special cases.
+- Geometric threat-zone entry/exit inputs, a Godot/navigation proposal contract that remains subordinate to engine validation, and a JSON-shaped `SpatialQueryService` for client/tool integration.
+- Versioned `SpatialEvent` v1 movement facts, pure reducer, canonical JSON/JSONL serialization, deterministic spatial replay, and `schemas/v1/spatial-event.schema.json`.
+- Narrow v0.5/v0.6 movement integration that validates the spatial route first and spends the exact authoritative cost through the existing combat movement-budget API.
+- Headless spatial conformance, adversarial validation, replay, query, navigation-proposal, and combat-integration test suites plus `docs/V0.6_SPATIAL_AUTHORITY.md`.
 
 ### Changed
 
 - `README.md` now documents the executable v0.1 foundation and local validation workflow.
 - Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.5.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
+- Development version advances to `0.6.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation focus advances from the v0.4 character runtime to v0.5 tactical combat while unfinished CI/full-source audit items remain tracked as carryover.
-- v0.5 movement commands account for per-turn distance only; authoritative path/range/LOS/cover/terrain legality remains explicitly reserved for v0.6 spatial authority.
+- Active implementation focus advances from v0.5 tactical combat to v0.6 spatial authority while unfinished CI/full-source audit items remain tracked as carryover.
+- v0.5 movement-budget accounting now has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
 - Root agent governance plus Claude, Gemini, and Copilot adapters now require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
 - Godot CI now executes the client bridge headless test script after project parsing; the C1 exit gate remains open until GitHub-hosted jobs actually execute and pass.
 - The Godot main scene now composes the C2 app shell; the original orthographic camera scaffold lives in the tactical presentation entry scene rather than the obsolete one-script bootstrap.
@@ -103,6 +109,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Tactical combat rejects malformed encounter/event/attack/damage/reaction inputs, non-contiguous replay events, illegal turn ownership/resource use, and unsupported combat event schema versions.
 - Client bridge validation rejects incompatible protocol versions, malformed envelopes/state payloads, regressing snapshots, stale/duplicate responses, and non-contiguous authoritative event batches rather than guessing client state.
 - Client authoritative-mirror getters return deep copies and reject regressing snapshots/event gaps so presentation code cannot mutate stored engine state through shared dictionaries or partially advance reconstruction state.
+- Spatial authority fails closed on malformed spaces, footprints, overlaps, movement modes, stale navigation proposals, blocked/over-budget paths, non-contiguous or corrupt movement events, invalid area shapes, and unsupported read-only spatial queries.
 
 <!--
 Release process notes:
