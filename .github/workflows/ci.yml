@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python engine and governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Ruff
+        run: ruff check .
+      - name: Mypy
+        run: mypy engine/src tools/rules_importer
+      - name: Tests and coverage
+        run: pytest --cov=godot_dnd_engine --cov=tools.rules_importer --cov-report=term-missing
+      - name: Governance
+        run: python scripts/check_governance.py
+      - name: Determinism smoke
+        run: python scripts/determinism_smoke.py
+      - name: Importer smoke
+        run: python -m tools.rules_importer.smoke
+
+  godot:
+    name: Godot headless client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: "4.7.1"
+          use-dotnet: false
+      - name: Parse project
+        run: godot --headless --path apps/godot-client --editor --quit
+      - name: Bridge tests
+        run: godot --headless --path apps/godot-client --script res://tests/bridge_tests.gd
+      - name: Authoritative mirror tests
+        run: godot --headless --path apps/godot-client --script res://tests/authoritative_mirror_tests.gd
+      - name: State shell tests
+        run: godot --headless --path apps/godot-client --script res://tests/state_shell_tests.gd
+      - name: Input interaction tests
+        run: godot --headless --path apps/godot-client --script res://tests/input_interaction_tests.gd
+      - name: Tactical camera tests
+        run: godot --headless --path apps/godot-client --script res://tests/tactical_camera_tests.gd
+      - name: Tactical vertical-slice tests
+        run: godot --headless --path apps/godot-client --script res://tests/tactical_vertical_slice_tests.gd
+      - name: Spell UI tests
+        run: godot --headless --path apps/godot-client --script res://tests/spell_ui_tests.gd
+      - name: Character creator tests
+        run: godot --headless --path apps/godot-client --script res://tests/character_creator_tests.gd
