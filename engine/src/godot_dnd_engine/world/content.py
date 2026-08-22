@@ -66,12 +66,16 @@ def demo_campaign() -> CampaignDefinition:
         dialogues=(
             DialogueDefinition(
                 dialogue_id="dialogue:warden-ilar",
+                area_id="area:reedhollow-square",
                 start_node_id="node:warden-intro",
                 nodes=(
                     DialogueNode(
                         "node:warden-intro",
                         "Warden Ilar",
-                        "Three surveyors vanished below the quarry. I need someone to learn what woke there.",
+                        (
+                            "Three surveyors vanished below the quarry. "
+                            "I need someone to learn what woke there."
+                        ),
                         choices=(
                             DialogueChoice(
                                 "choice:accept-quarry",
@@ -84,35 +88,56 @@ def demo_campaign() -> CampaignDefinition:
                             DialogueChoice(
                                 "choice:decline-quarry",
                                 "Not yet.",
-                                next_node_id=None,
                             ),
                         ),
                     ),
                     DialogueNode(
                         "node:warden-accepted",
                         "Warden Ilar",
-                        "Take the old road. If you find the survey lantern, bring it back—or use it to seal the vault.",
-                        choices=(DialogueChoice("choice:leave-warden", "We understand."),),
+                        (
+                            "Take the old road. If you find the survey "
+                            "lantern, bring it back—or use it to seal "
+                            "the vault."
+                        ),
+                        choices=(
+                            DialogueChoice(
+                                "choice:leave-warden",
+                                "We understand.",
+                            ),
+                        ),
                     ),
                 ),
             ),
             DialogueDefinition(
                 dialogue_id="dialogue:surveyor-echo",
+                area_id="area:underworks",
                 start_node_id="node:echo-choice",
                 nodes=(
                     DialogueNode(
                         "node:echo-choice",
                         "Surveyor's Echo",
-                        "A trapped echo offers to guide you if you free it from the survey lantern.",
+                        (
+                            "A trapped echo offers to guide you if you "
+                            "free it from the survey lantern."
+                        ),
                         choices=(
                             DialogueChoice(
                                 "choice:free-echo",
                                 "Free the echo and trust its route.",
-                                set_flags=("flag:echo-freed", "flag:vault-route-known"),
+                                required_flags=frozenset(
+                                    {"flag:survey-lantern-found"}
+                                ),
+                                set_flags=(
+                                    "flag:echo-freed",
+                                    "flag:vault-route-known",
+                                ),
                             ),
                             DialogueChoice(
                                 "choice:keep-lantern",
                                 "Keep the lantern intact for the seal.",
+                                required_flags=frozenset(
+                                    {"flag:survey-lantern-found"}
+                                ),
                                 set_flags=("flag:lantern-kept",),
                             ),
                         ),
@@ -124,7 +149,10 @@ def demo_campaign() -> CampaignDefinition:
             QuestDefinition(
                 "quest:lanterns-below",
                 "Lanterns Below",
-                "Investigate the quarry, learn what happened to the surveyors, and decide the fate of the lantern vault.",
+                (
+                    "Investigate the quarry, learn what happened to the "
+                    "surveyors, and decide the fate of the lantern vault."
+                ),
                 start_status=QuestStatus.AVAILABLE,
             ),
         ),
@@ -134,9 +162,24 @@ def demo_campaign() -> CampaignDefinition:
                 "area:market-row",
                 "Reedhollow Supplies",
                 items=(
-                    ShopItem("item:healing-draught", buy_price=8, sell_price=3, stock=4),
-                    ShopItem("item:rope-coil", buy_price=5, sell_price=2, stock=3),
-                    ShopItem("item:quarry-lantern", buy_price=10, sell_price=4, stock=1),
+                    ShopItem(
+                        "item:healing-draught",
+                        buy_price=8,
+                        sell_price=3,
+                        stock=4,
+                    ),
+                    ShopItem(
+                        "item:rope-coil",
+                        buy_price=5,
+                        sell_price=2,
+                        stock=3,
+                    ),
+                    ShopItem(
+                        "item:quarry-lantern",
+                        buy_price=10,
+                        sell_price=4,
+                        stock=1,
+                    ),
                 ),
             ),
         ),
@@ -196,7 +239,10 @@ def demo_campaign() -> CampaignDefinition:
                 "area:lantern-vault",
                 "The Hollow Warden",
                 required_flags=frozenset({"flag:underworks-cleared"}),
-                completion_flags=("flag:vault-warden-defeated", "flag:campaign-complete"),
+                completion_flags=(
+                    "flag:vault-warden-defeated",
+                    "flag:campaign-complete",
+                ),
                 boss=True,
             ),
         ),
