@@ -115,3 +115,7 @@ jobs:
         shell: bash
         run: |
           "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --script res://tests/state_shell_tests.gd
+      - name: Run Godot client input and interaction tests
+        shell: bash
+        run: |
+          "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --script res://tests/input_interaction_tests.gd
