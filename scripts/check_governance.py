@@ -19,6 +19,7 @@ REQUIRED_FILES = (
     "docs/GIT_WORKFLOW.md",
     "docs/PROJECT_PLAN.md",
     "docs/RULES_INGESTION.md",
+    "docs/V0.6_SPATIAL_AUTHORITY.md",
     "docs/adr/0001-engine-runtime.md",
     "docs/adr/0002-versioning.md",
     "pyproject.toml",
@@ -26,6 +27,7 @@ REQUIRED_FILES = (
     "schemas/v1/command.schema.json",
     "schemas/v1/event.schema.json",
     "schemas/v1/snapshot.schema.json",
+    "schemas/v1/spatial-event.schema.json",
 )
 
 
