@@ -3,6 +3,12 @@ extends RefCounted
 
 signal authoritative_changed(sequence: int)
 signal pending_changed(pending_count: int)
+signal command_completed(
+    correlation_id: String,
+    accepted: bool,
+    user_message: String,
+    debug_detail: String,
+)
 signal bridge_bound()
 signal bridge_unbound()
 
@@ -60,10 +66,11 @@ func submit_command(
 ) -> String:
     if _bridge == null:
         return ""
+    var generation := interaction.generation()
     var request_id := _bridge.submit_command(
         command,
         correlation_id,
-        interaction.generation(),
+        generation,
         timeout_msec,
     )
     if request_id.is_empty():
@@ -72,7 +79,7 @@ func submit_command(
         request_id,
         "command",
         correlation_id,
-        interaction.generation(),
+        generation,
     )
     return request_id
 
@@ -151,15 +158,22 @@ func _on_authoritative_events(events: Array) -> void:
 
 func _on_command_accepted(correlation_id: String, _payload: Dictionary) -> void:
     interaction.clear_pending_matching(correlation_id, "command")
+    command_completed.emit(correlation_id, true, "", "")
 
 
 func _on_command_rejected(
     correlation_id: String,
     _category: int,
-    _user_message: String,
-    _debug_detail: String,
+    user_message: String,
+    debug_detail: String,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "command")
+    command_completed.emit(
+        correlation_id,
+        false,
+        user_message,
+        debug_detail,
+    )
 
 
 func _on_query_result(
