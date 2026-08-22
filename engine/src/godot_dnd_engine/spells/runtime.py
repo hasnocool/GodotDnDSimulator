@@ -983,9 +983,15 @@ class SpellRuntime:
     @staticmethod
     def _integer_result(result: dict[str, object], key: str) -> int:
         value = result.get(key)
-        if isinstance(value, bool) or not isinstance(value, int):
+        if isinstance(value, bool):
             raise ValidationError(f"spatial query {key} must be an integer")
-        return value
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            if value.is_integer():
+                return int(value)
+            raise ValidationError(f"spatial query {key} must be an integer")
+        raise ValidationError(f"spatial query {key} must be an integer")
 
     @staticmethod
     def _cell(cell: GridCell | None) -> dict[str, int]:
