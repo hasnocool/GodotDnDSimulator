@@ -7,8 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from .combat import EncounterState
 from .dice import DiceExpression
-from .errors import UnsupportedCommandError, ValidationError
+from .errors import ValidationError
 from .models import CommandEnvelope
 from .rules import Ability
 from .spells import (
@@ -25,7 +26,7 @@ from .spells import (
     SpellTargetKind,
     SpellcastingState,
 )
-from .spatial import GridCell
+from .spatial import GridCell, SpatialState
 from .vertical_slice import TacticalCommandResult, TacticalVerticalSliceSession
 
 SPELL_SLICE_CAPABILITIES = (
@@ -57,6 +58,10 @@ class SpellEnabledTacticalSession:
         )
         definitions = demo_spell_definitions()
         spell_runtime = SpellRuntime(tactical.rng, definitions)
+        spell_ids = tuple(item.spell_id for item in definitions)
+        prepared_ids = tuple(
+            item.spell_id for item in definitions if item.requires_preparation
+        )
         spell_state = SpellRuntimeState(
             casters=tuple(
                 SpellcastingState(
@@ -64,10 +69,8 @@ class SpellEnabledTacticalSession:
                     ability=Ability.INTELLIGENCE,
                     spell_attack_bonus=4,
                     spell_save_dc=12,
-                    known_spell_ids=tuple(item.spell_id for item in definitions),
-                    prepared_spell_ids=tuple(
-                        item.spell_id for item in definitions if item.requires_preparation
-                    ),
+                    known_spell_ids=spell_ids,
+                    prepared_spell_ids=prepared_ids,
                     slots=(
                         SpellSlotPool(1, 3, 3),
                         SpellSlotPool(2, 1, 1),
@@ -83,23 +86,31 @@ class SpellEnabledTacticalSession:
         return self.tactical.sequence
 
     @property
-    def encounter(self):
+    def encounter(self) -> EncounterState:
         return self.tactical.encounter
 
     @property
-    def spatial(self):
+    def spatial(self) -> SpatialState:
         return self.tactical.spatial
 
     def snapshot(self) -> dict[str, object]:
         snapshot = self.tactical.snapshot()
-        state = dict(snapshot["state"])
-        tactical_state = dict(state["tactical"])
+        state_value = snapshot.get("state")
+        if not isinstance(state_value, dict):
+            raise ValidationError("tactical snapshot state is malformed")
+        state = dict(state_value)
+        tactical_value = state.get("tactical")
+        if not isinstance(tactical_value, dict):
+            raise ValidationError("tactical snapshot payload is malformed")
+        tactical_state = dict(tactical_value)
         tactical_state["spellcasting"] = self._spell_snapshot()
         state["tactical"] = tactical_state
         snapshot["state"] = state
         return snapshot
 
     def query(self, query_type: str, payload: Mapping[str, Any]) -> dict[str, object]:
+        if query_type == "tactical.snapshot":
+            return {"snapshot": self.snapshot()}
         if query_type.startswith("spells."):
             return self._query_service().execute(query_type, dict(payload))
         return self.tactical.query(query_type, payload)
@@ -150,7 +161,9 @@ class SpellEnabledTacticalSession:
         slot_level = _optional_int(command.payload.get("slot_level"), "slot_level")
         target_ids = _targets(command.payload.get("target_ids", []))
         point = _point(command.payload.get("point"))
-        direction = _direction(command.payload.get("direction", {"x": 1.0, "y": 0.0}))
+        direction = _direction(
+            command.payload.get("direction", {"x": 1.0, "y": 0.0})
+        )
         transition = self.spell_runtime.cast(
             self.spell_state,
             self.tactical.encounter,
