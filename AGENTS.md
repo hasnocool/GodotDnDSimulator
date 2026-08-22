@@ -29,6 +29,13 @@ Before changing code or content, read:
 7. `docs/RULES_INGESTION.md` when touching rules/content
 8. `docs/GIT_WORKFLOW.md` when creating commits or PRs
 
+When any task touches `apps/godot-client/**`, **before editing** also read and obey:
+
+9. `apps/godot-client/AGENTS.md` — the client-specific authority, bridge, state, input, testing, performance, and UX contract;
+10. `apps/godot-client/TODO.md` — the detailed client execution backlog subordinate to this root contract, `ROADMAP.md`, and root `TODO.md`.
+
+The local client `AGENTS.md` may add stricter requirements for its subtree, but it must never weaken this root contract. Root `ROADMAP.md` and root `TODO.md` remain milestone authority; the client TODO owns detailed execution planning for the Godot application.
+
 Then inspect the code and tests related to the task. Never assume a TODO is still accurate without checking the implementation.
 
 ## Before every task
@@ -45,6 +52,12 @@ Answer these questions internally before editing:
 8. Does this require a `TODO.md` update?
 9. Does this require a `CHANGELOG.md` entry?
 10. Is the work small enough for one focused PR?
+
+For Godot-client work, also ask internally:
+
+11. Is this authoritative game state, interaction state, or presentation state?
+12. Does the client need a typed engine query/command instead of duplicating a rule in GDScript?
+13. Does this task require an `apps/godot-client/TODO.md` update?
 
 If the task does not map to the roadmap, either document why it is an intentional change of direction or add it to the roadmap before implementation.
 
@@ -174,6 +187,8 @@ When finishing work:
 
 TODO items should describe an observable outcome and, when useful, name the owning subsystem.
 
+For `apps/godot-client/**`, the local `apps/godot-client/TODO.md` is additionally mandatory. It tracks detailed client phases and does not replace root milestone tracking. Update both when a root milestone checkbox changes.
+
 ## Changelog discipline
 
 Use `CHANGELOG.md` with an `Unreleased` section following Keep-a-Changelog style categories where applicable:
@@ -253,6 +268,8 @@ A PR is not done until all applicable items are true:
 - no unrelated files or debug artifacts are included;
 - PR description explains what changed, why, testing, and follow-ups.
 
+For Godot-client PRs, `apps/godot-client/TODO.md` must also be accurate and the local client definition of done must be satisfied.
+
 ## Scope control / preventing project drift
 
 Do not add a feature merely because it is interesting.
@@ -310,3 +327,5 @@ At the end of a task, report:
 - compatibility or migration notes;
 - remaining follow-up work;
 - branch/PR information if GitHub access is available.
+
+For Godot-client work, also report which `apps/godot-client/TODO.md` items changed and whether the client/engine authority boundary or bridge contract changed.
