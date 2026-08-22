@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Mapping
+from typing import Any, Mapping
 
 from ..errors import ValidationError
 
@@ -54,7 +54,9 @@ class DialogueChoice:
         _require_unique_ids(self.set_flags, "dialogue set_flags")
         _require_unique_ids(self.clear_flags, "dialogue clear_flags")
         if set(self.set_flags).intersection(self.clear_flags):
-            raise ValidationError("dialogue choice cannot set and clear the same flag")
+            raise ValidationError(
+                "dialogue choice cannot set and clear the same flag"
+            )
         if self.quest_status is not None and self.quest_id is None:
             raise ValidationError("dialogue quest_status requires quest_id")
 
@@ -72,7 +74,10 @@ class DialogueNode:
             raise ValidationError("dialogue speaker must be non-empty")
         if not isinstance(self.text, str) or not self.text.strip():
             raise ValidationError("dialogue text must be non-empty")
-        _require_unique_ids(tuple(item.choice_id for item in self.choices), "dialogue choices")
+        _require_unique_ids(
+            tuple(item.choice_id for item in self.choices),
+            "dialogue choices",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,8 +96,13 @@ class DialogueDefinition:
         known = set(node_ids)
         for node in self.nodes:
             for choice in node.choices:
-                if choice.next_node_id is not None and choice.next_node_id not in known:
-                    raise ValidationError("dialogue choice references unknown next node")
+                if (
+                    choice.next_node_id is not None
+                    and choice.next_node_id not in known
+                ):
+                    raise ValidationError(
+                        "dialogue choice references unknown next node"
+                    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,11 +129,16 @@ class ShopItem:
 
     def __post_init__(self) -> None:
         _require_id(self.item_id, "shop item_id")
-        for label, value in (("buy_price", self.buy_price), ("sell_price", self.sell_price)):
+        for label, value in (
+            ("buy_price", self.buy_price),
+            ("sell_price", self.sell_price),
+        ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValidationError(f"shop {label} must be an integer >= 0")
         if self.stock is not None and (
-            isinstance(self.stock, bool) or not isinstance(self.stock, int) or self.stock < 0
+            isinstance(self.stock, bool)
+            or not isinstance(self.stock, int)
+            or self.stock < 0
         ):
             raise ValidationError("shop stock must be None or an integer >= 0")
 
@@ -140,7 +155,10 @@ class ShopDefinition:
         _require_id(self.area_id, "shop area_id")
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValidationError("shop name must be non-empty")
-        _require_unique_ids(tuple(item.item_id for item in self.items), "shop items")
+        _require_unique_ids(
+            tuple(item.item_id for item in self.items),
+            "shop items",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,11 +178,20 @@ class InteractionDefinition:
         _require_id(self.area_id, "interaction area_id")
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValidationError("interaction name must be non-empty")
-        if isinstance(self.dc, bool) or not isinstance(self.dc, int) or not 0 <= self.dc <= 40:
-            raise ValidationError("interaction dc must be an integer from 0 through 40")
+        if (
+            isinstance(self.dc, bool)
+            or not isinstance(self.dc, int)
+            or not 0 <= self.dc <= 40
+        ):
+            raise ValidationError(
+                "interaction dc must be an integer from 0 through 40"
+            )
         if not isinstance(self.ability, str) or not self.ability.strip():
             raise ValidationError("interaction ability must be non-empty")
-        if isinstance(self.reward_currency, bool) or not isinstance(self.reward_currency, int):
+        if isinstance(self.reward_currency, bool) or not isinstance(
+            self.reward_currency,
+            int,
+        ):
             raise ValidationError("interaction reward_currency must be an integer")
         if self.reward_item_id is not None:
             _require_id(self.reward_item_id, "interaction reward_item_id")
@@ -184,7 +211,10 @@ class EncounterGate:
         _require_id(self.area_id, "encounter area_id")
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValidationError("encounter name must be non-empty")
-        _require_unique_ids(self.completion_flags, "encounter completion_flags")
+        _require_unique_ids(
+            self.completion_flags,
+            "encounter completion_flags",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,13 +240,21 @@ class CampaignDefinition:
         known_areas = set(area_ids)
         for area in self.areas:
             if set(area.exits) - known_areas:
-                raise ValidationError(f"area {area.area_id!r} references unknown exit")
+                raise ValidationError(
+                    f"area {area.area_id!r} references unknown exit"
+                )
         for label, ids in (
             ("dialogues", tuple(item.dialogue_id for item in self.dialogues)),
             ("quests", tuple(item.quest_id for item in self.quests)),
             ("shops", tuple(item.shop_id for item in self.shops)),
-            ("interactions", tuple(item.interaction_id for item in self.interactions)),
-            ("encounters", tuple(item.encounter_id for item in self.encounters)),
+            (
+                "interactions",
+                tuple(item.interaction_id for item in self.interactions),
+            ),
+            (
+                "encounters",
+                tuple(item.encounter_id for item in self.encounters),
+            ),
         ):
             _require_unique_ids(ids, f"campaign {label}")
         for item in (*self.shops, *self.interactions, *self.encounters):
@@ -253,16 +291,18 @@ class WorldState:
 class WorldEvent:
     sequence: int
     event_type: str
-    payload: tuple[tuple[str, object], ...]
+    payload: tuple[tuple[str, Any], ...]
     rng_after: tuple[int, int] | None = None
 
-    def payload_map(self) -> Mapping[str, object]:
+    def payload_map(self) -> Mapping[str, Any]:
         return MappingProxyType(dict(self.payload))
 
 
 def _require_id(value: object, label: str) -> None:
     if not isinstance(value, str) or not value.strip() or ":" not in value:
-        raise ValidationError(f"{label} must be a non-empty namespaced ID")
+        raise ValidationError(
+            f"{label} must be a non-empty namespaced ID"
+        )
 
 
 def _require_unique_ids(values: tuple[str, ...], label: str) -> None:
