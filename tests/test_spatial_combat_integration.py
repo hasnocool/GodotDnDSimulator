@@ -10,7 +10,7 @@ from godot_dnd_engine.actors import (
     MovementSpeed,
     SizeCategory,
 )
-from godot_dnd_engine.combat import CombatRuntime
+from godot_dnd_engine.combat import CombatRuntime, EncounterState
 from godot_dnd_engine.errors import ValidationError
 from godot_dnd_engine.rng import DeterministicRNG
 from godot_dnd_engine.rules import Ability, AbilityScore
@@ -39,16 +39,15 @@ def actor(actor_id: str) -> ActorState:
     )
 
 
-def started_encounter() -> tuple[CombatRuntime, object, dict[str, ActorState]]:
-    actors = {"actor:a": actor("actor:a"), "actor:b": actor("actor:b")}
+def started_encounter() -> tuple[CombatRuntime, EncounterState]:
+    actors = (actor("actor:a"), actor("actor:b"))
     runtime = CombatRuntime(DeterministicRNG.from_seed(0))
-    preparing = runtime.create_encounter("encounter:spatial", tuple(actors.values()))
-    started = runtime.start_encounter(preparing).state
-    return runtime, started, actors
+    preparing = runtime.create_encounter("encounter:spatial", actors)
+    return runtime, runtime.start_encounter(preparing).state
 
 
 def test_legal_spatial_move_spends_exact_combat_movement_cost() -> None:
-    combat_runtime, encounter, actors = started_encounter()
+    combat_runtime, encounter = started_encounter()
     current_id = encounter.current_actor_id
     assert current_id is not None
     spatial_state = SpatialState(
@@ -68,14 +67,14 @@ def test_legal_spatial_move_spends_exact_combat_movement_cost() -> None:
         destination=GridCell(2, 0) if current_id == "actor:a" else GridCell(3, 3),
     )
     assert result.spatial.path.cost_feet == 10
-    assert result.combat.state.combatant(current_id).economy.movement_remaining == before_budget - 10
-    assert result.spatial.state.placement(current_id).anchor == (
-        GridCell(2, 0) if current_id == "actor:a" else GridCell(3, 3)
-    )
+    remaining = result.combat.state.combatant(current_id).economy.movement_remaining
+    assert remaining == before_budget - 10
+    expected_anchor = GridCell(2, 0) if current_id == "actor:a" else GridCell(3, 3)
+    assert result.spatial.state.placement(current_id).anchor == expected_anchor
 
 
 def test_difficult_terrain_cost_is_the_value_spent_by_combat() -> None:
-    combat_runtime, encounter, _ = started_encounter()
+    combat_runtime, encounter = started_encounter()
     current_id = encounter.current_actor_id
     assert current_id is not None
     other_id = "actor:b" if current_id == "actor:a" else "actor:a"
@@ -102,11 +101,12 @@ def test_difficult_terrain_cost_is_the_value_spent_by_combat() -> None:
         destination=GridCell(1, 0),
     )
     assert result.spatial.path.cost_feet == 10
-    assert result.combat.state.combatant(current_id).economy.movement_remaining == before_budget - 10
+    remaining = result.combat.state.combatant(current_id).economy.movement_remaining
+    assert remaining == before_budget - 10
 
 
 def test_illegal_or_over_budget_move_does_not_mutate_either_input_state() -> None:
-    combat_runtime, encounter, _ = started_encounter()
+    combat_runtime, encounter = started_encounter()
     current_id = encounter.current_actor_id
     assert current_id is not None
     other_id = "actor:b" if current_id == "actor:a" else "actor:a"
