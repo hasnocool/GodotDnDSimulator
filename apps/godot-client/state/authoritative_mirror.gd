@@ -1,8 +1,6 @@
 class_name AuthoritativeMirror
 extends RefCounted
 
-const MAX_EVENT_HISTORY := 512
-
 signal snapshot_replaced(snapshot: Dictionary, sequence: int)
 signal events_appended(events: Array, sequence: int)
 signal cleared()
@@ -102,8 +100,6 @@ func ingest_events(events_value: Array) -> bool:
 
     for event in accepted:
         _event_history.append(event)
-    while _event_history.size() > MAX_EVENT_HISTORY:
-        _event_history.pop_front()
 
     _sequence = expected - 1
     var emitted_events: Array = []
