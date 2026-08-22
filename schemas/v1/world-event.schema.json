@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/world-event.schema.json",
+  "title": "WorldEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sequence", "type", "payload", "rng_after"],
+  "properties": {
+    "sequence": {"type": "integer", "minimum": 1},
+    "type": {"type": "string", "minLength": 1},
+    "payload": {"type": "object"},
+    "rng_after": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "increment"],
+          "properties": {
+            "state": {"type": "integer", "minimum": 0},
+            "increment": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    }
+  }
+}
