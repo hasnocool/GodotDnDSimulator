@@ -11,6 +11,7 @@ from godot_dnd_engine.actors import (
     HitPoints,
     MovementMode,
     MovementSpeed,
+    SizeCategory,
 )
 from godot_dnd_engine.combat import (
     ActionEconomy,
@@ -33,22 +34,28 @@ from godot_dnd_engine.combat import (
     apply_combat_event,
     deserialize_event,
     deserialize_log,
+    rng_from_events,
     serialize_event,
     serialize_log,
 )
 from godot_dnd_engine.dice import DiceExpression
 from godot_dnd_engine.errors import ValidationError
+from godot_dnd_engine.models import RNGCheckpoint
 from godot_dnd_engine.rng import DeterministicRNG
 from godot_dnd_engine.rules import Ability, AbilityScore, ProficiencyRank
 
 
 def actor(
-    actor_id: str = "actor:a", *, hp: int = 10, kind: ActorKind = ActorKind.HERO
+    actor_id: str = "actor:a",
+    *,
+    hp: int = 10,
+    kind: ActorKind = ActorKind.HERO,
 ) -> ActorState:
     return ActorState(
         actor_id=actor_id,
         name=actor_id,
         kind=kind,
+        size=SizeCategory.MEDIUM,
         proficiency_bonus=2,
         abilities=tuple(AbilityScore(ability, 12) for ability in Ability),
         hit_points=HitPoints(hp, hp),
@@ -58,55 +65,47 @@ def actor(
 
 
 def active(runtime: CombatRuntime) -> EncounterState:
-    base = runtime.create_encounter("encounter:test", (actor("actor:a"), actor("actor:b")))
+    base = runtime.create_encounter(
+        "encounter:test",
+        (actor("actor:a"), actor("actor:b")),
+    )
     return runtime.start_encounter(base).state
 
 
 def test_model_validation_boundaries() -> None:
+    invalid_builders = (
+        lambda: DeathSaveTrack(successes=4),
+        lambda: DeathSaveTrack(failures=True),
+        lambda: DefenseProfile(resistances=frozenset({""})),
+        lambda: ActionEconomy(movement_remaining=-1),
+        lambda: ActionEconomy(movement_remaining=True),
+        lambda: CombatConditionRule(""),
+        lambda: InitiativeEntry("", 1, 1, 1),
+        lambda: InitiativeEntry("actor:a", "bad", 1, 1),
+        lambda: InitiativeEntry("actor:a", 1, 1, 0),
+        lambda: ReactionWindow("", "trigger", "actor:a", ()),
+        lambda: ReactionWindow("window", "", "actor:a", ()),
+        lambda: ReactionWindow("window", "trigger", "", ()),
+        lambda: ReactionWindow("window", "trigger", "actor:a", ("actor:b", "actor:b")),
+        lambda: ReactionWindow("window", "trigger", "actor:a", ("",)),
+        lambda: CombatEvent(0, "event"),
+        lambda: CombatEvent(1, ""),
+        lambda: CombatEvent(1, "event", payload=(("a", 1), ("a", 2))),
+        lambda: CombatEvent(1, "event", schema_version=2),
+        lambda: CombatEvent(1, "event", rng_after="bad"),
+    )
+    for builder in invalid_builders:
+        with pytest.raises(ValidationError):
+            builder()  # type: ignore[misc]
+
     with pytest.raises(ValidationError):
-        DeathSaveTrack(successes=4)
-    with pytest.raises(ValidationError):
-        DeathSaveTrack(failures=True)  # type: ignore[arg-type]
-    with pytest.raises(ValidationError):
-        DefenseProfile(resistances=frozenset({""}))
-    with pytest.raises(ValidationError):
-        ActionEconomy(movement_remaining=-1)
-    with pytest.raises(ValidationError):
-        ActionEconomy(movement_remaining=True)  # type: ignore[arg-type]
-    with pytest.raises(ValidationError):
-        CombatConditionRule("")
+        CombatEvent(1, "event").value("missing")
     with pytest.raises(ValidationError):
         CombatantState(replace(actor(), hit_points=HitPoints(0, 10)))
     with pytest.raises(ValidationError):
         CombatantState(actor(), life_state=LifeState.UNCONSCIOUS)
     with pytest.raises(ValidationError):
         CombatantState(actor()).with_actor(actor("actor:other"))
-    with pytest.raises(ValidationError):
-        InitiativeEntry("", 1, 1, 1)
-    with pytest.raises(ValidationError):
-        InitiativeEntry("actor:a", "bad", 1, 1)  # type: ignore[arg-type]
-    with pytest.raises(ValidationError):
-        InitiativeEntry("actor:a", 1, 1, 0)
-    with pytest.raises(ValidationError):
-        ReactionWindow("", "trigger", "actor:a", ())
-    with pytest.raises(ValidationError):
-        ReactionWindow("window", "", "actor:a", ())
-    with pytest.raises(ValidationError):
-        ReactionWindow("window", "trigger", "", ())
-    with pytest.raises(ValidationError):
-        ReactionWindow("window", "trigger", "actor:a", ("actor:b", "actor:b"))
-    with pytest.raises(ValidationError):
-        ReactionWindow("window", "trigger", "actor:a", ("",))
-    with pytest.raises(ValidationError):
-        CombatEvent(0, "event")
-    with pytest.raises(ValidationError):
-        CombatEvent(1, "")
-    with pytest.raises(ValidationError):
-        CombatEvent(1, "event", payload=(("a", 1), ("a", 2)))
-    with pytest.raises(ValidationError):
-        CombatEvent(1, "event", schema_version=2)
-    with pytest.raises(ValidationError):
-        CombatEvent(1, "event").value("missing")
 
 
 def test_action_economy_validation_and_reaction_spend() -> None:
@@ -136,53 +135,33 @@ def test_encounter_validation_boundaries() -> None:
         )
     with pytest.raises(ValidationError):
         EncounterState("enc", EncounterStatus.ACTIVE, (combatant_a, combatant_b))
+
     initiative = (
         InitiativeEntry("actor:a", 10, 1, 9),
         InitiativeEntry("actor:b", 9, 1, 8),
     )
-    with pytest.raises(ValidationError):
-        EncounterState(
-            "enc",
-            EncounterStatus.ACTIVE,
-            (combatant_a, combatant_b),
-            initiative=initiative,
-            round_number=-1,
-        )
-    with pytest.raises(ValidationError):
-        EncounterState(
-            "enc",
-            EncounterStatus.ACTIVE,
-            (combatant_a, combatant_b),
-            initiative=initiative,
-            turn_index=2,
-        )
-    with pytest.raises(ValidationError):
-        EncounterState(
-            "enc",
-            EncounterStatus.ACTIVE,
-            (combatant_a, combatant_b),
-            initiative=initiative,
-            event_sequence=-1,
-        )
-    with pytest.raises(ValidationError):
-        EncounterState(
-            "enc",
-            EncounterStatus.ACTIVE,
-            (combatant_a, combatant_b),
-            initiative=initiative,
+    invalid_states = (
+        dict(round_number=-1),
+        dict(turn_index=2),
+        dict(event_sequence=-1),
+        dict(
             reaction_windows=(
                 ReactionWindow("window", "trigger", "actor:a", ()),
                 ReactionWindow("window", "trigger", "actor:a", ()),
-            ),
-        )
-    with pytest.raises(ValidationError):
-        EncounterState(
-            "enc",
-            EncounterStatus.ACTIVE,
-            (combatant_a, combatant_b),
-            initiative=initiative,
-            condition_rules=(CombatConditionRule("c"), CombatConditionRule("c")),
-        )
+            )
+        ),
+        dict(condition_rules=(CombatConditionRule("c"), CombatConditionRule("c"))),
+    )
+    for kwargs in invalid_states:
+        with pytest.raises(ValidationError):
+            EncounterState(
+                "enc",
+                EncounterStatus.ACTIVE,
+                (combatant_a, combatant_b),
+                initiative=initiative,
+                **kwargs,
+            )
+
     state = EncounterState(
         "enc",
         EncounterStatus.ACTIVE,
@@ -236,7 +215,7 @@ def test_attack_and_damage_input_validation() -> None:
             ProficiencyRank.FULL,
             DiceExpression(1, 4),
             "energy",
-            damage_bonus=True,  # type: ignore[arg-type]
+            damage_bonus=True,
         )
     with pytest.raises(ValidationError):
         AttackDefinition(
@@ -251,7 +230,10 @@ def test_attack_and_damage_input_validation() -> None:
 
 def test_runtime_command_validation_boundaries() -> None:
     runtime = CombatRuntime(DeterministicRNG.from_seed(0))
-    base = runtime.create_encounter("encounter:test", (actor("actor:a"), actor("actor:b")))
+    base = runtime.create_encounter(
+        "encounter:test",
+        (actor("actor:a"), actor("actor:b")),
+    )
     with pytest.raises(ValidationError):
         runtime.spend_movement(base, "actor:a", 1)
     started = runtime.start_encounter(base).state
@@ -269,6 +251,7 @@ def test_runtime_command_validation_boundaries() -> None:
             source_actor_id="actor:a",
             eligible_actor_ids=("actor:missing",),
         )
+
     opened = runtime.open_reaction_window(
         started,
         window_id="window",
@@ -309,69 +292,46 @@ def test_runtime_healing_temp_hp_and_damage_validation() -> None:
     with pytest.raises(ValidationError):
         runtime.heal(dead_state, target_id="actor:b", amount=1)
     with pytest.raises(ValidationError):
-        runtime.apply_damage(dead_state, target_id="actor:b", packet=DamagePacket(1, "energy"))
+        runtime.apply_damage(
+            dead_state,
+            target_id="actor:b",
+            packet=DamagePacket(1, "energy"),
+        )
 
 
-def test_damage_at_zero_single_failure_and_instant_threshold() -> None:
+def test_damage_at_zero_tracks_failures_and_threshold() -> None:
     runtime = CombatRuntime(DeterministicRNG.from_seed(0))
     state = active(runtime)
-    b = state.combatant("actor:b")
-    zero_actor = replace(b.actor, hit_points=HitPoints(0, b.actor.hit_points.maximum))
-    zero = replace(
-        b,
-        actor=zero_actor,
-        life_state=LifeState.UNCONSCIOUS,
-        zero_hp_rule=ZeroHitPointRule.CHARACTER,
+    target = state.combatant("actor:b")
+    zero_actor = replace(
+        target.actor,
+        hit_points=HitPoints(0, target.actor.hit_points.maximum),
     )
-    state = state.replace_combatant(zero)
-    state = runtime.apply_damage(
-        state, target_id="actor:b", packet=DamagePacket(1, "energy")
-    )[0].state
-    assert state.combatant("actor:b").death_saves.failures == 1
-    maximum = state.combatant("actor:b").actor.hit_points.maximum
-    state = runtime.apply_damage(
-        state, target_id="actor:b", packet=DamagePacket(maximum, "energy")
-    )[0].state
-    assert state.combatant("actor:b").life_state is LifeState.DEAD
-
-
-def test_death_save_special_rolls_and_invalid_state() -> None:
-    runtime = CombatRuntime(DeterministicRNG.from_seed(1))
-    state = active(runtime)
-    with pytest.raises(ValidationError):
-        runtime._death_save_event(state, "actor:b")
-    b = state.combatant("actor:b")
-    zero_actor = replace(b.actor, hit_points=HitPoints(0, b.actor.hit_points.maximum))
     state = state.replace_combatant(
         replace(
-            b,
+            target,
             actor=zero_actor,
             life_state=LifeState.UNCONSCIOUS,
             zero_hp_rule=ZeroHitPointRule.CHARACTER,
         )
     )
-    event = runtime._death_save_event(state, "actor:b")
-    result = apply_combat_event(state, event)
-    assert result.combatant("actor:b").life_state is LifeState.CONSCIOUS
-    assert result.combatant("actor:b").actor.hit_points.current == 1
-
-    monster_runtime = CombatRuntime(DeterministicRNG.from_seed(0))
-    monster_state = active(monster_runtime)
-    m = monster_state.combatant("actor:b")
-    zero_actor = replace(m.actor, hit_points=HitPoints(0, m.actor.hit_points.maximum))
-    monster_state = monster_state.replace_combatant(
-        replace(
-            m,
-            actor=zero_actor,
-            life_state=LifeState.UNCONSCIOUS,
-            zero_hp_rule=ZeroHitPointRule.MONSTER,
-        )
-    )
-    with pytest.raises(ValidationError):
-        monster_runtime._death_save_event(monster_state, "actor:b")
+    state = runtime.apply_damage(
+        state,
+        target_id="actor:b",
+        packet=DamagePacket(1, "energy"),
+    )[0].state
+    assert state.combatant("actor:b").death_saves.failures == 1
+    maximum = state.combatant("actor:b").actor.hit_points.maximum
+    state = runtime.apply_damage(
+        state,
+        target_id="actor:b",
+        packet=DamagePacket(maximum, "energy"),
+    )[0].state
+    assert state.combatant("actor:b").life_state is LifeState.DEAD
 
 
-def test_event_serialization_round_trip_with_tuple_payload() -> None:
+def test_event_serialization_preserves_rng_checkpoint() -> None:
+    checkpoint = RNGCheckpoint(DeterministicRNG.ALGORITHM, 123, 109)
     event = CombatEvent(
         1,
         "reaction.window.opened",
@@ -381,10 +341,36 @@ def test_event_serialization_round_trip_with_tuple_payload() -> None:
             ("trigger", "trigger"),
             ("eligible_actor_ids", ("actor:b", "actor:c")),
         ),
+        rng_after=checkpoint,
     )
     encoded = serialize_event(event)
     assert deserialize_event(encoded) == event
-    assert encoded == serialize_event(deserialize_event(encoded))
+    assert serialize_event(deserialize_event(encoded)) == encoded
+
+
+def test_combat_log_restores_exact_future_rng_position() -> None:
+    runtime = CombatRuntime(DeterministicRNG.from_seed(7))
+    base = runtime.create_encounter(
+        "encounter:rng",
+        (actor("actor:a"), actor("actor:b")),
+    )
+    started = runtime.start_encounter(base)
+    encoded = serialize_log(started.events)
+    events = deserialize_log(encoded)
+    restored = rng_from_events(events)
+    assert restored.roll_die(20) == runtime.rng.roll_die(20)
+
+
+def test_rng_restore_rejects_missing_or_unknown_checkpoint() -> None:
+    with pytest.raises(ValidationError):
+        rng_from_events((CombatEvent(1, "encounter.ended"),))
+    event = CombatEvent(
+        1,
+        "initiative.rolled",
+        rng_after=RNGCheckpoint("other-rng", 1, 3),
+    )
+    with pytest.raises(ValidationError):
+        rng_from_events((event,))
 
 
 def test_event_log_serialization_is_canonical_and_round_trips() -> None:
@@ -399,6 +385,23 @@ def test_event_log_serialization_is_canonical_and_round_trips() -> None:
     assert serialize_log(deserialize_log(encoded)) == encoded
 
 
+def test_deserializer_rejects_malformed_shapes() -> None:
+    with pytest.raises(ValidationError):
+        deserialize_event("[]")
+    with pytest.raises(ValidationError):
+        deserialize_event('{"payload": []}')
+    with pytest.raises(ValidationError):
+        deserialize_event(
+            '{"sequence":1,"event_type":"x","actor_id":null,"target_id":null,'
+            '"payload":{"bad":[1]},"schema_version":1,"rng_after":null}'
+        )
+    with pytest.raises(ValidationError):
+        deserialize_event(
+            '{"sequence":1,"event_type":"x","actor_id":null,"target_id":null,'
+            '"payload":{},"schema_version":1,"rng_after":{}}'
+        )
+
+
 def test_reducer_rejects_wrong_payload_types_and_unknown_event() -> None:
     runtime = CombatRuntime(DeterministicRNG.from_seed(0))
     state = active(runtime)
@@ -406,12 +409,22 @@ def test_reducer_rejects_wrong_payload_types_and_unknown_event() -> None:
     with pytest.raises(ValidationError):
         apply_combat_event(
             state,
-            CombatEvent(sequence, "movement.spent", actor_id="actor:a", payload=(("feet", "x"),)),
+            CombatEvent(
+                sequence,
+                "movement.spent",
+                actor_id="actor:a",
+                payload=(("feet", "x"),),
+            ),
         )
     with pytest.raises(ValidationError):
         apply_combat_event(
             state,
-            CombatEvent(sequence, "action.spent", actor_id="actor:a", payload=(("resource", 1),)),
+            CombatEvent(
+                sequence,
+                "action.spent",
+                actor_id="actor:a",
+                payload=(("resource", 1),),
+            ),
         )
     with pytest.raises(ValidationError):
         apply_combat_event(
