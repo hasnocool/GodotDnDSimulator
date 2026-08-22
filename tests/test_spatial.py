@@ -197,9 +197,23 @@ def test_actor_movement_adapter_and_reachable_cells_use_explicit_budget() -> Non
         (MovementMode.FLY, 40),
         (MovementMode.WALK, 30),
     ]
-    path = find_actor_path(state, hero, GridCell(3, 0), MovementMode.WALK, budget_feet=15)
+    cardinal_policy = MovementPolicy(allow_diagonal=False)
+    path = find_actor_path(
+        state,
+        hero,
+        GridCell(3, 0),
+        MovementMode.WALK,
+        budget_feet=15,
+        policy=cardinal_policy,
+    )
     assert not path.legal
-    reachable = reachable_cells(state, "actor:a", MovementMode.WALK, 10)
+    reachable = reachable_cells(
+        state,
+        "actor:a",
+        MovementMode.WALK,
+        10,
+        policy=cardinal_policy,
+    )
     costs = {item.cell: item.cost_feet for item in reachable}
     assert costs[GridCell(0, 0)] == 0
     assert costs[GridCell(1, 0)] == 10
