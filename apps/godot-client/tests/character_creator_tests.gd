@@ -60,7 +60,10 @@ func _test_rules_driven_creator_flow() -> void:
     await process_frame
 
     var snapshot_request := _last_query(transport, "bridge.snapshot")
-    _check(not snapshot_request.is_empty(), "creator-capable core session requests snapshot")
+    _check(
+        not snapshot_request.is_empty(),
+        "creator-capable core session requests snapshot",
+    )
     transport.queue_message(
         Protocol.make_response(
             "query.result",
@@ -73,12 +76,15 @@ func _test_rules_driven_creator_flow() -> void:
     )
     for _index in range(60):
         await process_frame
-        if shell.shell_state() == shell.ShellState.READY:
+        if shell.shell_state() == AppShell.ShellState.READY:
             break
-    _check(shell.shell_state() == shell.ShellState.READY, "shell becomes ready")
+    _check(shell.shell_state() == AppShell.ShellState.READY, "shell becomes ready")
 
     var launcher: Button = shell.get_node("ShellUI/CreatorButton")
-    _check(launcher.visible, "creator launcher appears only with negotiated capability")
+    _check(
+        launcher.visible,
+        "creator launcher appears only with negotiated capability",
+    )
     launcher.pressed.emit()
     await process_frame
     var creator = shell.get_node("CharacterCreator")
@@ -97,8 +103,9 @@ func _test_rules_driven_creator_flow() -> void:
         )
     )
     await process_frame
+    var creator_schema: Dictionary = creator.call("creator_schema")
     _check(
-        creator.call("creator_schema").get("catalog_id", "") == "catalog:test",
+        str(creator_schema.get("catalog_id", "")) == "catalog:test",
         "creator renders negotiated engine catalog rather than a hardcoded catalog",
     )
 
@@ -113,19 +120,24 @@ func _test_rules_driven_creator_flow() -> void:
     ]:
         creator.call("_set_choice_selected", choice_id, true)
     var draft: Dictionary = creator.call("build_draft")
+    var selected: Array = draft.get("selected_choice_ids", [])
     _check(
-        draft.get("selected_choice_ids", []).has("class:test"),
+        selected.has("class:test"),
         "draft selections come from engine-provided choice IDs",
     )
+    var scores: Dictionary = draft.get("ability_scores", {})
     _check(
-        draft.get("ability_scores", {}).size() == 6,
+        scores.size() == 6,
         "creator builds all six ability assignments from engine policy",
     )
 
     creator.set("_step_index", 10)
     creator.call("_render_step")
     var preview_request := _last_query(transport, "characters.creator.preview")
-    _check(not preview_request.is_empty(), "review step requests authoritative validation")
+    _check(
+        not preview_request.is_empty(),
+        "review step requests authoritative validation",
+    )
     transport.queue_message(
         Protocol.make_response(
             "query.result",
@@ -147,14 +159,23 @@ func _test_rules_driven_creator_flow() -> void:
         )
     )
     await process_frame
-    var create_button: Button = creator.get_node("Panel/Margin/VBox/Footer/Create")
-    _check(not create_button.disabled, "create is enabled only after legal engine preview")
+    var create_button: Button = creator.get_node(
+        "Panel/Margin/VBox/Footer/Create"
+    )
+    _check(
+        not create_button.disabled,
+        "create is enabled only after legal engine preview",
+    )
     create_button.pressed.emit()
     await process_frame
     var command := _last_message(transport, "command.submit")
-    _check(not command.is_empty(), "creator submits typed command after legal preview")
     _check(
-        str(command["payload"]["command"].get("command_type", "")) == "characters.create",
+        not command.is_empty(),
+        "creator submits typed command after legal preview",
+    )
+    var command_payload: Dictionary = command["payload"]["command"]
+    _check(
+        str(command_payload.get("command_type", "")) == "characters.create",
         "creator submits characters.create rather than mutating actor state locally",
     )
 
@@ -168,25 +189,112 @@ func _creator_schema() -> Dictionary:
     return {
         "catalog_id": "catalog:test",
         "steps": [
-            "identity", "species", "background", "class", "abilities", "skills",
-            "equipment", "spells_features", "appearance", "biography", "review",
+            "identity",
+            "species",
+            "background",
+            "class",
+            "abilities",
+            "skills",
+            "equipment",
+            "spells_features",
+            "appearance",
+            "biography",
+            "review",
         ],
         "groups": [
-            {"group_id": "species", "step": "species", "minimum": 1, "maximum": 1, "choice_ids": ["species:test"]},
-            {"group_id": "background", "step": "background", "minimum": 1, "maximum": 1, "choice_ids": ["background:test"]},
-            {"group_id": "class", "step": "class", "minimum": 1, "maximum": 1, "choice_ids": ["class:test"]},
-            {"group_id": "skills", "step": "skills", "minimum": 2, "maximum": 2, "choice_ids": ["skill:a", "skill:b"]},
-            {"group_id": "equipment", "step": "equipment", "minimum": 1, "maximum": 1, "choice_ids": ["equipment:test"]},
-            {"group_id": "feature", "step": "spells_features", "minimum": 1, "maximum": 1, "choice_ids": ["feature:test"]},
+            {
+                "group_id": "species",
+                "step": "species",
+                "minimum": 1,
+                "maximum": 1,
+                "choice_ids": ["species:test"],
+            },
+            {
+                "group_id": "background",
+                "step": "background",
+                "minimum": 1,
+                "maximum": 1,
+                "choice_ids": ["background:test"],
+            },
+            {
+                "group_id": "class",
+                "step": "class",
+                "minimum": 1,
+                "maximum": 1,
+                "choice_ids": ["class:test"],
+            },
+            {
+                "group_id": "skills",
+                "step": "skills",
+                "minimum": 2,
+                "maximum": 2,
+                "choice_ids": ["skill:a", "skill:b"],
+            },
+            {
+                "group_id": "equipment",
+                "step": "equipment",
+                "minimum": 1,
+                "maximum": 1,
+                "choice_ids": ["equipment:test"],
+            },
+            {
+                "group_id": "feature",
+                "step": "spells_features",
+                "minimum": 1,
+                "maximum": 1,
+                "choice_ids": ["feature:test"],
+            },
         ],
         "choices": [
-            {"choice_id": "species:test", "step": "species", "name": "Test Species", "description": "", "unlock_level": 1},
-            {"choice_id": "background:test", "step": "background", "name": "Test Background", "description": "", "unlock_level": 1},
-            {"choice_id": "class:test", "step": "class", "name": "Test Class", "description": "", "unlock_level": 1},
-            {"choice_id": "skill:a", "step": "skills", "name": "Skill A", "description": "", "unlock_level": 1},
-            {"choice_id": "skill:b", "step": "skills", "name": "Skill B", "description": "", "unlock_level": 1},
-            {"choice_id": "equipment:test", "step": "equipment", "name": "Equipment", "description": "", "unlock_level": 1},
-            {"choice_id": "feature:test", "step": "spells_features", "name": "Feature", "description": "", "unlock_level": 1},
+            {
+                "choice_id": "species:test",
+                "step": "species",
+                "name": "Test Species",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "background:test",
+                "step": "background",
+                "name": "Test Background",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "class:test",
+                "step": "class",
+                "name": "Test Class",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "skill:a",
+                "step": "skills",
+                "name": "Skill A",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "skill:b",
+                "step": "skills",
+                "name": "Skill B",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "equipment:test",
+                "step": "equipment",
+                "name": "Equipment",
+                "description": "",
+                "unlock_level": 1,
+            },
+            {
+                "choice_id": "feature:test",
+                "step": "spells_features",
+                "name": "Feature",
+                "description": "",
+                "unlock_level": 1,
+            },
         ],
         "ability_policies": [
             {"method_id": "standard-array", "values": [15, 14, 13, 12, 10, 8]},
