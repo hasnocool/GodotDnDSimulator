@@ -34,94 +34,44 @@ Canonical rules data + provenance
 
 The executable foundation uses **Python 3.12+** for the authoritative engine and **Godot 4.7.1+** for the presentation client. The decision and tradeoffs are recorded in [`docs/adr/0001-engine-runtime.md`](docs/adr/0001-engine-runtime.md).
 
-Implemented foundation pieces include:
-
-- versioned namespaced IDs for campaigns, sessions, actors, commands, events, rules, effects, and packs;
-- typed immutable command/event/state contracts;
-- `pcg32-v1` deterministic RNG with a published regression vector;
-- deterministic dice expressions with raw-roll audit metadata;
-- command validation and optimistic sequence checks;
-- pure event reducers;
-- versioned snapshot/event JSON serialization;
-- event-log replay from a snapshot with RNG continuation;
-- JSON Schemas for v1 command, event, and snapshot contracts;
-- a minimal Godot 4.7.1 orthographic 3D project that owns presentation only;
-- Python, schema/governance, and Godot headless CI jobs.
-
-The proof-of-foundation command is `simulation.roll_dice`. Given the same initial state, seed, and command, it produces byte-for-byte equivalent canonical event/state JSON and can be replayed from the event log.
+Implemented foundation pieces include versioned stable IDs, immutable command/event/state contracts, deterministic `pcg32-v1` RNG/dice, reducers, snapshot/event replay with RNG continuation, v1 JSON schemas, a presentation-only Godot scaffold, and repository CI/governance tooling.
 
 ## v0.2 SRD pipeline
 
 The v0.2 phase adds a development-time, provenance-first importer under `tools/rules_importer/`. Runtime gameplay does **not** depend on the importer or PDF/network libraries.
 
-The production source policy currently allowlists only:
-
-```text
-source_id: wotc-srd-5.2.1-en
-source:    D&D SRD 5.2.1 English PDF
-license:   CC-BY-4.0
-raw PDF:   transient local cache only
-```
-
-The allowlist pins the reviewed official URL and expected SHA-256. The fetcher rejects unapproved source IDs/hosts/licenses/media types, verifies downloaded and cached bytes, records retrieval metadata, and fails closed if the upstream checksum changes.
-
-Pipeline:
-
-```text
-allowlisted source
-      ↓
-async fetch + cache validators
-      ↓
-SHA-256 verification + source manifest
-      ↓
-PDF extraction + bookmarks/pages
-      ↓
-normalization
-      ↓
-canonical entity compilation
-      ↓
-versioned JSON Schema validation
-      ↓
-entities.jsonl + reports + attribution
-      ↓
-version/source diff tooling
-```
-
-The compiler currently emits provenance-rich **data-only** canonical entities. The remaining full-official-source fetch, 364-page audit, generated-data decision, and v0.2 exit criterion remain tracked in [`TODO.md`](TODO.md).
-
-Raw SRD PDFs are ignored by Git. Generated/audited canonical output should only be committed or released after the complete official-source import has been reviewed.
+The production source policy allowlists the reviewed D&D SRD 5.2.1 English PDF under CC-BY-4.0, pins the expected checksum, records provenance, and rejects unknown source IDs/hosts/licenses/media types or checksum drift. The remaining complete official-source audit and v0.2 exit criterion remain tracked in [`TODO.md`](TODO.md).
 
 See [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) and [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md).
 
 ## v0.3 rules runtime
 
-The active implementation phase adds a deterministic, headless rules runtime under `engine/src/godot_dnd_engine/rules/` without adding Godot authority or a second RNG system.
-
-Implemented runtime families include:
-
-- ability scores and modifiers;
-- character proficiency progression and none/half/full/double proficiency ranks;
-- typed ability-check, saving-throw, and attack-roll D20 contexts;
-- deterministic advantage/disadvantage with cancellation;
-- typed difficulty classes and save resolution;
-- audit-rich D20 outcomes;
-- generic modifiers with priority and explicit stack/highest/lowest/replace policies;
-- bounded resources and atomic costs;
-- tag/resource/condition/capability requirements;
-- deterministic presentation-independent target selectors;
-- pure resource/condition effect batches;
-- condition unique/refresh/stack behavior;
-- tick/turn/round/permanent durations and deterministic expiry;
-- trigger/reaction-hook matching;
-- ruleset capability declarations.
-
-The runtime uses the existing versioned `pcg32-v1` RNG through the established dice service. It has no filesystem, network, database, wall-clock, or Godot dependency.
-
-A lightweight immutable `RuleSubjectState`/`RuleWorldState` provides enough state for generic v0.3 mechanics without prematurely defining the richer hero/NPC/creature actor model. v0.4 should adapt its character runtime to these primitives instead of reimplementing D20, modifier, resource, condition, target, or reaction behavior.
-
-Representative conformance tests use the actual v0.2 `CanonicalEntity`/`Provenance` shape with structured `mechanics` fields, proving the importer/runtime contract without making runtime code import development-time tools.
+The merged v0.3 runtime under `engine/src/godot_dnd_engine/rules/` provides deterministic ability/proficiency/D20/DC/save resolution, advantage/disadvantage, modifiers, resources/costs, requirements, target selectors, effects, conditions/durations, reactions/hooks, and ruleset capabilities without adding Godot authority or another RNG system.
 
 See [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md).
+
+## v0.4 character runtime
+
+The active phase adds a shared immutable actor model under `engine/src/godot_dnd_engine/actors/` for heroes, NPCs, and creatures.
+
+Implemented character-state families include:
+
+- six ability scores and explicit proficiency bonus;
+- current/maximum/temporary HP plus armor class;
+- the SRD skill list with typed skill-to-ability mappings;
+- saving-throw and generic training proficiencies;
+- walk/climb/swim/fly/burrow movement records;
+- generic named senses with optional ranges;
+- inventory entries and equipment-slot assignments;
+- v0.3 resources and conditions embedded directly on actors;
+- adapters that reuse the v0.3 effect pipeline rather than duplicating rules behavior;
+- data-driven character options with group cardinality, requirements, conflicts, and granted tags;
+- a headless character-creation spec/request/result API;
+- canonical actor JSON serialization with `schema_version: 1`, a repository JSON Schema, and explicit v0-to-v1 migration.
+
+Combat attack resolution, damage/healing, incapacitation/death, and action economy remain intentionally deferred to v0.5. Spatial path legality, LOS, terrain, cover, and AoE remain v0.6 responsibilities.
+
+See [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md).
 
 ## Local validation
 
@@ -192,6 +142,7 @@ Start here:
 - [`docs/RULES_INGESTION.md`](docs/RULES_INGESTION.md) — licensed rules-source policy, provenance, import, compilation, diffing, and attribution.
 - [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) — importer commands, contracts, outputs, tests, and remaining audit gates.
 - [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md) — executable rules primitives, modifier/effect semantics, determinism, and v0.4 handoff.
+- [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md) — shared actor state, creation API, rule adapters, serialization, and v0.5 handoff.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
 - [`docs/adr/`](docs/adr/) — durable architecture decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
@@ -217,11 +168,11 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 ## Current milestone
 
-**v0.3 — Rules runtime**
+**v0.4 — Character runtime**
 
-The headless rules runtime is implemented on the active feature branch with deterministic D20 resolution, modifiers, resources, requirements, targets, effects, conditions/durations, reactions, capabilities, and canonical-entity conformance tests. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
+The shared actor/character runtime is implemented on the active feature branch with immutable hero/NPC/creature state, HP/defense, skills/proficiencies, movement/senses, inventory/equipment, v0.3 effect integration, constrained character options, versioned actor serialization/migrations, and a headless creation API. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
 
-The outstanding full-source v0.2 audit remains tracked as carryover and is not silently considered complete.
+Outstanding v0.1/v0.3 CI proof and full-source v0.2 audit items remain tracked as carryover rather than being silently considered complete.
 
 ## First playable target
 
