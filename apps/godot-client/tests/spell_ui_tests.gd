@@ -109,7 +109,7 @@ func _test_spell_ui_uses_authoritative_previews() -> void:
     _check(palette.visible, "spell palette is visible only with authoritative spell state")
     _check(palette.call("spell_rows").size() == 2, "palette renders engine spell rows")
 
-    var lance := _available_spells()["spells"][0]
+    var lance: Dictionary = _available_spells()["spells"][0]
     scene.call("_on_spell_selected", lance, 0)
     _check(
         shell.interaction_controller().current_mode() == InteractionModes.Mode.TARGET,
@@ -193,7 +193,7 @@ func _test_spell_ui_uses_authoritative_previews() -> void:
         "accepted spell reconciles to fresh authoritative snapshot",
     )
 
-    var area_spell := _available_spells()["spells"][1]
+    var area_spell: Dictionary = _available_spells()["spells"][1]
     scene.call("_on_spell_selected", area_spell, 1)
     _check(
         shell.interaction_controller().current_mode() == InteractionModes.Mode.SHAPE_PREVIEW,
