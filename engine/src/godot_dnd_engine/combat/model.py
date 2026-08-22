@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/model.py
 """Immutable tactical-combat state for the v0.5 headless runtime."""
 
 from __future__ import annotations
@@ -201,7 +202,7 @@ class ReactionWindow:
         object.__setattr__(self, "eligible_actor_ids", tuple(sorted(self.eligible_actor_ids)))
 
 
-type EventValue = str | int | bool | None | tuple[str, ...]
+type EventValue = str | int | bool | tuple[str, ...] | None
 
 
 @dataclass(frozen=True, slots=True)

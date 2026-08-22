@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/serialization.py
 """Canonical combat event serialization and deterministic RNG continuation."""
 
 from __future__ import annotations
@@ -74,13 +75,22 @@ def deserialize_event(value: str) -> CombatEvent:
         (str(key), _event_value(item))
         for key, item in payload_raw.items()
     )
+    sequence = raw.get("sequence")
+    event_type = raw.get("event_type")
+    schema_version = raw.get("schema_version")
+    if not isinstance(sequence, int):
+        raise ValidationError("sequence must be an integer")
+    if not isinstance(event_type, str):
+        raise ValidationError("event_type must be a string")
+    if not isinstance(schema_version, int):
+        raise ValidationError("schema_version must be an integer")
     return CombatEvent(
-        sequence=raw.get("sequence"),
-        event_type=raw.get("event_type"),
+        sequence=sequence,
+        event_type=event_type,
         actor_id=raw.get("actor_id"),
         target_id=raw.get("target_id"),
         payload=payload,
-        schema_version=raw.get("schema_version"),
+        schema_version=schema_version,
         rng_after=_checkpoint_from_raw(raw.get("rng_after")),
     )
 

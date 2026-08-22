@@ -51,15 +51,17 @@ def run() -> list[str]:
     v02_focus = "## Current focus: v0.2 Official SRD pipeline"
     v03_focus = "## Current focus: v0.3 Rules runtime"
     v04_focus = "## Current focus: v0.4 Character runtime"
+    v05_focus = "## Current focus: v0.5 Tactical combat"
     if (
         v01_focus not in todo
         and v02_focus not in todo
         and v03_focus not in todo
         and v04_focus not in todo
+        and v05_focus not in todo
     ):
         errors.append(
             "TODO.md must declare the current milestone focus "
-            "(v0.1, v0.2, v0.3, or v0.4)"
+            "(v0.1, v0.2, v0.3, v0.4, or v0.5)"
         )
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")

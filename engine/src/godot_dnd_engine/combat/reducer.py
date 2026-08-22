@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/reducer.py
 """Pure combat event reducer for replayable tactical state."""
 
 from __future__ import annotations

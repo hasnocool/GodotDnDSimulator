@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-
 from godot_dnd_engine.actors import (
     ActorKind,
     ActorState,

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-
 from godot_dnd_engine.actors import (
     ActorKind,
     ActorState,
@@ -17,10 +16,10 @@ from godot_dnd_engine.combat import (
     ActionEconomy,
     ActionResource,
     AttackDefinition,
+    CombatantState,
     CombatConditionRule,
     CombatEvent,
     CombatRuntime,
-    CombatantState,
     DamagePacket,
     DeathSaveTrack,
     DefenseProfile,

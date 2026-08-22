@@ -1,14 +1,15 @@
+# engine/src/godot_dnd_engine/combat/__init__.py
 """Deterministic v0.5 tactical-combat runtime."""
 
 from .attacks import AttackDefinition, AttackModifiers, AttackResult
 from .damage import DamageAdjustment, DamagePacket, adjust_damage
 from .model import (
+    COMBAT_EVENT_SCHEMA_VERSION,
     ActionEconomy,
     ActionResource,
-    COMBAT_EVENT_SCHEMA_VERSION,
+    CombatantState,
     CombatConditionRule,
     CombatEvent,
-    CombatantState,
     DeathSaveTrack,
     DefenseProfile,
     EncounterState,
@@ -31,12 +32,12 @@ from .serialization import (
 )
 
 __all__ = [
+    "COMBAT_EVENT_SCHEMA_VERSION",
     "ActionEconomy",
     "ActionResource",
     "AttackDefinition",
     "AttackModifiers",
     "AttackResult",
-    "COMBAT_EVENT_SCHEMA_VERSION",
     "CombatConditionRule",
     "CombatEvent",
     "CombatRuntime",

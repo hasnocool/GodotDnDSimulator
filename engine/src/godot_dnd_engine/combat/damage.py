@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/damage.py
 """Generic deterministic damage/healing resolution for tactical combat."""
 
 from __future__ import annotations

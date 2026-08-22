@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/runtime.py
 """Deterministic tactical-combat command/resolution facade."""
 
 from __future__ import annotations
@@ -16,9 +17,9 @@ from .attacks import AttackDefinition, AttackModifiers, AttackResult
 from .damage import DamageAdjustment, DamagePacket, adjust_damage
 from .model import (
     ActionResource,
+    CombatantState,
     CombatConditionRule,
     CombatEvent,
-    CombatantState,
     DefenseProfile,
     EncounterState,
     EncounterStatus,
@@ -476,7 +477,7 @@ class CombatRuntime:
         remaining = adjustment.adjusted_amount - temp_absorbed
         hp_after = max(0, hp.current - remaining)
         leftover_after_zero = max(0, remaining - hp.current)
-        life_state = target.life_state
+        life_state: LifeState = target.life_state
         death_saves = target.death_saves
 
         if hp.current == 0 and adjustment.adjusted_amount > 0:
@@ -489,9 +490,7 @@ class CombatRuntime:
                     LifeState.DEAD if failures >= 3 else LifeState.UNCONSCIOUS
                 )
         elif hp.current > 0 and hp_after == 0:
-            if target.zero_hp_rule is ZeroHitPointRule.MONSTER:
-                life_state = LifeState.DEAD
-            elif leftover_after_zero >= hp.maximum:
+            if target.zero_hp_rule is ZeroHitPointRule.MONSTER or leftover_after_zero >= hp.maximum:
                 life_state = LifeState.DEAD
             else:
                 life_state = LifeState.UNCONSCIOUS
@@ -625,7 +624,7 @@ class CombatRuntime:
         roll = self.rng.roll_die(20)
         successes = target.death_saves.successes
         failures = target.death_saves.failures
-        life_state = target.life_state
+        life_state: LifeState = target.life_state
         hp_after = 0
         if roll == 20:
             hp_after = 1

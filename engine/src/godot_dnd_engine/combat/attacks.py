@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/combat/attacks.py
 """Typed abstract attack definitions and deterministic attack outcomes."""
 
 from __future__ import annotations
