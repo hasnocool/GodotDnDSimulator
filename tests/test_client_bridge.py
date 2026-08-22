@@ -4,7 +4,6 @@ import asyncio
 import json
 
 import pytest
-
 from godot_dnd_engine.client_bridge import (
     CAPABILITIES,
     MAX_MESSAGE_BYTES,

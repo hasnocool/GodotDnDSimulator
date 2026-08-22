@@ -1,3 +1,4 @@
+# engine/src/godot_dnd_engine/client_bridge.py
 """Versioned local TCP bridge between Godot and the authoritative simulation engine."""
 
 from __future__ import annotations
