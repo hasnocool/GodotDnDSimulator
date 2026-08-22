@@ -8,7 +8,7 @@ from typing import Any
 from ..errors import ValidationError
 from ..rng import DeterministicRNG
 from .model import CampaignDefinition, QuestStatus, WorldEvent, WorldState
-from .runtime import WorldRuntime
+from .runtime import WorldRuntime, replay_world_events
 
 
 def restore_world_runtime(
@@ -24,36 +24,47 @@ def restore_world_runtime(
         raise ValidationError(
             "world snapshot campaign does not match definition"
         )
-    rng_value = _dict(snapshot.get("rng"), "world snapshot rng")
-    if rng_value.get("algorithm") != DeterministicRNG.ALGORITHM:
-        raise ValidationError("unsupported world snapshot RNG algorithm")
-    rng_state = _integer(
-        rng_value.get("state"),
-        "rng state",
-        minimum=0,
+    initial_rng = _rng_checkpoint(
+        snapshot.get("rng_initial"),
+        "world snapshot initial rng",
     )
-    rng_increment = _integer(
-        rng_value.get("increment"),
-        "rng increment",
-        minimum=0,
+    final_rng = _rng_checkpoint(
+        snapshot.get("rng"),
+        "world snapshot rng",
     )
+    state = _state_from_dict(definition, state_value)
 
-    runtime = WorldRuntime(definition, seed=0)
-    runtime.state = _state_from_dict(definition, state_value)
-    runtime.rng = DeterministicRNG.restore(
-        (rng_state, rng_increment)
-    )
     events_value = snapshot.get("events", [])
     if not isinstance(events_value, list):
         raise ValidationError("world snapshot events must be an array")
-    runtime.events = [_event_from_dict(item) for item in events_value]
-    if (
-        runtime.events
-        and runtime.events[-1].sequence != runtime.state.sequence
-    ):
+    events = tuple(_event_from_dict(item) for item in events_value)
+    if state.sequence == 0 and events:
         raise ValidationError(
-            "world snapshot event tail does not match state sequence"
+            "zero-sequence world snapshot cannot contain events"
         )
+    if state.sequence > 0 and not events:
+        raise ValidationError(
+            "nonzero world snapshot requires complete event history"
+        )
+
+    canonical_initial = WorldRuntime(definition, seed=0).state
+    try:
+        replayed_state = replay_world_events(canonical_initial, events)
+    except (SequenceError, UnsupportedCommandError, ValueError) as exc:
+        raise ValidationError(
+            "world snapshot event history is not replayable"
+        ) from exc
+    if replayed_state != state:
+        raise ValidationError(
+            "world snapshot state does not match replayed event history"
+        )
+    _validate_rng_history(events, initial_rng, final_rng)
+
+    runtime = WorldRuntime(definition, seed=0)
+    runtime.initial_rng = initial_rng
+    runtime.state = state
+    runtime.rng = DeterministicRNG.restore(final_rng)
+    runtime.events = list(events)
     return runtime
 
 
@@ -97,12 +108,22 @@ def _state_from_dict(
     inventory = _integer_map(
         value.get("inventory", {}),
         "inventory",
+        minimum=1,
     )
     equipped = _string_map(
         value.get("equipped", {}),
         "equipped",
     )
-    completed = _string_tuple(
+    shop_stock = _integer_map(
+        value.get("shop_stock", {}),
+        "shop_stock",
+        minimum=0,
+    )
+    completed_interactions = _string_tuple(
+        value.get("completed_interactions", []),
+        "completed_interactions",
+    )
+    completed_encounters = _string_tuple(
         value.get("completed_encounters", []),
         "completed_encounters",
     )
@@ -128,13 +149,15 @@ def _state_from_dict(
         quests=tuple(sorted(quests)),
         inventory=tuple(sorted(inventory.items())),
         equipped=tuple(sorted(equipped.items())),
+        shop_stock=tuple(sorted(shop_stock.items())),
         currency=_integer(
             value.get("currency"),
             "currency",
             minimum=0,
         ),
         active_dialogue=active,
-        completed_encounters=frozenset(completed),
+        completed_interactions=frozenset(completed_interactions),
+        completed_encounters=frozenset(completed_encounters),
         journal=journal,
         rest_count=_integer(
             value.get("rest_count"),
@@ -149,18 +172,10 @@ def _event_from_dict(value: object) -> WorldEvent:
     rng_value = event.get("rng_after")
     rng_after: tuple[int, int] | None = None
     if rng_value is not None:
-        rng_dict = _dict(rng_value, "world event rng_after")
-        rng_after = (
-            _integer(
-                rng_dict.get("state"),
-                "rng state",
-                minimum=0,
-            ),
-            _integer(
-                rng_dict.get("increment"),
-                "rng increment",
-                minimum=0,
-            ),
+        rng_after = _rng_checkpoint(
+            rng_value,
+            "world event rng_after",
+            require_algorithm=False,
         )
     payload = _dict(event.get("payload"), "world event payload")
     return WorldEvent(
@@ -173,6 +188,52 @@ def _event_from_dict(value: object) -> WorldEvent:
         payload=tuple(sorted(payload.items())),
         rng_after=rng_after,
     )
+
+
+def _validate_rng_history(
+    events: tuple[WorldEvent, ...],
+    initial: tuple[int, int],
+    final: tuple[int, int],
+) -> None:
+    rng = DeterministicRNG.restore(initial)
+    for event in events:
+        if event.event_type != "world.interaction_resolved":
+            if event.rng_after is not None:
+                raise ValidationError(
+                    "non-random world event cannot carry rng_after"
+                )
+            continue
+        payload = event.payload_map()
+        expected_roll = rng.roll_die(20)
+        if payload.get("roll") != expected_roll:
+            raise ValidationError(
+                "world interaction roll does not match RNG replay"
+            )
+        if event.rng_after != rng.snapshot():
+            raise ValidationError(
+                "world interaction rng_after does not match RNG replay"
+            )
+    if rng.snapshot() != final:
+        raise ValidationError(
+            "world snapshot final RNG does not match replayed history"
+        )
+
+
+def _rng_checkpoint(
+    value: object,
+    label: str,
+    *,
+    require_algorithm: bool = True,
+) -> tuple[int, int]:
+    raw = _dict(value, label)
+    if require_algorithm and raw.get("algorithm") != DeterministicRNG.ALGORITHM:
+        raise ValidationError(f"{label} uses unsupported RNG algorithm")
+    checkpoint = (
+        _integer(raw.get("state"), "rng state", minimum=0),
+        _integer(raw.get("increment"), "rng increment", minimum=0),
+    )
+    DeterministicRNG.restore(checkpoint)
+    return checkpoint
 
 
 def _dict(value: object, label: str) -> dict[str, Any]:
@@ -218,10 +279,15 @@ def _integer(value: object, label: str, *, minimum: int) -> int:
     return value
 
 
-def _integer_map(value: object, label: str) -> dict[str, int]:
+def _integer_map(
+    value: object,
+    label: str,
+    *,
+    minimum: int,
+) -> dict[str, int]:
     raw = _dict(value, label)
     return {
-        _string(key, label): _integer(item, label, minimum=1)
+        _string(key, label): _integer(item, label, minimum=minimum)
         for key, item in raw.items()
     }
 
