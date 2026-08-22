@@ -6,7 +6,7 @@ from __future__ import annotations
 from ..actors import MovementMode
 from ..errors import ValidationError
 from .events import SpatialEvent, SpatialEventValue
-from .model import GridCell, SpatialState
+from .model import GridCell, MovementPolicy, SpatialState
 from .movement import validate_path
 
 
@@ -42,7 +42,12 @@ def _string(value: SpatialEventValue, label: str) -> str:
     return value
 
 
-def apply_spatial_event(state: SpatialState, event: SpatialEvent) -> SpatialState:
+def apply_spatial_event(
+    state: SpatialState,
+    event: SpatialEvent,
+    *,
+    policy: MovementPolicy = MovementPolicy(),
+) -> SpatialState:
     if event.sequence != state.sequence + 1:
         raise ValidationError("spatial event sequence must be contiguous")
     if event.event_type != "entity.moved":
@@ -63,7 +68,7 @@ def apply_spatial_event(state: SpatialState, event: SpatialEvent) -> SpatialStat
         raise ValidationError("spatial event from_anchor does not match current state")
     if not path or path[0] != from_anchor or path[-1] != to_anchor:
         raise ValidationError("spatial event path endpoints do not match movement anchors")
-    validation = validate_path(state, event.entity_id, path, mode)
+    validation = validate_path(state, event.entity_id, path, mode, policy=policy)
     if not validation.legal:
         raise ValidationError(f"spatial replay path is illegal: {validation.reason}")
     if validation.cost_feet != cost_feet:

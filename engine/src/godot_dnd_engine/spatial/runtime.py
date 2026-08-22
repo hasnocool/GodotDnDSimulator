@@ -157,7 +157,7 @@ class SpatialRuntime:
                 ("to_anchor", (path.path[-1].x, path.path[-1].y)),
             ),
         )
-        next_state = apply_spatial_event(state, event)
+        next_state = apply_spatial_event(state, event, policy=self.policy)
         return SpatialMoveTransition(
             state=next_state,
             event=event,
