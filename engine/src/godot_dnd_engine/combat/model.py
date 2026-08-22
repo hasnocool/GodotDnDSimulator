@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from ..actors import ActorKind, ActorState, HitPoints, MovementMode
 from ..errors import ValidationError
+from ..models import RNGCheckpoint
 from ..rules.state import ConditionInstance
 
 
@@ -211,6 +212,7 @@ class CombatEvent:
     target_id: str | None = None
     payload: tuple[tuple[str, EventValue], ...] = ()
     schema_version: int = COMBAT_EVENT_SCHEMA_VERSION
+    rng_after: RNGCheckpoint | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -225,6 +227,8 @@ class CombatEvent:
             )
         if not isinstance(self.event_type, str) or not self.event_type.strip():
             raise ValidationError("combat event_type must be a non-empty string")
+        if self.rng_after is not None and not isinstance(self.rng_after, RNGCheckpoint):
+            raise ValidationError("combat event rng_after must be an RNGCheckpoint or None")
         keys = [key for key, _ in self.payload]
         if len(keys) != len(set(keys)):
             raise ValidationError("combat event payload keys must be unique")
