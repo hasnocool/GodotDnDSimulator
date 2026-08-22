@@ -27,6 +27,8 @@ var _status_message := "Starting client"
 var _bridge: EngineBridge
 var _transport: EngineTransport
 var _client_state := ClientStateCoordinator.new()
+var _input_bindings := ClientInputBindings.new()
+var _interaction_controller: ClientInteractionController
 var _tactical_scene_resource: PackedScene
 var _scene_load_pending := false
 var _current_tactical_scene: Node
@@ -41,6 +43,7 @@ var _current_tactical_scene: Node
 func _ready() -> void:
     _retry_button.pressed.connect(retry_bridge)
     ClientSettings.setting_changed.connect(_on_setting_changed)
+    _setup_input()
     _apply_local_settings()
     _set_shell_state(ShellState.STARTUP, "Starting client")
     if auto_start_bridge:
@@ -70,6 +73,14 @@ func client_state() -> ClientStateCoordinator:
 
 func engine_bridge() -> EngineBridge:
     return _bridge
+
+
+func input_bindings() -> ClientInputBindings:
+    return _input_bindings
+
+
+func interaction_controller() -> ClientInteractionController:
+    return _interaction_controller
 
 
 func tactical_content() -> Node:
@@ -123,6 +134,11 @@ func shutdown() -> void:
     _scene_load_pending = false
     _client_state.cancel_all_pending()
     _dispose_bridge()
+    if is_instance_valid(_interaction_controller):
+        _interaction_controller.set_input_enabled(false)
+        _interaction_controller.unbind_state()
+        _interaction_controller.queue_free()
+    _interaction_controller = null
     if is_instance_valid(_current_tactical_scene):
         _content_root.remove_child(_current_tactical_scene)
         _current_tactical_scene.queue_free()
@@ -134,6 +150,17 @@ func _exit_tree() -> void:
     if ClientSettings.setting_changed.is_connected(_on_setting_changed):
         ClientSettings.setting_changed.disconnect(_on_setting_changed)
     shutdown()
+
+
+func _setup_input() -> void:
+    _input_bindings.install_defaults()
+    _input_bindings.load_overrides()
+    _interaction_controller = ClientInteractionController.new()
+    _interaction_controller.name = "InteractionController"
+    add_child(_interaction_controller)
+    _interaction_controller.bind_state(_client_state)
+    _interaction_controller.set_input_enabled(false)
+    ClientLog.write("input", "Semantic input map initialized")
 
 
 func _connect_bridge_signals() -> void:
@@ -302,6 +329,8 @@ func _on_setting_changed(_key: String, _value: Variant) -> void:
 func _set_shell_state(state: int, message: String, detail: String = "") -> void:
     _shell_state = state
     _status_message = message
+    if _interaction_controller != null:
+        _interaction_controller.set_input_enabled(state == ShellState.READY)
     if _status_label != null:
         _status_label.text = message if detail.is_empty() else "%s\n%s" % [message, detail]
     if _status_panel != null:
