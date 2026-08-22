@@ -100,20 +100,29 @@ The active mode is stored in C2 `InteractionState`. Mode changes advance the exi
 generation, which means delayed C1 query/preview responses from an older interaction can be rejected
 as stale.
 
-Move, target, and shape-preview modes are explicitly cancellable. Cancelling them:
+Move, target, and shape-preview modes are explicitly cancellable before an authoritative command is
+submitted. Cancelling them:
 
-- cancels mode-scoped bridge requests on a best-effort basis;
+- cancels mode-scoped read-only bridge queries/previews on a best-effort basis;
 - clears the unsubmitted command intent;
 - clears transient targeted-actor state;
 - returns to `select` if an actor remains selected, otherwise `inspect`.
 
-Cancellation never rewinds an authoritative command that the engine has already accepted. Any late
-authoritative result still wins and is presented through the normal bridge/state path.
+A submitted authoritative command is deliberately **not** registered as a cancellable mode request.
+Once confirmation sends the command, Cancel, mode changes, and modal entry are consumed/blocked until
+an authoritative response or request-level failure arrives. This prevents the client from discarding
+a late accepted response for a command the engine may already have executed. Authoritative results
+always win and continue through the normal bridge/state path.
 
 ## UI modal behavior
 
-Opening a modal records the previous interaction mode and enters `ui_modal`. Closing the modal
-restores that mode.
+Opening a modal records the previous interaction mode and enters `ui_modal`. If the suspended mode
+owns read-only query/preview requests, those requests are cancelled so their older-generation results
+cannot be presented after the modal transition. Closing the modal restores the previous interaction
+mode, which can issue fresh previews as needed.
+
+Modal entry is rejected while an authoritative command submission is pending. This keeps the pending
+command's interaction context stable until the engine resolves it.
 
 Raw tactical input is ignored while a Godot `Control` owns GUI focus. This is deliberate: keyboard
 or controller navigation inside menus must not also confirm a tactical command. Godot UI code that
@@ -142,11 +151,14 @@ semantic confirm
 
 While that command is pending, further confirmations for the same armed intent are ignored. This
 prevents rapid keyboard/mouse/controller input from creating duplicate authoritative submissions.
+Pre-confirmation mode queries/previews are cancelled once the command is submitted because they are
+no longer the source of truth.
 
 When `ClientStateCoordinator` receives the bridge result it emits `command_completed`:
 
 - rejection clears the pending lock but keeps the transient mode/intent available for correction and
   retry;
+- request-level failure (for example timeout/transport failure) uses the same retryable failure path;
 - acceptance clears the command intent and returns transient modes to `select`/`inspect` while
   preserving actor selection.
 
@@ -157,11 +169,12 @@ actor no longer exists.
 ## Mode-scoped queries and previews
 
 `register_mode_request()` lets future C8/C9 controllers associate a read-only query/preview request
-with the current move/target/shape interaction. Cancelling the interaction then cancels those
-requests through `ClientStateCoordinator`.
+with the current move/target/shape interaction. Submitted commands are explicitly rejected by this
+registration API.
 
-This is only lifecycle plumbing. C3 does not implement movement paths, legal targets, LOS, cover, or
-AoE calculations.
+Cancelling or suspending the interaction cancels only those read-only requests through
+`ClientStateCoordinator`. This is lifecycle plumbing only: C3 does not implement movement paths,
+legal targets, LOS, cover, or AoE calculations.
 
 ## App-shell ownership
 
@@ -180,10 +193,11 @@ loading, error, incompatibility, and shutdown states disable tactical input.
 - keyboard/mouse/controller default coverage;
 - descriptor-based rebind/reset round trip;
 - move/target/shape cancellation;
-- modal suspend/restore;
+- modal suspend/restore and stale-preview cancellation;
 - UI focus blocking raw tactical confirmation;
 - intentional UI use of the same semantic confirm API;
 - duplicate-confirm suppression while a command is pending;
+- submitted-command protection from Cancel/mode/modal cancellation;
 - rejection -> retry behavior;
 - acceptance -> transient-mode reconciliation;
 - mode-scoped preview cancellation;
