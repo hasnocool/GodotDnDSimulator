@@ -14,11 +14,12 @@ from .engine import SimulationEngine
 from .errors import SequenceError, UnsupportedCommandError, ValidationError
 from .models import CommandEnvelope, EventEnvelope
 from .serialization import event_to_dict, snapshot_to_dict
+from .vertical_slice import TacticalVerticalSliceSession, VERTICAL_SLICE_CAPABILITIES
 
 PROTOCOL_NAME = "godot-dnd-bridge"
 PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 1_048_576
-CAPABILITIES = (
+BASE_CAPABILITIES = (
     "commands.v1",
     "queries.v1",
     "previews.v1",
@@ -27,6 +28,7 @@ CAPABILITIES = (
     "request-cancel.v1",
     "request-generation.v1",
 )
+CAPABILITIES = BASE_CAPABILITIES
 
 
 class BridgeProtocolError(ValidationError):
@@ -35,10 +37,16 @@ class BridgeProtocolError(ValidationError):
 
 @dataclass(slots=True)
 class ClientBridgeSession:
-    """Stateful bridge facade over one authoritative simulation engine."""
+    """Stateful bridge facade over authoritative simulation services."""
 
     engine: SimulationEngine
     events: list[EventEnvelope] = field(default_factory=list)
+    tactical: TacticalVerticalSliceSession | None = None
+
+    def capabilities(self) -> tuple[str, ...]:
+        if self.tactical is None:
+            return BASE_CAPABILITIES
+        return (*BASE_CAPABILITIES, *VERTICAL_SLICE_CAPABILITIES)
 
     def handle_message(self, message: Mapping[str, Any]) -> dict[str, object] | None:
         request = _validate_envelope(message)
@@ -59,16 +67,10 @@ class ClientBridgeSession:
             if kind == "query.request":
                 return self._query(request)
             if kind == "preview.request":
-                return _rejected(
-                    request,
-                    "preview.rejected",
-                    "unsupported",
-                    "That preview is not available yet",
-                    "v0.6 spatial preview providers have not been registered",
-                )
+                return self._preview(request)
             if kind == "request.cancel":
-                # Current v1 local handlers are short-lived. Cancellation is still a protocol
-                # primitive so future async query/preview providers can honor it.
+                # Current v1 local handlers are short-lived. Cancellation remains part of the
+                # protocol so later async providers can honor it without changing the client.
                 return None
             return _rejected(
                 request,
@@ -115,13 +117,24 @@ class ClientBridgeSession:
         return _response(
             request,
             "bridge.hello.accepted",
-            payload={"protocol": PROTOCOL_NAME, "capabilities": list(CAPABILITIES)},
+            payload={"protocol": PROTOCOL_NAME, "capabilities": list(self.capabilities())},
         )
 
     def _command(self, request: dict[str, Any]) -> dict[str, object]:
         payload = _require_mapping(request["payload"], "command payload")
         command_data = _require_mapping(payload.get("command"), "command")
         command = _command_from_dict(command_data)
+        if self.tactical is not None and command.command_type.startswith("tactical."):
+            result = self.tactical.handle_command(command)
+            return _response(
+                request,
+                "command.accepted",
+                payload={
+                    "snapshot": result.snapshot,
+                    "presentation_events": list(result.presentation_events),
+                    "result": result.result,
+                },
+            )
         emitted = self.engine.handle(command)
         self.events.extend(emitted)
         return _response(
@@ -147,19 +160,27 @@ class ClientBridgeSession:
             return _response(
                 request,
                 "query.result",
-                payload={"snapshot": snapshot_to_dict(self.engine.snapshot())},
+                payload={"snapshot": self._authoritative_snapshot()},
             )
         if query_type == "bridge.snapshot":
             return _response(
                 request,
                 "query.result",
-                payload={"snapshot": snapshot_to_dict(self.engine.snapshot())},
+                payload={"snapshot": self._authoritative_snapshot()},
             )
         if query_type == "bridge.capabilities":
             return _response(
                 request,
                 "query.result",
-                payload={"capabilities": list(CAPABILITIES)},
+                payload={"capabilities": list(self.capabilities())},
+            )
+        if self.tactical is not None and (
+            query_type.startswith("tactical.") or query_type.startswith("spatial.")
+        ):
+            return _response(
+                request,
+                "query.result",
+                payload=self.tactical.query(query_type, query),
             )
         return _rejected(
             request,
@@ -168,6 +189,28 @@ class ClientBridgeSession:
             "That engine query is not supported",
             f"unsupported query_type: {query_type!r}",
         )
+
+    def _preview(self, request: dict[str, Any]) -> dict[str, object]:
+        payload = _require_mapping(request["payload"], "preview payload")
+        preview_type = payload.get("preview_type")
+        preview = _require_mapping(payload.get("preview", {}), "preview")
+        if not isinstance(preview_type, str) or not preview_type:
+            raise BridgeProtocolError("preview_type must be a non-empty string")
+        if self.tactical is None:
+            return _rejected(
+                request,
+                "preview.rejected",
+                "unsupported",
+                "That preview is not available yet",
+                "no tactical/spatial preview provider is registered",
+            )
+        result = self.tactical.preview(preview_type, preview)
+        return _response(request, "preview.result", payload=result)
+
+    def _authoritative_snapshot(self) -> dict[str, object]:
+        if self.tactical is not None:
+            return self.tactical.snapshot()
+        return snapshot_to_dict(self.engine.snapshot())
 
 
 @dataclass(slots=True)
@@ -226,13 +269,23 @@ async def serve(
     campaign_id: str,
     session_id: str,
     seed: int,
+    vertical_slice: bool = True,
 ) -> None:
     engine = SimulationEngine.create(
         campaign_id=campaign_id,
         session_id=session_id,
         seed=seed,
     )
-    bridge = ClientBridgeServer(ClientBridgeSession(engine))
+    tactical = (
+        TacticalVerticalSliceSession.create(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            seed=seed,
+        )
+        if vertical_slice
+        else None
+    )
+    bridge = ClientBridgeServer(ClientBridgeSession(engine, tactical=tactical))
     server = await asyncio.start_server(
         bridge.handle_client,
         host,
@@ -391,7 +444,12 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=4765)
     parser.add_argument("--campaign-id", default="campaign:local-dev")
     parser.add_argument("--session-id", default="session:local-dev")
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument(
+        "--core-only",
+        action="store_true",
+        help="Disable the v0.7 tactical vertical-slice provider",
+    )
     args = parser.parse_args()
     asyncio.run(
         serve(
@@ -400,6 +458,7 @@ def main() -> None:
             campaign_id=args.campaign_id,
             session_id=args.session_id,
             seed=args.seed,
+            vertical_slice=not args.core_only,
         )
     )
 

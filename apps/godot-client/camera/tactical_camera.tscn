@@ -1,0 +1,20 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://camera/tactical_camera.gd" id="1_camera"]
+
+[node name="TacticalCamera" type="Node3D"]
+script = ExtResource("1_camera")
+
+[node name="Yaw" type="Node3D" parent="."]
+rotation = Vector3(0, 0.785398, 0)
+
+[node name="Tilt" type="Node3D" parent="Yaw"]
+rotation = Vector3(-0.61548, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Yaw/Tilt"]
+position = Vector3(0, 0, 18)
+projection = 1
+size = 14.0
+current = true
+near = 0.1
+far = 100.0

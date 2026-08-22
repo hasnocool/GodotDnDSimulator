@@ -1,0 +1,156 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/hud/tactical_hud.gd" id="1_hud"]
+
+[node name="TacticalHUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_hud")
+
+[node name="TopPanel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 660.0
+offset_bottom = 94.0
+
+[node name="TopMargin" type="MarginContainer" parent="TopPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="TopVBox" type="VBoxContainer" parent="TopPanel/TopMargin"]
+layout_mode = 2
+
+[node name="RoundLabel" type="Label" parent="TopPanel/TopMargin/TopVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Round 0"
+
+[node name="TurnLabel" type="Label" parent="TopPanel/TopMargin/TopVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Turn"
+
+[node name="InitiativeLabel" type="Label" parent="TopPanel/TopMargin/TopVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Initiative"
+
+[node name="SelectedPanel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 108.0
+offset_right = 330.0
+offset_bottom = 192.0
+
+[node name="SelectedMargin" type="MarginContainer" parent="SelectedPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="SelectedLabel" type="Label" parent="SelectedPanel/SelectedMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No actor selected"
+
+[node name="PreviewPanel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 344.0
+offset_top = 108.0
+offset_right = 660.0
+offset_bottom = 192.0
+
+[node name="PreviewMargin" type="MarginContainer" parent="PreviewPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="PreviewLabel" type="Label" parent="PreviewPanel/PreviewMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Select an action"
+autowrap_mode = 2
+
+[node name="ActionPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -82.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="ActionMargin" type="MarginContainer" parent="ActionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="Actions" type="HBoxContainer" parent="ActionPanel/ActionMargin"]
+layout_mode = 2
+
+[node name="MoveButton" type="Button" parent="ActionPanel/ActionMargin/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Move"
+
+[node name="StrikeButton" type="Button" parent="ActionPanel/ActionMargin/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Strike"
+
+[node name="EndTurnButton" type="Button" parent="ActionPanel/ActionMargin/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "End Turn"
+
+[node name="AreaButton" type="Button" parent="ActionPanel/ActionMargin/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Area Debug"
+tooltip_text = "Ask the spatial authority for a sample area query"
+
+[node name="LogPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -390.0
+offset_top = -286.0
+offset_right = -16.0
+offset_bottom = -96.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="LogMargin" type="MarginContainer" parent="LogPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="LogLabel" type="Label" parent="LogPanel/LogMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Combat log"
+autowrap_mode = 2
+vertical_alignment = 2

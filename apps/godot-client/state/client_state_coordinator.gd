@@ -9,6 +9,8 @@ signal command_completed(
     user_message: String,
     debug_detail: String,
 )
+signal command_payload_received(correlation_id: String, payload: Dictionary)
+signal presentation_events_received(events: Array)
 signal query_completed(correlation_id: String, generation: int, payload: Dictionary)
 signal preview_completed(correlation_id: String, generation: int, payload: Dictionary)
 signal stale_interaction_result_ignored(
@@ -163,8 +165,15 @@ func _on_authoritative_events(events: Array) -> void:
         authoritative_changed.emit(authoritative.sequence())
 
 
-func _on_command_accepted(correlation_id: String, _payload: Dictionary) -> void:
+func _on_command_accepted(correlation_id: String, payload: Dictionary) -> void:
     interaction.clear_pending_matching(correlation_id, "command")
+    var safe_payload := payload.duplicate(true)
+    command_payload_received.emit(correlation_id, safe_payload)
+    var event_value: Variant = safe_payload.get("presentation_events", [])
+    if typeof(event_value) == TYPE_ARRAY:
+        var events: Array = (event_value as Array).duplicate(true)
+        if not events.is_empty():
+            presentation_events_received.emit(events)
     command_completed.emit(correlation_id, true, "", "")
 
 
@@ -241,6 +250,8 @@ func _result_generation_is_current(correlation_id: String, generation: int) -> b
         current_generation,
     )
     return false
+
+
 func _disconnect_if_connected(signal_value: Signal, callable: Callable) -> void:
     if signal_value.is_connected(callable):
         signal_value.disconnect(callable)

@@ -1,0 +1,49 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scenes/tactical/tactical_vertical_slice.gd" id="1_slice"]
+[ext_resource type="Script" path="res://scenes/tactical/tactical_map_view.gd" id="2_map"]
+[ext_resource type="Script" path="res://scenes/tactical/tactical_overlay.gd" id="3_overlay"]
+[ext_resource type="PackedScene" path="res://camera/tactical_camera.tscn" id="4_camera"]
+[ext_resource type="Script" path="res://presentation/tactical_event_presenter.gd" id="5_events"]
+[ext_resource type="Script" path="res://presentation/occlusion_controller.gd" id="6_occlusion"]
+[ext_resource type="PackedScene" path="res://ui/hud/tactical_hud.tscn" id="7_hud"]
+
+[sub_resource type="Environment" id="Environment_slice"]
+background_mode = 1
+background_color = Color(0.055, 0.067, 0.078, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.72, 0.76, 0.82, 1)
+ambient_light_energy = 0.55
+
+[node name="TacticalVerticalSlice" type="Node3D"]
+script = ExtResource("1_slice")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_slice")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.9, -0.5, 0)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="TacticalMap" type="Node3D" parent="."]
+script = ExtResource("2_map")
+
+[node name="Actors" type="Node3D" parent="."]
+
+[node name="TacticalOverlay" type="Node3D" parent="."]
+script = ExtResource("3_overlay")
+
+[node name="TacticalCamera" parent="." instance=ExtResource("4_camera")]
+position = Vector3(3.5, 0, 2.5)
+
+[node name="EventPresenter" type="Node" parent="."]
+script = ExtResource("5_events")
+
+[node name="OcclusionController" type="Node" parent="."]
+script = ExtResource("6_occlusion")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="TacticalHUD" parent="HUD" instance=ExtResource("7_hud")]

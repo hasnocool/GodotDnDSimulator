@@ -3,8 +3,9 @@
 This is the detailed execution backlog for `apps/godot-client/`.
 
 It is subordinate to the repository-root `ROADMAP.md`, `TODO.md`, and `AGENTS.md`. Client agents must
-also follow `apps/godot-client/AGENTS.md`. A checked item here means the observable client behavior
-exists and applicable validation has been performed; planning or scaffolding alone is not completion.
+also follow `apps/godot-client/AGENTS.md`. A checked implementation item here means the observable
+client behavior exists in code; phase validation/exit items remain separately unchecked until the
+exact implementation is executed through the required headless/playable gates.
 
 ## Client product goal
 
@@ -50,7 +51,7 @@ correct engine contract.
 - [x] Add this detailed `apps/godot-client/TODO.md` client backlog.
 - [x] Keep root `AGENTS.md` wired to require the local client contract/TODO for client work.
 - [x] Keep Claude, Gemini, and Copilot repository adapters wired to the local client contract/TODO.
-- [ ] Keep root `TODO.md` v0.7 pointing to this detailed client backlog.
+- [x] Keep root `TODO.md` v0.7 pointing to this detailed client backlog.
 - [ ] Add client-specific validation to governance tooling if plain documentation references prove too
       easy to drift.
 
@@ -61,13 +62,13 @@ Create these only as implementation needs them; empty directory scaffolding is n
 - [x] `autoload/` for presentation app shell/bridge registry/settings only.
 - [x] `bridge/` for typed engine transport/protocol adapters.
 - [x] `state/` for authoritative mirror, interaction state, and presentation state.
-- [ ] `camera/` for tactical camera controllers/config.
+- [x] `camera/` for tactical camera controllers/config.
 - [x] `input/` for input mapping and interaction modes.
 - [x] `scenes/shell/` for startup/loading/root composition.
 - [x] `scenes/tactical/` for battle-map presentation entry points.
-- [ ] `scenes/actors/` for reusable actor presentation.
-- [ ] `ui/hud/`, `ui/actions/`, `ui/panels/`, `ui/common/` as corresponding UI arrives.
-- [ ] `presentation/` for event-to-animation/VFX/audio mapping.
+- [x] `scenes/actors/` for reusable actor presentation.
+- [x] `ui/hud/` as the first tactical UI surface.
+- [x] `presentation/` for event-to-animation/VFX/audio mapping and occlusion presentation.
 - [x] `debug/` for authoritative tactical/debug overlays.
 - [x] `tests/` for headless Godot client tests.
 
@@ -247,19 +248,19 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** orthographic isometric camera rig + pan/zoom/90-degree rotation.
 
-- [ ] Extract the current camera rig into a reusable tactical camera scene/controller.
-- [ ] Preserve true 3D orthographic projection.
-- [ ] Add keyboard pan.
-- [ ] Add pointer drag/middle-button pan or equivalent ergonomic desktop control.
-- [ ] Decide whether edge pan is enabled by default; make it configurable if implemented.
-- [ ] Add smooth bounded orthographic zoom.
-- [ ] Add exact 90-degree view rotation around a tactical pivot.
-- [ ] Keep rotation state discrete even if visual interpolation is smooth.
-- [ ] Add focus-on-selected/current actor.
-- [ ] Add map-defined camera bounds.
-- [ ] Handle widescreen/narrow aspect ratios without revealing unusable voids where practical.
-- [ ] Add reduced-motion option for camera easing/automatic focus.
-- [ ] Add headless/controller tests for camera state transitions that do not require pixel matching.
+- [x] Extract the current camera rig into a reusable tactical camera scene/controller.
+- [x] Preserve true 3D orthographic projection.
+- [x] Add keyboard/semantic-action pan.
+- [x] Add pointer drag/middle-button pan.
+- [x] Decide edge pan is not enabled for the v0.7 baseline; semantic pan and drag remain the supported desktop controls.
+- [x] Add smooth bounded orthographic zoom.
+- [x] Add exact 90-degree view rotation around a tactical pivot.
+- [x] Keep rotation state discrete even if visual interpolation is smooth.
+- [x] Add focus-on-selected/current actor.
+- [x] Add map-defined camera bounds.
+- [ ] Add explicit aspect-ratio-aware padding so extreme widescreen/narrow layouts never reveal unusable voids.
+- [x] Add reduced-motion behavior for camera easing/automatic focus.
+- [x] Add headless/controller camera state tests that do not require pixel matching.
 
 ---
 
@@ -269,20 +270,20 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 ### Map contract
 
-- [ ] Define tactical map presentation resource/scene contract.
-- [ ] Separate visual geometry from authoritative spatial IDs/cells/regions.
-- [ ] Define mapping from visual map objects to engine spatial identifiers.
-- [ ] Add one small original tactical test map suitable for the vertical-slice encounter.
-- [ ] Add terrain/material layers needed for readable tactical presentation.
-- [ ] Add map entry/spawn anchors that reference engine IDs rather than owning placement rules.
-- [ ] Support camera bounds/focus metadata as presentation data.
+- [x] Define tactical map presentation contract in `docs/V0.7_GODOT_VERTICAL_SLICE.md`.
+- [x] Separate visual geometry from authoritative spatial IDs/cells/regions.
+- [x] Define mapping from visual map objects to engine grid coordinates/stable actor IDs.
+- [x] Add one small original Sunken Courtyard tactical map suitable for the vertical-slice encounter.
+- [x] Add terrain/material layers for open, difficult, elevated, blocking, and LOS-blocking cells.
+- [ ] Add reusable exploration/map-entry spawn-anchor resources; v0.7 actors currently enter only from authoritative tactical placements.
+- [x] Support camera bounds/focus metadata as presentation data.
 
 ### Environment
 
-- [ ] Establish lighting/environment baseline readable from all four tactical rotations.
-- [ ] Establish floor/grid readability without making debug grid mandatory for normal play.
-- [ ] Define props/environment collision ownership versus headless spatial boundaries.
-- [ ] Add obvious diagnostic visualization when Godot geometry and authoritative spatial state disagree.
+- [x] Establish lighting/environment baseline readable from all four tactical rotations.
+- [x] Establish floor/grid readability without requiring the debug overlay.
+- [x] Define visual/collider ownership versus headless spatial boundaries in v0.7 docs.
+- [x] Log an explicit diagnostic warning when an authoritative actor position cannot map to the visual grid.
 
 ---
 
@@ -290,17 +291,17 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** actors rendered from engine state.
 
-- [ ] Create reusable actor presentation scene keyed by stable engine actor ID.
-- [ ] Spawn/despawn actor visuals only from authoritative mirror changes.
-- [ ] Update transform/facing from authoritative spatial state once available.
-- [ ] Bind display name and basic tactical status from actor/combat state.
-- [ ] Add selection indicator.
-- [ ] Add hover indicator distinct from selection.
-- [ ] Add current-turn indicator.
-- [ ] Add team/faction/readability hooks without relying only on color.
-- [ ] Add condition/status presentation slots driven by authoritative conditions.
-- [ ] Ensure actor visual deletion does not delete/mutate engine actor state.
-- [ ] Support placeholder model/material when an optional asset is unavailable.
+- [x] Create reusable actor presentation scene keyed by stable engine actor ID.
+- [x] Spawn/despawn actor visuals only from authoritative mirror changes.
+- [x] Update actor transform from authoritative spatial state; facing remains future data when the engine exposes it.
+- [x] Bind display name and HP/AC tactical status from actor/combat state.
+- [x] Add selection indicator.
+- [x] Add hover indicator distinct from selection.
+- [x] Add current-turn indicator.
+- [ ] Add non-color team/faction emblem/icon hooks; current placeholder team distinction still uses material color plus text identity.
+- [ ] Add dedicated condition/status presentation slots; conditions are present in snapshot data but not yet rendered as badges.
+- [x] Ensure actor visual deletion does not delete/mutate engine actor state.
+- [x] Support placeholder primitive model/material without optional art assets.
 - [ ] Pool/reuse actor visuals only after profiling shows benefit.
 
 ---
@@ -309,15 +310,15 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** selection/highlighting.
 
-- [ ] Implement pointer ray picking for actors and tactical surfaces.
-- [ ] Resolve picked visual object to stable engine/spatial ID.
-- [ ] Add click select/deselect.
-- [ ] Add hover inspection.
-- [ ] Add selected actor summary surface/HUD binding.
-- [ ] Add keyboard/controller selection traversal strategy.
-- [ ] Prevent occluded/hidden presentation objects from stealing unintended selection where practical.
-- [ ] Keep inspection possible when no command is legal.
-- [ ] Test selection state survives authoritative actor refresh/re-render.
+- [x] Implement pointer ray picking for actors and tactical surfaces.
+- [x] Resolve picked visual object to stable engine actor ID or logical cell coordinates.
+- [x] Add click select/deselect.
+- [x] Add hover inspection/highlighting.
+- [x] Add selected actor summary HUD binding.
+- [x] Add keyboard/controller selection traversal through the semantic Context action.
+- [ ] Add explicit click-through filtering for faded/hidden occluders beyond current actor/surface collider separation.
+- [x] Keep inspection possible when no command is legal.
+- [x] Preserve stable selected actor ID across authoritative actor refresh/re-render.
 
 ---
 
@@ -326,18 +327,17 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 **Root v0.7:** reachable movement preview + path preview/cost display.
 **Dependency:** v0.6 authoritative spatial query API.
 
-- [ ] Request reachable-space data from spatial authority for the selected actor/current state.
-- [ ] Render reachable cells/regions from returned authoritative query data.
-- [ ] Request path preview for hovered destination.
-- [ ] Render returned authoritative path.
-- [ ] Display movement cost and remaining budget.
-- [ ] Distinguish legal, unaffordable, blocked, and unknown destinations.
-- [ ] Show difficult-terrain/elevation/movement-mode cost information when returned by engine.
-- [ ] Do not infer path legality from Godot `NavigationServer` alone.
-- [ ] Confirm move by submitting typed command with actor/destination/path reference as required by
-      the engine contract.
-- [ ] Reconcile preview immediately when authoritative state changes.
-- [ ] Cancel stale path queries on selection/mode/state generation changes.
+- [x] Request reachable-space data from spatial authority for the selected actor/current state.
+- [x] Render reachable cells/regions from returned authoritative query data.
+- [x] Request path preview for hovered destination.
+- [x] Render returned authoritative path.
+- [x] Display authoritative movement cost and current remaining budget in HUD/state.
+- [x] Display engine rejection/reason for blocked/unaffordable/illegal destinations.
+- [ ] Add per-segment difficult-terrain/elevation/movement-mode cost breakdown when the engine query contract exposes it.
+- [x] Do not infer path legality from Godot `NavigationServer` or visual collision.
+- [x] Confirm move by submitting a typed command with actor/destination/movement mode and expected authoritative sequence.
+- [ ] Re-request active previews automatically after an unrelated authoritative state update while the player remains in Move mode.
+- [x] Cancel stale path queries on selection/mode/generation changes through C3 request tracking and coordinator generation filtering.
 
 ---
 
@@ -346,16 +346,16 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 **Root v0.7 debug overlay requirement; reusable for v0.8 spell UI.**
 **Dependency:** v0.6 authoritative spatial query API.
 
-- [ ] Add generic target-selection mode driven by engine-provided legal target data.
-- [ ] Highlight legal/illegal targets distinctly.
-- [ ] Display range/reach reason when supplied by the engine.
-- [ ] Add LOS preview from authoritative query result.
-- [ ] Add cover preview from authoritative query result.
-- [ ] Add generic shape/AoE preview renderer for authoritative shape query results.
-- [ ] Keep visual shape drawing independent from named spells/abilities.
-- [ ] Support origin/target/rotation parameters without deciding AoE membership in Godot.
-- [ ] Re-query/reconcile on camera-independent authoritative state changes.
-- [ ] Make targeting prompts cancellable and keyboard/controller reachable.
+- [x] Add generic target-selection mode where each hovered target is approved/rejected by an engine preview.
+- [x] Highlight legal/illegal target line distinctly and provide textual legality status.
+- [x] Display range/reach reason when supplied by the engine.
+- [x] Add LOS preview from authoritative query result.
+- [x] Add cover preview from authoritative query result.
+- [x] Add generic shape/AoE preview renderer for authoritative shape query results.
+- [x] Keep visual shape drawing independent from named spells/abilities.
+- [ ] Add full generic origin/target/rotation UI parameters for cone/line/cylinder authoring; v0.7 UI exercises a sphere debug query only.
+- [ ] Re-query active target/shape previews automatically after unrelated authoritative state changes.
+- [ ] Add controller-only target traversal independent of pointer position; C3 cancellation/controller semantics are already supported.
 
 ---
 
@@ -365,34 +365,34 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 ### HUD
 
-- [ ] Show encounter status and round number from engine state.
-- [ ] Show initiative/turn order from authoritative combat state.
-- [ ] Clearly identify current actor.
-- [ ] Show selected actor HP/temp HP and relevant resources from authoritative state.
-- [ ] Show conditions/status effects from authoritative state.
-- [ ] Show movement/action/bonus-action/reaction availability from engine combat state.
-- [ ] Show pending command/rejection feedback without lying about resolved state.
+- [x] Show encounter status context and round number from engine state.
+- [x] Show initiative/turn order from authoritative combat state.
+- [x] Clearly identify current actor.
+- [x] Show selected actor HP/temp HP, AC, and movement from authoritative state.
+- [ ] Render authoritative conditions/resources as dedicated HUD badges/rows rather than leaving them only in snapshot data.
+- [x] Show movement/action/bonus-action/reaction availability through authoritative actor/economy data and action queries.
+- [x] Show pending command/rejection feedback without changing resolved state.
 
 ### Action bar
 
-- [ ] Populate available actions from engine/canonical action data, not UI-hardcoded named lists.
-- [ ] Display unavailable actions with engine-provided reason when available.
-- [ ] Route hotkeys/buttons/controller selection through the same intent path.
-- [ ] Support action -> target/preview -> confirm -> typed command flow.
-- [ ] Support cancel/back from every pre-confirmation stage.
-- [ ] Prevent duplicate command submission while pending.
-- [ ] Design slots/tooltips to later accommodate spells and features without rewriting the bar.
+- [x] Populate Move/Strike/End Turn availability and labels from `tactical.actions` engine query results.
+- [x] Display unavailable actions with engine-provided reason when available.
+- [x] Route buttons/semantic input through the same C3 intent/controller path.
+- [x] Support action -> target/preview -> confirm -> typed command flow.
+- [x] Support cancel/back from every pre-confirmation mode through C3.
+- [x] Prevent duplicate command submission while pending through C3.
+- [ ] Add data-driven slot grouping/tooltips needed for broad v0.8 spell/feature catalogs.
 
 ---
 
 ## C11 — Combat log, messages, and command rejection UX
 
-- [ ] Present ordered combat/domain events in a readable combat log.
-- [ ] Retain stable IDs/sequence in debug-expanded view.
-- [ ] Distinguish informational presentation messages from authoritative domain events.
-- [ ] Present command rejection in context near the relevant interaction when possible.
-- [ ] Map validation errors to concise user wording while preserving technical reason in debug logs.
-- [ ] Make repeated replay/resync events idempotent in visual log presentation.
+- [x] Present resolved tactical presentation events in a readable combat log.
+- [ ] Add stable IDs/sequence in a user-toggleable debug-expanded combat-log view.
+- [x] Distinguish informational presentation events from the authoritative snapshot/event stream.
+- [x] Present command rejection in the tactical interaction/HUD context.
+- [x] Preserve technical rejection detail while displaying concise user-facing wording.
+- [ ] Add explicit replay/resync de-duplication keys for long-lived visual log history.
 
 ---
 
@@ -400,16 +400,16 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** basic animation/VFX/audio event mapping.
 
-- [ ] Define presentation event router separate from engine reducer/state.
-- [ ] Map actor movement events to visual movement/interpolation.
-- [ ] Map attack/action events to generic animation hooks.
-- [ ] Map damage/healing/status events to generic VFX/UI hooks.
-- [ ] Map domain events to audio cue IDs without hardcoding rules outcomes.
-- [ ] Add optional camera focus/emphasis hooks.
-- [ ] Ensure skipping/cancelling animations cannot alter authoritative result.
-- [ ] Support fast replay/instant presentation mode for tests/debugging.
-- [ ] Recover cleanly when optional animation/VFX/audio asset is missing.
-- [ ] Avoid blocking event ingestion on long animation sequences.
+- [x] Define presentation event router separate from engine reducer/state.
+- [x] Map actor movement snapshots/events to visual movement interpolation.
+- [x] Map resolved attack events to generic log/emphasis hooks.
+- [ ] Add dedicated damage/healing/status VFX primitives beyond the current attack/result emphasis.
+- [x] Map resolved events to audio cue IDs without hardcoding outcomes in presentation.
+- [x] Add optional actor/camera emphasis hooks.
+- [x] Ensure skipping/cancelling visual interpolation cannot alter authoritative result.
+- [x] Support reduced-motion/instant actor and camera presentation mode for tests/debugging.
+- [x] Remain functional with no optional animation/VFX/audio assets by using primitive placeholders/cue hooks.
+- [x] Avoid blocking authoritative event/snapshot ingestion on presentation completion.
 
 ---
 
@@ -417,13 +417,13 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** roof/foreground occlusion handling.
 
-- [ ] Choose and document tactical occlusion strategy: fade, hide layers, cutaway, or hybrid.
-- [ ] Tag occludable visual geometry explicitly.
-- [ ] Fade/hide foreground objects that obscure selected/current actor or interaction focus.
-- [ ] Avoid making hidden geometry change authoritative collision/spatial rules.
-- [ ] Restore occluders correctly across 90-degree rotations.
-- [ ] Add accessibility option to reduce/disable animated fades where practical.
-- [ ] Test occlusion state does not leak across map reloads.
+- [x] Choose/document a lightweight foreground fade strategy for the v0.7 slice.
+- [x] Tag occludable visual geometry explicitly with `tactical_occluder`.
+- [x] Fade foreground objects that enter the camera-to-selected/current-actor presentation corridor.
+- [x] Keep hidden/faded geometry completely separate from authoritative collision/LOS rules.
+- [x] Refresh occlusion after camera quarter-turn/focus updates.
+- [x] Use instant material alpha changes, so reduced-motion users are not forced through animated fades.
+- [x] Clear faded occluder state when the tactical scene exits.
 
 ---
 
@@ -431,94 +431,94 @@ intent handling without implementing C4 camera behavior or C8/C9 spatial/targeti
 
 **Root v0.7:** grid/path/LOS/cover/AoE debug overlays plus engine IDs.
 
-- [ ] Master debug overlay toggle.
-- [ ] Authoritative logical grid/space overlay.
-- [ ] Occupancy overlay.
-- [ ] Movement-cost overlay.
-- [ ] Current requested/returned path overlay.
-- [ ] LOS ray/result overlay.
-- [ ] Cover classification overlay.
-- [ ] AoE membership/shape overlay.
-- [ ] Actor/spatial/rule stable-ID labels.
-- [ ] Snapshot/event sequence display.
-- [ ] Navigation/geometry comparison overlay to diagnose adapter disagreements.
-- [ ] Bridge request timing display.
-- [ ] Basic frame-time/FPS presentation diagnostics.
-- [ ] Keep debug overlays out of normal release UX unless explicitly enabled.
+- [x] Retain the existing master client debug overlay toggle.
+- [x] Render the authoritative logical tactical grid as the map surface layout.
+- [ ] Add a dedicated occupancy debug layer beyond actor placement itself.
+- [x] Show movement cost in path/HUD preview text.
+- [x] Render current requested/returned authoritative path overlay.
+- [x] Render target line/result from authoritative LOS/legality preview.
+- [x] Show authoritative cover classification/source information in target preview text.
+- [x] Render authoritative AoE membership/shape cell overlay.
+- [ ] Add debug-only stable actor/spatial/rule ID labels directly over scene objects.
+- [x] Keep snapshot/event sequence visible in the existing debug overlay.
+- [ ] Add navigation/geometry comparison visualization for adapter disagreement diagnosis.
+- [ ] Add bridge request timing/latency display.
+- [ ] Add frame-time/FPS presentation diagnostics.
+- [x] Keep developer-only area/debug controls separate from ordinary authoritative combat resolution.
 
 ---
 
 ## C15 — Accessibility, settings, and desktop UX baseline
 
-- [ ] UI scale setting.
-- [ ] Text remains usable at supported UI scales.
-- [ ] Reduced motion setting affects optional camera/UI/presentation easing.
-- [ ] Volume controls by useful buses/categories.
-- [ ] Input remapping UI or at minimum remapping-ready data model before v1.0.
-- [ ] Avoid color-only distinction for selected/hostile/legal/illegal states.
-- [ ] Provide readable focus states for keyboard/controller UI navigation.
-- [ ] Persist presentation/accessibility settings independently from authoritative campaign save.
+- [x] Retain presentation-only UI scale setting/data model.
+- [ ] Validate all new tactical HUD text at every supported UI scale in an executable UI pass.
+- [x] Reduced motion affects optional camera/actor presentation easing.
+- [x] Retain presentation-only master volume setting; richer bus controls remain future work.
+- [x] Retain C3 input-remapping data model.
+- [x] Pair color cues with labels/rings/textual legality messages rather than relying on color alone for selection/legal state.
+- [x] Use standard Godot Button focus behavior for keyboard/controller HUD navigation.
+- [x] Persist presentation/accessibility settings independently from authoritative campaign save.
 
 ---
 
 ## C16 — Client performance and lifecycle
 
-- [ ] Establish representative tactical-scene frame-time baseline before optimization.
-- [ ] Add optional debug counters for actor count and presentation queue depth.
-- [ ] Avoid per-frame scene-tree scans for actor lookup.
-- [ ] Avoid per-frame JSON parsing/bridge serialization.
-- [ ] Use event-driven state binding where practical.
-- [ ] Measure map scene-load time.
+- [ ] Establish measured representative tactical-scene frame-time baseline before optimization.
+- [x] Expose presentation queue count in `TacticalEventPresenter` for later diagnostics.
+- [x] Use actor-ID dictionary lookup instead of per-frame scene-tree scans.
+- [x] Avoid per-frame JSON parsing/bridge serialization.
+- [x] Use event-driven authoritative/HUD/actor binding; only camera motion is frame-updated.
+- [ ] Measure tactical map scene-load time.
 - [ ] Measure bridge query latency for movement/LOS/AoE previews.
-- [ ] Cancel work/queries when tactical scene unloads.
-- [ ] Confirm repeated enter/exit of tactical scene does not duplicate bridge subscriptions/signals.
-- [ ] Confirm no stale actor visuals remain after encounter/map teardown.
+- [ ] Cancel every scene-owned preview explicitly on tactical-scene unload; C3 mode cancellation and coordinator stale filtering already prevent application of stale results.
+- [x] Disconnect tactical state/controller/event-presenter subscriptions on scene exit to avoid duplicate subscriptions.
+- [x] Queue stale actor visuals for deletion when authoritative actors disappear.
 
 ---
 
 ## C17 — Headless Godot validation and client test matrix
 
-- [ ] Tactical root scene loads headlessly without parse/resource errors.
-- [ ] Camera controller state tests.
-- [ ] Input-mode transition tests.
-- [ ] Fake bridge snapshot -> actor/map rendering smoke test.
-- [ ] Selection/highlight test.
-- [ ] Accepted command routing test.
-- [ ] Rejected command/reconciliation test.
-- [ ] Movement preview test from recorded authoritative spatial fixture.
-- [ ] LOS/cover/AoE overlay tests from recorded fixtures.
-- [ ] HUD binding test from recorded combat fixture.
-- [ ] Presentation event router test with animations disabled/instant.
-- [ ] Scene teardown/reload signal-subscription regression test.
-- [ ] No client test should require duplicating an engine rule to establish expected legality.
+- [x] Add tactical root-scene load path to a headless FakeEngineTransport integration suite.
+- [x] Add camera controller state tests.
+- [x] Retain C3 input-mode transition tests.
+- [x] Add fake-bridge snapshot -> actor/map rendering smoke test.
+- [x] Add stable current-actor selection smoke test.
+- [x] Add accepted typed movement command routing/reconciliation test.
+- [x] Retain C3 rejected-command/reconciliation tests.
+- [x] Add movement reachable/path preview tests using authoritative fake responses.
+- [ ] Add assertions against rendered LOS/cover/AoE marker contents rather than only request routing/status.
+- [x] Exercise HUD/action-query binding through the tactical scene flow.
+- [x] Test presentation-event forwarding with reduced-motion/instant presentation.
+- [ ] Add v0.7 tactical scene teardown/reload subscription regression beyond the existing C2 stub reload test.
+- [x] Keep client expectations based on supplied authoritative fixture results rather than reimplementing engine legality.
 
 ---
 
 ## C18 — v0.7 tactical vertical-slice acceptance
 
-This section mirrors and expands the root v0.7 exit work. Root `TODO.md` should only be checked when
-the corresponding behavior here is genuinely demonstrated.
+This section mirrors and expands the root v0.7 exit work. Root `TODO.md` tracks implementation separately
+from exact-head executable acceptance.
 
-- [ ] Camera supports pan, bounded zoom, focus, and exact 90-degree rotation.
-- [ ] One original tactical 3D map loads through the production client shell.
-- [ ] Actors render from authoritative engine state using stable actor IDs.
-- [ ] Player can select/inspect an actor.
-- [ ] Reachable movement preview comes from spatial authority.
-- [ ] Path/cost preview comes from spatial authority.
-- [ ] Player can submit a movement command through the engine bridge and see authoritative result.
-- [ ] Player can choose and submit at least one combat action through the action bar.
-- [ ] Turn order/HUD updates from authoritative combat state/events.
-- [ ] LOS/cover/AoE debug overlays visualize authoritative queries.
-- [ ] Basic animation/VFX/audio hooks react to resolved events.
-- [ ] Roof/foreground occlusion keeps tactical focus readable through all four camera rotations.
-- [ ] Combat can be completed without any Godot script deciding a rules outcome.
-- [ ] The same recorded encounter can drive a replay/presentation smoke flow without issuing duplicate
-      authoritative commands.
-- [ ] Headless Godot validation passes for the tactical client.
+- [x] Camera implementation supports pan, bounded zoom, focus, and exact 90-degree rotation.
+- [x] One original tactical 3D map loads through the capability-selected production client shell.
+- [x] Actors render from authoritative engine state using stable actor IDs.
+- [x] Player can select/inspect an actor.
+- [x] Reachable movement preview comes from spatial authority.
+- [x] Path/cost preview comes from spatial authority.
+- [x] Player can submit a movement command through the engine bridge and reconcile the authoritative snapshot.
+- [x] Player can choose and submit the demo Strike combat action through the action bar/interaction controller.
+- [x] Turn order/HUD updates from authoritative combat snapshots/events.
+- [x] LOS/cover/AoE debug presentation consumes authoritative queries/previews.
+- [x] Basic animation/VFX/audio hooks react only to resolved events/snapshots.
+- [x] Foreground occlusion keeps the selected/current actor readable without affecting engine LOS.
+- [x] Python acceptance coverage drives the same typed command loop to encounter completion with no Godot-side rules decisions.
+- [ ] Demonstrate the complete encounter interactively through the Godot client on the exact v0.7 head.
+- [ ] Demonstrate recorded/replay-driven presentation smoke without issuing duplicate authoritative commands.
+- [ ] Execute all headless Godot validation successfully on the exact v0.7 head.
 
 ### v0.7 client exit criterion
 
-- [ ] A complete small tactical encounter is playable through Godot while authoritative rules,
+- [ ] A complete small tactical encounter is demonstrated through Godot while authoritative rules,
       combat, spatial legality, randomness, and state mutation remain outside the presentation layer.
 
 ---
