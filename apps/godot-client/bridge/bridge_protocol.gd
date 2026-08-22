@@ -175,7 +175,8 @@ static func make_response(
 ) -> Dictionary:
     var message := make_envelope(kind, request_id, correlation_id, generation, payload)
     message["ok"] = ok
-    message["error"] = error.duplicate(true)
+    if not ok or not error.is_empty():
+        message["error"] = error.duplicate(true)
     return message
 
 
