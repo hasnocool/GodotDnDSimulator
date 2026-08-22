@@ -13,6 +13,7 @@ func _initialize() -> void:
     _test_command_rejection()
     _test_stale_generation_is_ignored()
     _test_event_gap_requests_resync()
+    _test_fractional_sequence_is_rejected()
     _test_disconnect_reconnect_requests_resync()
     _test_timeout_and_cancellation()
     _test_incompatible_version_fails_closed()
@@ -173,6 +174,35 @@ func _test_event_gap_requests_resync() -> void:
     _check(resync_reasons.size() == 1, "event gap requests resync")
 
 
+func _test_fractional_sequence_is_rejected() -> void:
+    var pair := _ready_bridge()
+    var bridge = pair["bridge"]
+    var transport = pair["transport"]
+    var failures: Array = []
+    bridge.request_failed.connect(
+        func(
+            _request_id: String,
+            correlation_id: String,
+            category: int,
+            user_message: String,
+            debug_detail: String,
+        ) -> void:
+            failures.append([correlation_id, category, user_message, debug_detail])
+    )
+    transport.queue_message(
+        Protocol.make_envelope(
+            "authoritative.events",
+            "",
+            "",
+            0,
+            {"events": [{"sequence": 1.5, "event_type": "test.fractional"}]},
+        )
+    )
+    bridge.poll(0.0)
+    _check(bridge.authoritative_sequence() == 0, "fractional sequence does not advance state")
+    _check(failures.size() == 1, "fractional sequence emits a validation failure")
+
+
 func _test_disconnect_reconnect_requests_resync() -> void:
     var pair := _ready_bridge()
     var bridge = pair["bridge"]
@@ -224,6 +254,7 @@ func _test_timeout_and_cancellation() -> void:
     var failures: Array = []
     bridge.request_failed.connect(
         func(
+            _request_id: String,
             correlation_id: String,
             category: int,
             user_message: String,

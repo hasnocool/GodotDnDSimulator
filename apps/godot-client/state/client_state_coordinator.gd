@@ -3,6 +3,19 @@ extends RefCounted
 
 signal authoritative_changed(sequence: int)
 signal pending_changed(pending_count: int)
+signal command_completed(
+    correlation_id: String,
+    accepted: bool,
+    user_message: String,
+    debug_detail: String,
+)
+signal query_completed(correlation_id: String, generation: int, payload: Dictionary)
+signal preview_completed(correlation_id: String, generation: int, payload: Dictionary)
+signal stale_interaction_result_ignored(
+    correlation_id: String,
+    response_generation: int,
+    current_generation: int,
+)
 signal bridge_bound()
 signal bridge_unbound()
 
@@ -60,10 +73,11 @@ func submit_command(
 ) -> String:
     if _bridge == null:
         return ""
+    var generation := interaction.generation()
     var request_id := _bridge.submit_command(
         command,
         correlation_id,
-        interaction.generation(),
+        generation,
         timeout_msec,
     )
     if request_id.is_empty():
@@ -72,7 +86,7 @@ func submit_command(
         request_id,
         "command",
         correlation_id,
-        interaction.generation(),
+        generation,
     )
     return request_id
 
@@ -151,46 +165,82 @@ func _on_authoritative_events(events: Array) -> void:
 
 func _on_command_accepted(correlation_id: String, _payload: Dictionary) -> void:
     interaction.clear_pending_matching(correlation_id, "command")
+    command_completed.emit(correlation_id, true, "", "")
 
 
 func _on_command_rejected(
     correlation_id: String,
     _category: int,
-    _user_message: String,
-    _debug_detail: String,
+    user_message: String,
+    debug_detail: String,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "command")
+    command_completed.emit(
+        correlation_id,
+        false,
+        user_message,
+        debug_detail,
+    )
 
 
 func _on_query_result(
     correlation_id: String,
-    _generation: int,
-    _payload: Dictionary,
+    generation: int,
+    payload: Dictionary,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "query")
+    if not _result_generation_is_current(correlation_id, generation):
+        return
+    query_completed.emit(correlation_id, generation, payload.duplicate(true))
 
 
 func _on_preview_result(
     correlation_id: String,
-    _generation: int,
-    _payload: Dictionary,
+    generation: int,
+    payload: Dictionary,
 ) -> void:
     interaction.clear_pending_matching(correlation_id, "preview")
+    if not _result_generation_is_current(correlation_id, generation):
+        return
+    preview_completed.emit(correlation_id, generation, payload.duplicate(true))
 
 
 func _on_request_failed(
+    request_id: String,
     correlation_id: String,
     _category: int,
-    _user_message: String,
-    _debug_detail: String,
+    user_message: String,
+    debug_detail: String,
 ) -> void:
-    interaction.clear_pending_matching(correlation_id)
+    var pending := interaction.pending_requests()
+    if request_id.is_empty() or not pending.has(request_id):
+        return
+    var metadata: Dictionary = pending[request_id]
+    var command_failed := str(metadata.get("request_kind", "")) == "command"
+    interaction.clear_pending(request_id)
+    if command_failed:
+        command_completed.emit(
+            correlation_id,
+            false,
+            user_message,
+            debug_detail,
+        )
 
 
 func _on_bridge_disconnected(_reason: String) -> void:
     interaction.clear_all_pending()
 
 
+func _result_generation_is_current(correlation_id: String, generation: int) -> bool:
+    var current_generation := interaction.generation()
+    if generation == current_generation:
+        return true
+    stale_interaction_result_ignored.emit(
+        correlation_id,
+        generation,
+        current_generation,
+    )
+    return false
 func _disconnect_if_connected(signal_value: Signal, callable: Callable) -> void:
     if signal_value.is_connected(callable):
         signal_value.disconnect(callable)
