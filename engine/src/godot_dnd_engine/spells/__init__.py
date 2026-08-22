@@ -4,6 +4,7 @@
 from .events import (
     SPELL_EVENT_SCHEMA_VERSION,
     SpellEvent,
+    rng_from_spell_events,
     spell_event_from_dict,
     spell_event_to_dict,
     spell_events_jsonl,
@@ -44,6 +45,7 @@ __all__ = [
     "SpellTargetOutcome",
     "SpellTransition",
     "SpellcastingState",
+    "rng_from_spell_events",
     "spell_event_from_dict",
     "spell_event_to_dict",
     "spell_events_jsonl",
