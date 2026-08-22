@@ -62,6 +62,11 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Standard-library `asyncio` authoritative bridge host over `SimulationEngine`, exposed as `godot-dnd-client-bridge`, with command submission plus snapshot/resync/capability queries.
 - Client bridge v1 JSON Schema, deterministic snapshot/event fixtures, Python localhost TCP tests, and headless Godot bridge lifecycle tests.
 - `docs/GODOT_CLIENT_BRIDGE.md` documenting the client/engine authority boundary, bridge protocol, transport, synchronization, errors, local host, and v0.6/v0.7 extension path.
+- C2 Godot client state architecture with deep-copy `AuthoritativeMirror`, explicit `InteractionState`, presentation-only `PresentationState`, and a bridge-backed `ClientStateCoordinator`.
+- Lifecycle-aware Godot `AppShell` with startup, bridge initialization, synchronization, loading, ready, incompatible, error, retry, and shutdown states.
+- Asynchronous tactical presentation entry loading, scene reconstruction from snapshot-plus-event mirror state, local presentation/accessibility settings, structured client diagnostics, and a debug overlay for bridge/state visibility.
+- Headless C2 state/shell tests covering state separation, cancellation, presentation independence, shell startup/synchronization, scene reconstruction, diagnostics, and shutdown.
+- `docs/GODOT_CLIENT_STATE_SHELL.md` documenting C2 ownership, lifecycle, reconstruction, settings, diagnostics, deliberate non-goals, and C3 handoff.
 
 ### Changed
 
@@ -73,6 +78,8 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - v0.5 movement commands account for per-turn distance only; authoritative path/range/LOS/cover/terrain legality remains explicitly reserved for v0.6 spatial authority.
 - Root agent governance plus Claude, Gemini, and Copilot adapters now require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
 - Godot CI now executes the client bridge headless test script after project parsing; the C1 exit gate remains open until GitHub-hosted jobs actually execute and pass.
+- The Godot main scene now composes the C2 app shell; the original orthographic camera scaffold lives in the tactical presentation entry scene rather than the obsolete one-script bootstrap.
+- Godot CI now also executes `res://tests/state_shell_tests.gd` after the C1 bridge tests.
 
 ### Deprecated
 
@@ -80,7 +87,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 
 ### Removed
 
-- None yet.
+- The obsolete `apps/godot-client/scripts/main.gd` presentation bootstrap after replacement by the C2 app shell.
 
 ### Fixed
 
@@ -95,6 +102,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Character runtime rejects malformed actor identity/state, duplicate abilities/proficiencies/movement/senses/resources/options, invalid inventory/equipment references, invalid option catalogs, and unsupported/corrupt actor serialization versions.
 - Tactical combat rejects malformed encounter/event/attack/damage/reaction inputs, non-contiguous replay events, illegal turn ownership/resource use, and unsupported combat event schema versions.
 - Client bridge validation rejects incompatible protocol versions, malformed envelopes/state payloads, regressing snapshots, stale/duplicate responses, and non-contiguous authoritative event batches rather than guessing client state.
+- Client authoritative-mirror getters return deep copies and reject regressing snapshots/event gaps so presentation code cannot mutate stored engine state through shared dictionaries or partially advance reconstruction state.
 
 <!--
 Release process notes:

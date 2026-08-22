@@ -40,7 +40,7 @@ correct engine contract.
 ### Existing baseline
 
 - [x] Godot project exists under `apps/godot-client/`.
-- [x] Main scene is a 3D scene with an orthographic `Camera3D` rig.
+- [x] Main client path includes a 3D scene with an orthographic `Camera3D` rig.
 - [x] Project identifies the Godot client as presentation-only in existing comments.
 - [x] Headless Godot project validation exists in repository CI.
 
@@ -58,17 +58,17 @@ correct engine contract.
 
 Create these only as implementation needs them; empty directory scaffolding is not completion.
 
-- [ ] `autoload/` for presentation app shell/bridge registry/settings only.
+- [x] `autoload/` for presentation app shell/bridge registry/settings only.
 - [x] `bridge/` for typed engine transport/protocol adapters.
-- [ ] `state/` for authoritative mirror, interaction state, and presentation state.
+- [x] `state/` for authoritative mirror, interaction state, and presentation state.
 - [ ] `camera/` for tactical camera controllers/config.
 - [ ] `input/` for input mapping and interaction modes.
-- [ ] `scenes/shell/` for startup/loading/root composition.
-- [ ] `scenes/tactical/` for battle-map presentation.
+- [x] `scenes/shell/` for startup/loading/root composition.
+- [x] `scenes/tactical/` for battle-map presentation entry points.
 - [ ] `scenes/actors/` for reusable actor presentation.
 - [ ] `ui/hud/`, `ui/actions/`, `ui/panels/`, `ui/common/` as corresponding UI arrives.
 - [ ] `presentation/` for event-to-animation/VFX/audio mapping.
-- [ ] `debug/` for authoritative tactical/debug overlays.
+- [x] `debug/` for authoritative tactical/debug overlays.
 - [x] `tests/` for headless Godot client tests.
 
 ---
@@ -132,33 +132,61 @@ because the current GitHub-hosted run terminates before creating any job steps.
 
 ## C2 — Client state architecture and app shell
 
+Implementation is present on the C2 feature branch. It keeps the authoritative mirror, interaction
+state, and presentation state separate and replaces the one-script bootstrap with a lifecycle-aware
+application shell. Exact Godot CI execution remains a separate validation gate.
+
 ### State separation
 
-- [ ] Implement read-only authoritative mirror state derived from engine snapshots/events.
-- [ ] Implement interaction state separate from authoritative state.
-- [ ] Implement presentation state separate from authoritative state.
-- [ ] Make selected/hovered/targeted actor IDs explicit interaction data.
-- [ ] Make pending command/request state explicit and cancellable.
-- [ ] Ensure scene reload can reconstruct visuals from authoritative mirror without hidden gameplay
+- [x] Implement read-only authoritative mirror state derived from engine snapshots/events.
+- [x] Implement interaction state separate from authoritative state.
+- [x] Implement presentation state separate from authoritative state.
+- [x] Make selected/hovered/targeted actor IDs explicit interaction data.
+- [x] Make pending command/request state explicit and cancellable.
+- [x] Ensure scene reload can reconstruct visuals from authoritative mirror without hidden gameplay
       state stored only in nodes.
-- [ ] Ensure animation/VFX completion is not required for authoritative progression.
+- [x] Ensure animation/VFX completion is not required for authoritative progression.
+- [x] Keep the mirror as snapshot + ordered post-snapshot events rather than adding a client gameplay
+      reducer.
 
 ### Shell
 
-- [ ] Replace the single-script bootstrap with a small app-shell composition.
-- [ ] Add startup/loading state.
-- [ ] Add bridge initialization state.
-- [ ] Add incompatible/error state.
-- [ ] Add tactical-scene loading entry point.
-- [ ] Add clean shutdown/bridge disposal behavior.
-- [ ] Add local settings store for presentation/input/accessibility only.
+- [x] Replace the single-script bootstrap with a small app-shell composition.
+- [x] Add startup/loading state.
+- [x] Add bridge initialization and authoritative synchronization states.
+- [x] Add incompatible/error state with a retry path.
+- [x] Add tactical-scene loading entry point without implementing C5 map behavior.
+- [x] Load the first tactical PackedScene asynchronously rather than blocking the frame loop on disk.
+- [x] Add clean shutdown/bridge disposal behavior.
+- [x] Add local settings store for presentation/input/accessibility only.
 
 ### Diagnostics
 
-- [ ] Add structured client logging categories: bridge, state, input, tactical, UI, presentation,
+- [x] Add structured client logging categories: bridge, state, input, tactical, UI, presentation,
       performance.
-- [ ] Make current snapshot/event sequence visible in debug mode.
-- [ ] Make bridge version/capabilities visible in debug mode.
+- [x] Make current snapshot/event sequence visible in debug mode.
+- [x] Make bridge version/capabilities visible in debug mode.
+- [x] Expose pending-request count and active presentation scene in the debug overlay.
+
+### Fixtures/testing
+
+- [x] Add headless tests for mirror deep-copy/read-only behavior and sequence rejection.
+- [x] Add headless tests for explicit interaction IDs/generation and pending request cancellation.
+- [x] Prove authoritative sequence can advance while presentation activity remains in flight.
+- [x] Test shell hello -> snapshot synchronization -> asynchronous tactical load -> ready flow.
+- [x] Test tactical scene reconstruction from the same snapshot-plus-event mirror after scene reload.
+- [x] Test debug sequence/version/capability display and clean shutdown.
+- [x] Wire `res://tests/state_shell_tests.gd` into the Godot CI job after the C1 bridge suite.
+- [x] Document C2 ownership, lifecycle, reconstruction, settings, diagnostics, and C3 handoff.
+
+### C2 validation / exit criterion
+
+- [ ] Confirm Godot 4.7.1 project parsing, `res://tests/bridge_tests.gd`, and
+      `res://tests/state_shell_tests.gd` execute successfully on the exact C2 PR head.
+- [ ] Confirm the stacked C1 Python/Ruff/Mypy/coverage/governance checks execute successfully on the
+      exact integrated head rather than failing before job step 1.
+- [ ] Mark C2 complete only after executable checks pass with no gameplay/rules/spatial authority in
+      Godot state or shell code.
 
 ---
 
