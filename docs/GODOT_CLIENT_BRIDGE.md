@@ -63,15 +63,25 @@ Capabilities are negotiation flags, not permission to invent missing engine beha
 
 `command.submit` carries the existing versioned authoritative command envelope. It requires a stable command ID. The response is either `command.accepted` or `command.rejected`.
 
-Accepted responses may carry an authoritative snapshot and/or ordered domain events. Rejected responses carry a categorized error with concise user wording and separate debug detail.
+Accepted command responses carry ordered authoritative events. Rejected responses carry a categorized error with concise user wording and separate debug detail. Full snapshots are requested explicitly for startup/resync so command event presentation is never hidden behind a same-sequence snapshot.
 
 ### Queries
 
 `query.request` is read-only. It is used for legal-action discovery, actor inspection, current authoritative facts, resync, and future query families. Query results must not mutate authoritative state.
 
+The v1 localhost host currently provides:
+
+- `bridge.snapshot` — current deterministic engine snapshot;
+- `bridge.resync` — current deterministic snapshot after reconnect/sequence loss;
+- `bridge.capabilities` — host capability list.
+
+Other query families fail explicitly as unsupported until their authoritative subsystem exists.
+
 ### Previews
 
 `preview.request` is read-only and generation-scoped. Future v0.6 spatial previews—movement reachability, path cost, LOS, cover, targeting, AoE—will use this family instead of duplicating those calculations in Godot.
+
+Until v0.6 preview providers exist, the local host returns an explicit unsupported response.
 
 ### Cancellation
 
@@ -119,6 +129,36 @@ The transport is polled from the Godot frame loop; it does not use blocking conn
 
 `FakeEngineTransport` is deterministic and drives headless client tests without a live Python process.
 
+## Local authoritative host
+
+The Python package now exposes a matching standard-library `asyncio` TCP host over the existing authoritative `SimulationEngine`.
+
+After installing the project in editable/development mode, start it with:
+
+```bash
+godot-dnd-client-bridge
+```
+
+Equivalent module form:
+
+```bash
+python -m godot_dnd_engine.client_bridge
+```
+
+Defaults:
+
+```text
+host        127.0.0.1
+port        4765
+campaign    campaign:local-dev
+session     session:local-dev
+seed        0
+```
+
+They can be overridden with `--host`, `--port`, `--campaign-id`, `--session-id`, and `--seed`.
+
+The local host performs version negotiation, accepts the existing authoritative v1 command envelope, returns ordered events, exposes snapshot/resync/capability queries, categorizes engine validation/conflict/unsupported failures, and keeps all simulation mutation inside the Python engine.
+
 ## Testing
 
 `apps/godot-client/tests/bridge_tests.gd` covers:
@@ -135,7 +175,9 @@ The transport is polled from the Godot frame loop; it does not use blocking conn
 
 Recorded snapshot/event fixtures live in `apps/godot-client/tests/fixtures/` and use the same v1 serialized contracts as the headless engine.
 
-The CI Godot job should parse the project and execute this headless test script before client bridge work is considered complete.
+`tests/test_client_bridge.py` independently covers the Python session/host, including a real localhost newline-delimited JSON/TCP round trip.
+
+The CI Godot job parses the project and executes the headless client bridge test script in addition to the existing Python lint/type/test/coverage gates.
 
 ## Future extension
 
