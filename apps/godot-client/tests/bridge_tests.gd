@@ -50,7 +50,7 @@ func _test_command_acceptance_and_authoritative_events() -> void:
             event_batches.append(events)
     )
 
-    var request_id := bridge.submit_command(
+    var request_id: String = bridge.submit_command(
         _command("command:bridge-accepted"),
         "interaction:accepted",
     )
@@ -126,7 +126,7 @@ func _test_stale_generation_is_ignored() -> void:
         func(request_id: String, reason: String) -> void:
             stale.append([request_id, reason])
     )
-    var request_id := bridge.request_preview(
+    var request_id: String = bridge.request_preview(
         "movement.path",
         {"destination": "cell:2,3"},
         "interaction:path",
@@ -231,7 +231,7 @@ func _test_timeout_and_cancellation() -> void:
         ) -> void:
             failures.append([correlation_id, category, user_message, debug_detail])
     )
-    var request_id := bridge.request_query(
+    var request_id: String = bridge.request_query(
         "actor.inspect",
         {"actor_id": "actor:test"},
         "interaction:timeout",
@@ -293,7 +293,7 @@ func _hello_accepted(hello: Dictionary) -> Dictionary:
         true,
         {
             "protocol": Protocol.PROTOCOL_NAME,
-            "capabilities": Array(Protocol.CAPABILITIES),
+            "capabilities": Protocol._capabilities(),
         },
     )
 

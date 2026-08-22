@@ -115,7 +115,7 @@ func _test_coordinator_cancels_pending_requests() -> void:
     _check(bridge.initialize(transport) == OK, "test bridge initializes")
     _accept_hello(bridge, transport)
 
-    var request_id := coordinator.request_query(
+    var request_id: String = coordinator.request_query(
         "bridge.capabilities",
         {},
         "interaction:pending",
@@ -155,7 +155,7 @@ func _test_app_shell_lifecycle_and_scene_reconstruction() -> void:
             true,
             {
                 "protocol": Protocol.PROTOCOL_NAME,
-                "capabilities": Array(Protocol.CAPABILITIES),
+                "capabilities": Protocol._capabilities(),
             },
         )
     )
@@ -274,7 +274,7 @@ func _accept_hello(bridge, transport) -> void:
             true,
             {
                 "protocol": Protocol.PROTOCOL_NAME,
-                "capabilities": Array(Protocol.CAPABILITIES),
+                "capabilities": Protocol._capabilities(),
             },
         )
     )

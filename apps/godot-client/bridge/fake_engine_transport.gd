@@ -40,7 +40,7 @@ func stop() -> void:
     disconnected.emit("transport stopped")
 
 
-func is_connected() -> bool:
+func _is_connected() -> bool:
     return _connected
 
 
