@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.8 Spell runtime
+## Current focus: v0.9 Complete character creator
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, and v0.7 Godot vertical-slice implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.8 now adds a generic authoritative spell runtime and a Godot spell interaction flow without moving spell legality or outcomes into presentation code.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, and v0.8 spell-runtime implementations have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.9 now adds a complete rules-driven character creation and advancement flow whose choices and validation come from the authoritative engine rather than hardcoded Godot lists.
 
 ### v0.1 carryover: repository and governance
 
@@ -310,21 +310,35 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 - [ ] Play spell casting through Godot from authoritative discovery/preview to accepted command without client-side rule authority.
 - [ ] Mark v0.8 complete only after those executable gates pass on an integrated head.
 
-## v0.9 Character creator
+## v0.9 Complete character creator
 
-- [ ] Identity step.
-- [ ] Species step.
-- [ ] Background step.
-- [ ] Class step.
-- [ ] Ability score step.
-- [ ] Skills/proficiencies step.
-- [ ] Equipment step.
-- [ ] Spell/feature choice step.
-- [ ] Appearance hooks.
-- [ ] Biography/personality metadata.
-- [ ] Review/validation step.
-- [ ] Level-up flow.
-- [ ] UI choices sourced from engine APIs/data, not hardcoded lists.
+- [x] Identity step.
+- [x] Species step driven by engine catalog data.
+- [x] Background step driven by engine catalog data.
+- [x] Class step driven by engine catalog data.
+- [x] Ability score step using engine-provided assignment policy.
+- [x] Skills/proficiencies step.
+- [x] Equipment step.
+- [x] Spell/feature choice step.
+- [x] Appearance hooks kept separate from rules authority.
+- [x] Biography/personality metadata.
+- [x] Review/validation step with authoritative preview plus create-time revalidation.
+- [x] Level-up choice and transition flow.
+- [x] UI choices sourced from engine APIs/data, not hardcoded lists.
+- [x] External catalog data adapter for canonical rules/content-pack integration.
+- [x] Versioned character-record schema and record serialization boundary.
+- [x] Python creator/runtime/service/bridge/schema regression coverage.
+- [x] Headless Godot creator integration suite added to `scripts/local_ci.sh`.
+- [x] Restore repository GitHub Actions workflow for Python/governance and Godot headless validation.
+- [x] Document v0.9 architecture, authority boundary, data adapters, tests, and v1.0 handoff in `docs/V0.9_CHARACTER_CREATOR.md`.
+
+### v0.9 validation / exit criterion
+
+- [ ] Run Ruff, strict Mypy, full pytest/coverage, governance/schema/importer determinism, Godot project parsing, and every headless Godot suite including `character_creator_tests.gd` on the exact integrated v0.9 head.
+- [ ] Validate representative `CharacterRecord` output against `schemas/v1/character-record.schema.json` in an executable repository run.
+- [ ] Demonstrate catalog data roundtrip and character creation/level-up entirely from external catalog data on the exact integrated head.
+- [ ] Replace/augment the original v0.9 demo catalog with the supported audited canonical rules/content dataset before claiming full production-rules completion.
+- [ ] Mark v0.9 complete only after executable gates pass and the supported production catalog is backed by audited canonical rules/content data.
 
 ## v1.0 Playable RPG
 

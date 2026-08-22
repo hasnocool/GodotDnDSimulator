@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/character-record.schema.json",
+  "title": "GodotDnDSimulator Character Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "actor",
+    "species_id",
+    "background_id",
+    "class_id",
+    "ability_method_id",
+    "appearance",
+    "biography",
+    "personality",
+    "spell_ids",
+    "feature_ids"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "catalog_id": {"type": "string", "minLength": 1},
+    "actor": {"type": "object"},
+    "species_id": {"type": "string", "minLength": 1},
+    "background_id": {"type": "string", "minLength": 1},
+    "class_id": {"type": "string", "minLength": 1},
+    "ability_method_id": {"type": "string", "minLength": 1},
+    "appearance": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "biography": {"type": "string"},
+    "personality": {"type": "string"},
+    "spell_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "feature_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    }
+  }
+}

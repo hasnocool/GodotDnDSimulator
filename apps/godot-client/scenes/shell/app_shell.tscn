@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource path="res://scenes/shell/app_shell.gd" type="Script" id="1_shell"]
 [ext_resource path="res://debug/client_debug_overlay.tscn" type="PackedScene" id="2_debug"]
+[ext_resource path="res://scenes/character_creator/character_creator.tscn" type="PackedScene" id="3_creator"]
+[ext_resource path="res://scenes/character_creator/creator_launcher.gd" type="Script" id="4_launcher"]
 
 [node name="AppShell" type="Node"]
 script = ExtResource("1_shell")
@@ -41,4 +43,14 @@ visible = false
 layout_mode = 2
 text = "Retry engine connection"
 
+[node name="CreatorButton" type="Button" parent="ShellUI"]
+offset_left = 930.0
+offset_top = 24.0
+offset_right = 1128.0
+offset_bottom = 64.0
+text = "Character Creator"
+script = ExtResource("4_launcher")
+
 [node name="ClientDebugOverlay" parent="ShellUI" instance=ExtResource("2_debug")]
+
+[node name="CharacterCreator" parent="." instance=ExtResource("3_creator")]
