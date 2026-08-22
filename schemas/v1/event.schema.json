@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/event.schema.json",
+  "title": "GodotDnDSimulator Event Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "campaign_id",
+    "session_id",
+    "sequence",
+    "event_type",
+    "version",
+    "tick",
+    "correlation_id",
+    "causation_id",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "pattern": "^event:"},
+    "campaign_id": {"type": "string", "pattern": "^campaign:"},
+    "session_id": {"type": "string", "pattern": "^session:"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "tick": {"type": "integer", "minimum": 0},
+    "correlation_id": {"type": "string", "pattern": "^command:"},
+    "causation_id": {"type": "string", "pattern": "^command:"},
+    "payload": {"type": "object"}
+  }
+}
