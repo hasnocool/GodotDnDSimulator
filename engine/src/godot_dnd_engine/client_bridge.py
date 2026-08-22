@@ -125,10 +125,7 @@ class ClientBridgeSession:
         return _response(
             request,
             "command.accepted",
-            payload={
-                "events": [event_to_dict(event) for event in emitted],
-                "snapshot": snapshot_to_dict(self.engine.snapshot()),
-            },
+            payload={"events": [event_to_dict(event) for event in emitted]},
         )
 
     def _query(self, request: dict[str, Any]) -> dict[str, object]:
