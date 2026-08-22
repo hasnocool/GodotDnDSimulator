@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .compile import compile_entities
 from .errors import SourceChangedError, SourcePolicyError
@@ -28,6 +29,30 @@ def _verify_artifact_file(artifact: SourceArtifact) -> None:
         raise SourceChangedError("cached source bytes do not match the artifact manifest")
 
 
+def _validate_artifact_policy(artifact: SourceArtifact, registry: SourceRegistry, source_id: str) -> None:
+    policy = registry.require(source_id)
+    if artifact.source_id != policy.source_id:
+        raise SourcePolicyError("artifact source_id does not match requested policy")
+    if artifact.document_version != policy.document_version:
+        raise SourcePolicyError("artifact document version does not match source policy")
+    if artifact.license_id != policy.license_id:
+        raise SourcePolicyError("artifact license does not match source policy")
+    if artifact.requested_url != policy.download_url:
+        raise SourcePolicyError("artifact requested URL does not match source policy")
+    if artifact.media_type != policy.media_type:
+        raise SourcePolicyError("artifact media type does not match source policy")
+    if artifact.size_bytes < 1:
+        raise SourcePolicyError("artifact size must be at least one byte")
+
+    final_url = urlparse(artifact.final_url)
+    if final_url.scheme != "https" or final_url.hostname != "media.dndbeyond.com":
+        raise SourcePolicyError("artifact final URL resolved to an unapproved host")
+    if policy.expected_sha256 is not None and artifact.sha256 != policy.expected_sha256:
+        raise SourceChangedError(
+            f"artifact checksum does not match pinned source: {artifact.sha256}"
+        )
+
+
 async def build_from_artifact(
     *,
     registry: SourceRegistry,
@@ -37,16 +62,7 @@ async def build_from_artifact(
     output_dir: Path,
 ) -> ImportReport:
     policy = registry.require(source_id)
-    if artifact.source_id != policy.source_id:
-        raise SourcePolicyError("artifact source_id does not match requested policy")
-    if artifact.document_version != policy.document_version:
-        raise SourcePolicyError("artifact document version does not match source policy")
-    if artifact.license_id != policy.license_id:
-        raise SourcePolicyError("artifact license does not match source policy")
-    if policy.expected_sha256 is not None and artifact.sha256 != policy.expected_sha256:
-        raise SourceChangedError(
-            f"artifact checksum does not match pinned source: {artifact.sha256}"
-        )
+    _validate_artifact_policy(artifact, registry, source_id)
     await asyncio.to_thread(_verify_artifact_file, artifact)
 
     blocks = await extract_pdf_async(Path(artifact.cache_path), artifact)
