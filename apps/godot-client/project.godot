@@ -1,11 +1,16 @@
 ; apps/godot-client/project.godot
-; Minimal presentation-only Godot scaffold. Authoritative rules live in engine/.
+; Presentation-only Godot client. Authoritative rules live in engine/.
 config_version=5
 
 [application]
 
 config/name="GodotDnDSimulator"
 run/main_scene="res://main.tscn"
+
+[autoload]
+
+ClientSettings="*res://autoload/client_settings.gd"
+ClientLog="*res://autoload/client_log.gd"
 
 [display]
 
