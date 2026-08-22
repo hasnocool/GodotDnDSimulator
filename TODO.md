@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.7 Godot vertical slice
+## Current focus: v0.8 Spell runtime
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical-combat implementation, and v0.6 spatial-authority implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.7 now proves the integrated engine through a playable Godot tactical slice while keeping combat and spatial legality authoritative in the headless engine.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, and v0.7 Godot vertical-slice implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.8 now adds a generic authoritative spell runtime and a Godot spell interaction flow without moving spell legality or outcomes into presentation code.
 
 ### v0.1 carryover: repository and governance
 
@@ -289,15 +289,26 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 
 ## v0.8 Spell runtime
 
-- [ ] Spell resource/slot model.
-- [ ] Known/prepared spell model as required by supported rules.
-- [ ] Spell attack/save resolution.
-- [ ] Generic target/range/area primitives.
-- [ ] Duration/concentration model.
-- [ ] Scaling/upcasting representation.
-- [ ] Ongoing/triggered effects.
-- [ ] Spell UI/previews.
-- [ ] Conformance matrix by effect family.
+- [x] Spell resource/slot model.
+- [x] Known/prepared spell model as required by supported rules.
+- [x] Spell attack/save resolution.
+- [x] Generic target/range/area primitives composed from v0.3 selectors and v0.6 spatial authority.
+- [x] Duration/concentration model.
+- [x] Scaling/upcasting representation.
+- [x] Ongoing effect execution with authoritative round advancement.
+- [x] Spell UI/previews driven by engine-provided spell/slot metadata and authoritative previews.
+- [x] Conformance matrix by representative effect family with original test fixtures.
+- [x] Versioned spell-event serialization/schema and RNG continuation checkpoints.
+- [x] Spell-aware bridge/session integration and compatibility with core-only/v0.7 state.
+- [x] Document v0.8 architecture and authority boundaries in `docs/V0.8_SPELL_RUNTIME.md`.
+
+### v0.8 validation / exit criterion
+
+- [ ] Run Ruff, strict Mypy, full pytest/coverage, governance/schema/importer determinism, and every Godot headless suite including `spell_ui_tests.gd` on the exact v0.8 head.
+- [ ] Confirm the exact v0.8 head parses under the repository Godot version with no script/resource errors.
+- [ ] Demonstrate attack, save, healing, concentration, duration, ongoing, AoE, and upcast spell families through the authoritative engine with deterministic replay/RNG continuation.
+- [ ] Play spell casting through Godot from authoritative discovery/preview to accepted command without client-side rule authority.
+- [ ] Mark v0.8 complete only after those executable gates pass on an integrated head.
 
 ## v0.9 Character creator
 

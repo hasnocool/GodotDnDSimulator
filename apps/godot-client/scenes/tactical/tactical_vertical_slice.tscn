@@ -1,12 +1,13 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
-[ext_resource type="Script" path="res://scenes/tactical/tactical_vertical_slice.gd" id="1_slice"]
+[ext_resource type="Script" path="res://scenes/tactical/tactical_spell_slice.gd" id="1_slice"]
 [ext_resource type="Script" path="res://scenes/tactical/tactical_map_view.gd" id="2_map"]
 [ext_resource type="Script" path="res://scenes/tactical/tactical_overlay.gd" id="3_overlay"]
 [ext_resource type="PackedScene" path="res://camera/tactical_camera.tscn" id="4_camera"]
 [ext_resource type="Script" path="res://presentation/tactical_event_presenter.gd" id="5_events"]
 [ext_resource type="Script" path="res://presentation/occlusion_controller.gd" id="6_occlusion"]
 [ext_resource type="PackedScene" path="res://ui/hud/tactical_hud.tscn" id="7_hud"]
+[ext_resource type="PackedScene" path="res://ui/actions/spell_palette.tscn" id="8_spells"]
 
 [sub_resource type="Environment" id="Environment_slice"]
 background_mode = 1
@@ -47,3 +48,5 @@ script = ExtResource("6_occlusion")
 layer = 10
 
 [node name="TacticalHUD" parent="HUD" instance=ExtResource("7_hud")]
+
+[node name="SpellPalette" parent="HUD" instance=ExtResource("8_spells")]

@@ -67,7 +67,6 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Asynchronous tactical presentation entry loading, scene reconstruction from snapshot-plus-event mirror state, local presentation/accessibility settings, structured client diagnostics, and a debug overlay for bridge/state visibility.
 - Headless C2 state/shell tests covering state separation, cancellation, presentation independence, shell startup/synchronization, scene reconstruction, diagnostics, and shutdown.
 - `docs/GODOT_CLIENT_STATE_SHELL.md` documenting C2 ownership, lifecycle, reconstruction, settings, diagnostics, deliberate non-goals, and C3 handoff.
-<<<<<<< HEAD
 - Deterministic v0.6 headless spatial authority with a backend-independent logical-space protocol, bounded square-grid implementation, multi-cell footprints, occupancy, collision, distance/reach, terrain, elevation, movement modes, path legality, pathfinding, movement cost, and reachable-space queries.
 - Elevation-aware logical LOS, explicit cover classifications, and reusable sphere/cube/cylinder/cone/line area queries with no named ability special cases.
 - Geometric threat-zone entry/exit inputs, a Godot/navigation proposal contract that remains subordinate to engine validation, and a JSON-shaped `SpatialQueryService` for client/tool integration.
@@ -79,21 +78,26 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Authoritative command-completion reconciliation so rejected intents remain correctable/retryable while accepted transient interactions return to selection only after engine acceptance.
 - Headless C3 input/interaction tests covering remapping, modal/focus safety, cancellation, duplicate confirmations, rejection retry, acceptance reconciliation, and selection preservation.
 - `docs/GODOT_CLIENT_INPUT.md` documenting C3 semantic actions, remapping, interaction modes, UI focus/modal behavior, command lifecycle, authority boundary, and C4 handoff.
+- v0.7 authoritative Godot tactical vertical slice with isometric camera, tactical map, actor rendering, movement/path previews, targeting, action HUD, presentation events, occlusion, and a complete small battle that delegates gameplay legality to the Python engine.
+- v0.8 generic spellcasting domain with known/prepared spell state, levelled spell slots, spell attack/save metadata, generic target selectors, duration/concentration state, ongoing effects, and upcasting/scaling representation.
+- `SpellRuntime` composition over the existing v0.3 rules, v0.4 actors, v0.5 combat, and v0.6 spatial authority for deterministic spell attacks, saves, damage, healing, conditions, range, LOS, and AoE membership.
+- Versioned `SpellEvent` v1 serialization with RNG checkpoints and `schemas/v1/spell-event.schema.json` for deterministic random-stream continuation.
+- Transport-neutral `SpellQueryService`, spell-enabled tactical session/bridge capabilities, and authoritative `spells.available` / `spells.preview` / `tactical.cast_spell` contracts.
+- Godot spell palette and tactical spell interaction layer generated from engine-provided spell/slot metadata, with engine-approved creature/point/AoE previews required before command submission.
+- Original representative spell fixtures and Python/Godot regression coverage for attack, save-for-half, healing, concentration, conditions, ongoing durations, area membership, and upcasting.
+- `docs/V0.8_SPELL_RUNTIME.md` documenting v0.8 mechanics, authority boundaries, bridge/UI contracts, determinism, and validation expectations.
 
 ### Changed
 
-- `README.md` now documents the executable v0.1 foundation and local validation workflow.
-- Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.6.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
+- `README.md` documents the executable architecture and local validation workflow.
+- Release policy is semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
+- Development version advances to `0.8.0.dev0`; CI continues to lint, type-check, test, coverage-check, validate schemas/governance, and execute headless Godot suites.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation focus advances from v0.5 tactical combat to v0.6 spatial authority while unfinished CI/full-source audit items remain tracked as carryover.
-- v0.5 movement-budget accounting now has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
-- Root agent governance plus Claude, Gemini, and Copilot adapters now require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
-- Godot CI now executes the client bridge headless test script after project parsing; the C1 exit gate remains open until GitHub-hosted jobs actually execute and pass.
-- The Godot main scene now composes the C2 app shell; the original orthographic camera scaffold lives in the tactical presentation entry scene rather than the obsolete one-script bootstrap.
-- Godot CI now also executes `res://tests/state_shell_tests.gd` after the C1 bridge tests.
-- The C2 app shell now owns one persistent input-binding registry and interaction controller, enabling tactical input only while the shell is ready so scene reloads do not duplicate input ownership.
-- Godot CI now also executes `res://tests/input_interaction_tests.gd` after the existing C1/C2 client suites.
+- Active implementation focus advances through v0.8 spell runtime while unfinished earlier CI/full-source audit items remain tracked as carryover.
+- v0.5 movement-budget accounting has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
+- Root agent governance plus Claude, Gemini, and Copilot adapters require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
+- Godot CI executes the client bridge, state/shell, input/interaction, camera, v0.7 tactical-slice, and v0.8 spell-interaction headless suites.
+- The default `godot-dnd-client-bridge` entry point now uses the spell-aware v0.8 host while `--core-only` preserves the minimal core-engine bridge mode.
 
 ### Deprecated
 
@@ -105,22 +109,28 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 
 ### Fixed
 
-- Snapshot restore now resumes the deterministic RNG stream instead of only restoring visible game state.
-- Replaying events after an older snapshot now advances RNG state through recorded event checkpoints before future commands execute.
+- Snapshot restore resumes the deterministic RNG stream instead of only restoring visible game state.
+- Replaying events after an older snapshot advances RNG state through recorded event checkpoints before future commands execute.
 - Raw tactical input no longer acts while a Godot UI control owns focus, and repeated confirmation while an authoritative command is pending cannot create a second submission from the same armed intent.
-- Godot bridge and authoritative-mirror sequence validation now accepts integral numbers decoded from JSON while rejecting fractional values, and standalone client tests no longer depend on editor class-cache or autoload compilation order.
-- Bridge request failures now reconcile interaction state by request ID so cancelling a correlated preview cannot reject or unlock a still-pending authoritative command.
+- Godot bridge and authoritative-mirror sequence validation accepts integral numbers decoded from JSON while rejecting fractional values, and standalone client tests no longer depend on editor class-cache or autoload compilation order.
+- Bridge request failures reconcile interaction state by request ID so cancelling a correlated preview cannot reject or unlock a still-pending authoritative command.
+- Submitted authoritative commands are never treated as mode-cancellable preview/query requests.
+- Stale query/preview results are filtered against the current interaction generation before presentation receives them.
+- Spell duration state retains the actual cast slot level so ongoing upcast effects do not silently fall back to the base spell level.
+- Spell RNG consumption is checkpointed in the spell event stream so replay/resume tooling can restore the exact future deterministic random stream.
+- Removed an unresolved changelog merge marker left from earlier integration history.
 
 ### Security
 
 - Added strict validation at command, event, snapshot, identifier, dice, and replay boundaries to reject malformed/untrusted input early.
-- Rules ingestion now rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
+- Rules ingestion rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
 - Rules runtime primitives fail closed on malformed ability/DC/proficiency/resource/modifier/duration/condition/selector/effect/hook/capability inputs and preserve original immutable state when effect or cost resolution fails.
 - Character runtime rejects malformed actor identity/state, duplicate abilities/proficiencies/movement/senses/resources/options, invalid inventory/equipment references, invalid option catalogs, and unsupported/corrupt actor serialization versions.
 - Tactical combat rejects malformed encounter/event/attack/damage/reaction inputs, non-contiguous replay events, illegal turn ownership/resource use, and unsupported combat event schema versions.
 - Client bridge validation rejects incompatible protocol versions, malformed envelopes/state payloads, regressing snapshots, stale/duplicate responses, and non-contiguous authoritative event batches rather than guessing client state.
 - Client authoritative-mirror getters return deep copies and reject regressing snapshots/event gaps so presentation code cannot mutate stored engine state through shared dictionaries or partially advance reconstruction state.
 - Spatial authority fails closed on malformed spaces, footprints, overlaps, movement modes, stale navigation proposals, blocked/over-budget paths, non-contiguous or corrupt movement events, invalid area shapes, and unsupported read-only spatial queries.
+- Spell authority rejects unknown/unprepared spells, unavailable slots/actions, invalid target counts/selectors, out-of-range/non-visible targets, invalid points/shapes, stale sequence intent, and malformed spell event/checkpoint payloads rather than allowing Godot to infer legality.
 
 <!--
 Release process notes:
