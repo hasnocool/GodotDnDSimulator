@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/v1/combat-event.schema.json",
+  "title": "GodotDnDSimulator Combat Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sequence",
+    "event_type",
+    "actor_id",
+    "target_id",
+    "payload",
+    "schema_version",
+    "rng_after"
+  ],
+  "properties": {
+    "sequence": {"type": "integer", "minimum": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "actor_id": {"type": ["string", "null"]},
+    "target_id": {"type": ["string", "null"]},
+    "payload": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {"type": "string"},
+          {"type": "integer"},
+          {"type": "boolean"},
+          {"type": "null"},
+          {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        ]
+      }
+    },
+    "schema_version": {"const": 1},
+    "rng_after": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "state", "increment"],
+          "properties": {
+            "algorithm": {"type": "string", "minLength": 1},
+            "state": {"type": "integer", "minimum": 0},
+            "increment": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    }
+  }
+}

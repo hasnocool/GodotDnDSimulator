@@ -97,54 +97,54 @@ See [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) and [`docs/RULE
 
 The merged v0.3 implementation adds a deterministic, headless rules runtime under `engine/src/godot_dnd_engine/rules/` without adding Godot authority or a second RNG system.
 
-Implemented runtime families include:
-
-- ability scores and modifiers;
-- character proficiency progression and none/half/full/double proficiency ranks;
-- typed ability-check, saving-throw, and attack-roll D20 contexts;
-- deterministic advantage/disadvantage with cancellation;
-- typed difficulty classes and save resolution;
-- audit-rich D20 outcomes;
-- generic modifiers with priority and explicit stack/highest/lowest/replace policies;
-- bounded resources and atomic costs;
-- tag/resource/condition/capability requirements;
-- deterministic presentation-independent target selectors;
-- pure resource/condition effect batches;
-- condition unique/refresh/stack behavior;
-- tick/turn/round/permanent durations and deterministic expiry;
-- trigger/reaction-hook matching;
-- ruleset capability declarations.
+Implemented runtime families include ability/proficiency/D20/DC/save resolution, advantage/disadvantage, generic modifiers, resources/costs, requirements, target selectors, effects, conditions/durations, reactions/hooks, and ruleset capabilities.
 
 The runtime uses the existing versioned `pcg32-v1` RNG through the established dice service. It has no filesystem, network, database, wall-clock, or Godot dependency.
-
-A lightweight immutable `RuleSubjectState`/`RuleWorldState` provides enough state for generic v0.3 mechanics without prematurely defining the richer hero/NPC/creature actor model. v0.4 adapts its character runtime to these primitives instead of reimplementing D20, modifier, resource, condition, target, or reaction behavior.
-
-Representative conformance tests use the actual v0.2 `CanonicalEntity`/`Provenance` shape with structured `mechanics` fields, proving the importer/runtime contract without making runtime code import development-time tools.
 
 See [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md).
 
 ## v0.4 character runtime
 
-The active phase adds a shared immutable actor model under `engine/src/godot_dnd_engine/actors/` for heroes, NPCs, and creatures.
+The merged v0.4 phase adds a shared immutable actor model under `engine/src/godot_dnd_engine/actors/` for heroes, NPCs, and creatures.
 
 Implemented character-state families include:
 
 - six ability scores and explicit proficiency bonus;
 - current/maximum/temporary HP plus armor class;
-- the SRD skill list with typed skill-to-ability mappings;
-- saving-throw and generic training proficiencies;
+- typed skills, saves, and generic training proficiencies;
 - walk/climb/swim/fly/burrow movement records;
 - generic named senses with optional ranges;
 - inventory entries and equipment-slot assignments;
 - v0.3 resources and conditions embedded directly on actors;
-- adapters that reuse the v0.3 effect pipeline rather than duplicating rules behavior;
-- data-driven character options with group cardinality, requirements, conflicts, and granted tags;
-- a headless character-creation spec/request/result API;
-- canonical actor JSON serialization with `schema_version: 1`, a repository JSON Schema, and explicit v0-to-v1 migration.
-
-Combat attack resolution, damage/healing, incapacitation/death, and action economy remain intentionally deferred to v0.5. Spatial path legality, LOS, terrain, cover, and AoE remain v0.6 responsibilities.
+- adapters that reuse the v0.3 effect pipeline;
+- data-driven character options and constrained headless creation;
+- canonical actor JSON serialization with `schema_version: 1` and explicit v0-to-v1 migration.
 
 See [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md).
+
+## v0.5 tactical combat
+
+The active phase adds deterministic tactical combat under `engine/src/godot_dnd_engine/combat/` while preserving the existing actor and rules runtimes.
+
+Implemented combat families include:
+
+- encounter preparation/start/end lifecycle;
+- deterministic initiative, rounds, turns, and stable tie ordering;
+- action, bonus-action, reaction, and movement-budget accounting;
+- explicit reaction windows and data-driven combat-condition restrictions;
+- abstract attack definitions using the existing v0.3 D20 resolver;
+- armor-class attack resolution and critical attack-roll handling;
+- generic damage/healing and temporary-hit-point handling;
+- data-driven resistance, immunity, and vulnerability hooks;
+- explicit character-style versus monster-style zero-HP policy;
+- versioned `CombatEvent` records, a pure reducer, canonical JSON/JSONL logs, and deterministic replay;
+- `schemas/v1/combat-event.schema.json`.
+
+Movement in v0.5 is **budget accounting only**. Path legality, occupancy, distance/reach, terrain, LOS, cover, elevation, and AoE remain v0.6 Spatial Authority responsibilities.
+
+The combat engine contains no named-item, named-spell, or named-creature special cases and no Godot scene authority.
+
+See [`docs/V0.5_TACTICAL_COMBAT.md`](docs/V0.5_TACTICAL_COMBAT.md).
 
 ## Local validation
 
@@ -159,6 +159,8 @@ python scripts/check_governance.py
 python scripts/determinism_smoke.py
 python -m tools.rules_importer.smoke
 ```
+
+Focused v0.5 validation also runs the combat tests against the real `pcg32-v1` seeded RNG interface. The offline pre-PR suite reached 29 passing tests and 96% branch-aware coverage for `godot_dnd_engine.combat`.
 
 With Godot 4.7.1 installed:
 
@@ -216,6 +218,7 @@ Start here:
 - [`docs/V0.2_RULES_PIPELINE.md`](docs/V0.2_RULES_PIPELINE.md) — importer commands, contracts, outputs, tests, and remaining audit gates.
 - [`docs/V0.3_RULES_RUNTIME.md`](docs/V0.3_RULES_RUNTIME.md) — executable rules primitives, modifier/effect semantics, determinism, and v0.4 handoff.
 - [`docs/V0.4_CHARACTER_RUNTIME.md`](docs/V0.4_CHARACTER_RUNTIME.md) — shared actor state, creation API, rule adapters, serialization, and v0.5 handoff.
+- [`docs/V0.5_TACTICAL_COMBAT.md`](docs/V0.5_TACTICAL_COMBAT.md) — encounter state, attacks, damage/healing, reactions, event replay, and v0.6 spatial handoff.
 - [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) — branch, commit, PR, review, merge, compatibility, and release workflow.
 - [`docs/adr/`](docs/adr/) — durable architecture decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contributor validation and PR workflow.
@@ -241,11 +244,11 @@ The project must not use D&D Beyond Basic Rules or non-SRD rulebook/setting/adve
 
 ## Current milestone
 
-**v0.4 — Character runtime**
+**v0.5 — Tactical combat**
 
-The shared actor/character runtime is implemented on the active feature branch with immutable hero/NPC/creature state, HP/defense, skills/proficiencies, movement/senses, inventory/equipment, v0.3 effect integration, constrained character options, versioned actor serialization/migrations, and a headless creation API. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
+The tactical-combat implementation is on the active feature branch with encounter lifecycle, deterministic initiative/turns, action economy, movement accounting, reactions, abstract attacks, damage/healing/defense hooks, combat conditions, supported zero-HP state transitions, and versioned event replay. The milestone remains open until the exact PR head passes the complete repository CI gates recorded in [`TODO.md`](TODO.md).
 
-Outstanding v0.1/v0.3 CI proof and full-source v0.2 audit items remain tracked as carryover rather than being silently considered complete.
+Outstanding earlier CI proof and full-source v0.2 audit items remain tracked as carryover rather than being silently considered complete.
 
 ## First playable target
 

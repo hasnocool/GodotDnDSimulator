@@ -50,14 +50,20 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Versioned actor serialization (`schema_version: 1`), `schemas/v1/actor.schema.json`, canonical JSON output, and explicit v0-to-v1 migration support.
 - v0.4 actor/character regression coverage for shared state, effects, choices, creation, serialization, migrations, and malformed-input rejection.
 - `docs/V0.4_CHARACTER_RUNTIME.md` documenting the shared actor model, rule adapters, creation API, serialization, and v0.5/v0.6 handoff.
+- Deterministic v0.5 tactical-combat runtime with encounter lifecycle, initiative, rounds/turns, action economy, movement-budget accounting, reaction windows, abstract attacks, damage/healing, defenses, conditions, and supported zero-HP state transitions.
+- Versioned `CombatEvent` v1 contract, pure reducer, canonical JSON/JSONL event serialization, and snapshot-independent deterministic combat replay from a preparing encounter state.
+- Generic defense profiles for data-driven resistance, immunity, and vulnerability handling plus explicit temporary-hit-point replacement choice.
+- Combat regression coverage using real `pcg32-v1` seeds for initiative, attack-roll edge cases, damage/healing, death-save state, reactions, malformed inputs, event serialization, and replay parity.
+- `schemas/v1/combat-event.schema.json` and `docs/V0.5_TACTICAL_COMBAT.md` documenting the combat/event boundary and v0.6 spatial handoff.
 
 ### Changed
 
 - `README.md` now documents the executable v0.1 foundation and local validation workflow.
 - Release policy is now explicitly defined as semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.4.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
+- Development version advances to `0.5.0.dev0`; CI continues to lint, type-check, test, and coverage-check the engine and rules-import tooling.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation focus advances from the v0.3 rules runtime to the v0.4 shared character runtime while unfinished CI/full-source audit items remain tracked as carryover.
+- Active implementation focus advances from the v0.4 character runtime to v0.5 tactical combat while unfinished CI/full-source audit items remain tracked as carryover.
+- v0.5 movement commands account for per-turn distance only; authoritative path/range/LOS/cover/terrain legality remains explicitly reserved for v0.6 spatial authority.
 
 ### Deprecated
 
@@ -78,6 +84,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Rules ingestion now rejects unallowlisted source IDs, non-official/incorrectly licensed policies, non-HTTPS or unexpected hosts, unexpected media types, checksum drift, cache-manifest mismatches, and post-manifest source tampering.
 - Rules runtime primitives fail closed on malformed ability/DC/proficiency/resource/modifier/duration/condition/selector/effect/hook/capability inputs and preserve original immutable state when effect or cost resolution fails.
 - Character runtime rejects malformed actor identity/state, duplicate abilities/proficiencies/movement/senses/resources/options, invalid inventory/equipment references, invalid option catalogs, and unsupported/corrupt actor serialization versions.
+- Tactical combat rejects malformed encounter/event/attack/damage/reaction inputs, non-contiguous replay events, illegal turn ownership/resource use, and unsupported combat event schema versions.
 
 <!--
 Release process notes:
