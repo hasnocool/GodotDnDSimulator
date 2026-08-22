@@ -4,6 +4,7 @@ extends Node
 signal event_presented(event: Dictionary)
 signal combat_log_entry(text: String)
 signal actor_emphasis_requested(actor_id: String)
+signal audio_cue_requested(cue_id: String)
 
 var _state: ClientStateCoordinator
 var _queued := 0
@@ -54,6 +55,7 @@ func _present(event: Dictionary) -> void:
                 "%s moved %d ft" % [actor_id, int(payload.get("cost_feet", 0))]
             )
             actor_emphasis_requested.emit(actor_id)
+            audio_cue_requested.emit("movement")
         "tactical.attack_resolved":
             var outcome := "hit" if bool(payload.get("hit", false)) else "miss"
             combat_log_entry.emit(
@@ -65,13 +67,16 @@ func _present(event: Dictionary) -> void:
                 ]
             )
             actor_emphasis_requested.emit(target_id)
+            audio_cue_requested.emit("attack_hit" if outcome == "hit" else "attack_miss")
         "tactical.turn_started":
             combat_log_entry.emit("Turn: %s" % actor_id)
             actor_emphasis_requested.emit(actor_id)
+            audio_cue_requested.emit("turn_started")
         "tactical.encounter_ended":
             combat_log_entry.emit(
                 "Encounter complete · %s" % str(payload.get("winner_team", ""))
             )
+            audio_cue_requested.emit("encounter_complete")
         _:
             combat_log_entry.emit(event_type)
     event_presented.emit(event)
