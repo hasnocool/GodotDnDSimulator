@@ -11,11 +11,12 @@ from .events import SpatialEvent, SpatialEventValue
 
 
 def _json_value(value: SpatialEventValue) -> object:
-    if isinstance(value, tuple):
-        if all(isinstance(item, tuple) for item in value):
-            return [list(item) for item in value]
-        return list(value)
-    return value
+    if not isinstance(value, tuple):
+        return value
+    raw: tuple[Any, ...] = value
+    if all(isinstance(item, tuple) for item in raw):
+        return [list(item) for item in raw]
+    return list(raw)
 
 
 def event_to_dict(event: SpatialEvent) -> dict[str, object]:
@@ -43,14 +44,14 @@ def _event_value(value: Any) -> SpatialEventValue:
         if all(isinstance(item, str) for item in value):
             return tuple(value)
         if len(value) == 2 and all(_is_int(item) for item in value):
-            return (value[0], value[1])
+            return (int(value[0]), int(value[1]))
         if all(
             isinstance(item, list)
             and len(item) == 2
             and all(_is_int(coordinate) for coordinate in item)
             for item in value
         ):
-            return tuple((item[0], item[1]) for item in value)
+            return tuple((int(item[0]), int(item[1])) for item in value)
     raise ValidationError("spatial event payload contains an unsupported value")
 
 
@@ -80,10 +81,7 @@ def deserialize_event(value: str) -> SpatialEvent:
         sequence=sequence,
         event_type=event_type,
         entity_id=entity_id,
-        payload=tuple(
-            (str(key), _event_value(item))
-            for key, item in payload_raw.items()
-        ),
+        payload=tuple((str(key), _event_value(item)) for key, item in payload_raw.items()),
         schema_version=schema_version,
     )
 
