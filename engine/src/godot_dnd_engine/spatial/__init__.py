@@ -20,6 +20,7 @@ from .geometry import (
     neighboring_cells,
     placement_in_reach,
 )
+from .integration import CombatSpatialMoveTransition, move_in_encounter
 from .model import (
     ALL_MOVEMENT_MODES,
     AreaResult,
@@ -78,6 +79,7 @@ __all__ = [
     "SPATIAL_EVENT_SCHEMA_VERSION",
     "AreaResult",
     "AreaShape",
+    "CombatSpatialMoveTransition",
     "ConeShape",
     "CoverLevel",
     "CoverResult",
@@ -120,6 +122,7 @@ __all__ = [
     "line_cells",
     "line_of_sight_between_cells",
     "line_of_sight_between_entities",
+    "move_in_encounter",
     "movement_capabilities",
     "movement_speed",
     "neighboring_cells",
