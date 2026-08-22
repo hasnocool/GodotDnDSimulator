@@ -4,7 +4,15 @@
   "title": "GodotDnDSimulator Combat Event v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["sequence", "event_type", "actor_id", "target_id", "payload", "schema_version"],
+  "required": [
+    "sequence",
+    "event_type",
+    "actor_id",
+    "target_id",
+    "payload",
+    "schema_version",
+    "rng_after"
+  ],
   "properties": {
     "sequence": {"type": "integer", "minimum": 1},
     "event_type": {"type": "string", "minLength": 1},
@@ -22,6 +30,21 @@
         ]
       }
     },
-    "schema_version": {"const": 1}
+    "schema_version": {"const": 1},
+    "rng_after": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "state", "increment"],
+          "properties": {
+            "algorithm": {"type": "string", "minLength": 1},
+            "state": {"type": "integer", "minimum": 0},
+            "increment": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    }
   }
 }
