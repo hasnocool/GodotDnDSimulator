@@ -4,11 +4,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
-
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.models import CommandEnvelope
 from godot_dnd_engine.serialization import event_to_dict, snapshot_to_dict
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "schemas" / "v1"

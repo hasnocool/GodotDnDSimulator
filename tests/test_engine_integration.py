@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.errors import SequenceError, UnsupportedCommandError, ValidationError
 from godot_dnd_engine.models import CommandEnvelope

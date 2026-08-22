@@ -73,6 +73,8 @@ def _collect_outline(reader: PdfReader) -> dict[int, list[tuple[str, int]]]:
                 page_index = reader.get_destination_page_number(item)
             except Exception:
                 continue
+            if page_index is None or page_index < 0:
+                continue
             if page_index >= 0:
                 by_page[page_index + 1].append((" ".join(title.split()), level))
 

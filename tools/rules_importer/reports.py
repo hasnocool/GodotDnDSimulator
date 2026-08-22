@@ -32,7 +32,7 @@ def build_import_report(entities: tuple[CanonicalEntity, ...]) -> ImportReport:
         raise ValueError("canonical dataset mixes multiple source checksums")
     by_kind = Counter(entity.kind for entity in entities)
     by_status = Counter(entity.status for entity in entities)
-    unsupported = Counter()
+    unsupported: Counter[str] = Counter()
     for entity in entities:
         for primitive in entity.mechanics.get("unsupported", []):
             if isinstance(primitive, str) and primitive:

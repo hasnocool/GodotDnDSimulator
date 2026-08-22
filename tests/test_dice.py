@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-
 from godot_dnd_engine.dice import DiceExpression, roll_expression
 from godot_dnd_engine.errors import ValidationError
 from godot_dnd_engine.rng import DeterministicRNG

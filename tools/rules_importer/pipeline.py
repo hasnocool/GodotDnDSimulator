@@ -29,7 +29,11 @@ def _verify_artifact_file(artifact: SourceArtifact) -> None:
         raise SourceChangedError("cached source bytes do not match the artifact manifest")
 
 
-def _validate_artifact_policy(artifact: SourceArtifact, registry: SourceRegistry, source_id: str) -> None:
+def _validate_artifact_policy(
+    artifact: SourceArtifact,
+    registry: SourceRegistry,
+    source_id: str,
+) -> None:
     policy = registry.require(source_id)
     if artifact.source_id != policy.source_id:
         raise SourcePolicyError("artifact source_id does not match requested policy")
