@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from ..errors import ValidationError
 
@@ -83,11 +84,13 @@ class DialogueNode:
 @dataclass(frozen=True, slots=True)
 class DialogueDefinition:
     dialogue_id: str
+    area_id: str
     start_node_id: str
     nodes: tuple[DialogueNode, ...]
 
     def __post_init__(self) -> None:
         _require_id(self.dialogue_id, "dialogue_id")
+        _require_id(self.area_id, "dialogue area_id")
         _require_id(self.start_node_id, "start_node_id")
         node_ids = tuple(item.node_id for item in self.nodes)
         _require_unique_ids(node_ids, "dialogue nodes")
@@ -134,13 +137,17 @@ class ShopItem:
             ("sell_price", self.sell_price),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValidationError(f"shop {label} must be an integer >= 0")
+                raise ValidationError(
+                    f"shop {label} must be an integer >= 0"
+                )
         if self.stock is not None and (
             isinstance(self.stock, bool)
             or not isinstance(self.stock, int)
             or self.stock < 0
         ):
-            raise ValidationError("shop stock must be None or an integer >= 0")
+            raise ValidationError(
+                "shop stock must be None or an integer >= 0"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,9 +199,14 @@ class InteractionDefinition:
             self.reward_currency,
             int,
         ):
-            raise ValidationError("interaction reward_currency must be an integer")
+            raise ValidationError(
+                "interaction reward_currency must be an integer"
+            )
         if self.reward_item_id is not None:
-            _require_id(self.reward_item_id, "interaction reward_item_id")
+            _require_id(
+                self.reward_item_id,
+                "interaction reward_item_id",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,7 +256,10 @@ class CampaignDefinition:
                     f"area {area.area_id!r} references unknown exit"
                 )
         for label, ids in (
-            ("dialogues", tuple(item.dialogue_id for item in self.dialogues)),
+            (
+                "dialogues",
+                tuple(item.dialogue_id for item in self.dialogues),
+            ),
             ("quests", tuple(item.quest_id for item in self.quests)),
             ("shops", tuple(item.shop_id for item in self.shops)),
             (
@@ -257,9 +272,16 @@ class CampaignDefinition:
             ),
         ):
             _require_unique_ids(ids, f"campaign {label}")
-        for item in (*self.shops, *self.interactions, *self.encounters):
+        for item in (
+            *self.dialogues,
+            *self.shops,
+            *self.interactions,
+            *self.encounters,
+        ):
             if item.area_id not in known_areas:
-                raise ValidationError("campaign content references unknown area")
+                raise ValidationError(
+                    "campaign content references unknown area"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,8 +293,10 @@ class WorldState:
     quests: tuple[tuple[str, QuestStatus], ...]
     inventory: tuple[tuple[str, int], ...]
     equipped: tuple[tuple[str, str], ...]
+    shop_stock: tuple[tuple[str, int], ...]
     currency: int
     active_dialogue: tuple[str, str] | None
+    completed_interactions: frozenset[str]
     completed_encounters: frozenset[str]
     journal: tuple[str, ...]
     rest_count: int
@@ -285,6 +309,9 @@ class WorldState:
 
     def equipped_map(self) -> Mapping[str, str]:
         return MappingProxyType(dict(self.equipped))
+
+    def shop_stock_map(self) -> Mapping[str, int]:
+        return MappingProxyType(dict(self.shop_stock))
 
 
 @dataclass(frozen=True, slots=True)
