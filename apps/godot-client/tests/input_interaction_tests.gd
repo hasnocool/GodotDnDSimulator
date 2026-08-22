@@ -20,6 +20,7 @@ func _run() -> void:
     await _test_ui_focus_blocks_raw_tactical_input()
     _test_duplicate_confirm_and_authoritative_reconciliation()
     _test_mode_scoped_request_cancellation()
+    _test_stale_generation_results_are_not_reemitted()
     _test_authoritative_updates_preserve_selection()
     if _failures == 0:
         print("Godot client input/interaction tests: PASS")
@@ -317,6 +318,71 @@ func _test_mode_scoped_request_cancellation() -> void:
     _check(
         _count_sent_kind(transport, "request.cancel") == 2,
         "mode cancellation sends best-effort bridge cancellation",
+    )
+
+    _dispose_bundle(bundle)
+
+
+func _test_stale_generation_results_are_not_reemitted() -> void:
+    var bundle := _ready_bundle()
+    var state = bundle["state"]
+    var bridge = bundle["bridge"]
+    var transport = bundle["transport"]
+    var completed: Array = []
+    var stale: Array = []
+    state.preview_completed.connect(
+        func(correlation_id: String, generation: int, payload: Dictionary) -> void:
+            completed.append([correlation_id, generation, payload])
+    )
+    state.stale_interaction_result_ignored.connect(
+        func(correlation_id: String, response_generation: int, current_generation: int) -> void:
+            stale.append([correlation_id, response_generation, current_generation])
+    )
+
+    state.interaction.set_selected_actor("actor:hero")
+    var stale_request_id := state.request_preview(
+        "targeting.preview",
+        {},
+        "interaction:stale-preview",
+    )
+    var stale_request := _find_sent_request(transport, stale_request_id)
+    state.interaction.set_hovered_actor("actor:other")
+    transport.queue_message(
+        Protocol.make_response(
+            "preview.result",
+            stale_request_id,
+            str(stale_request["correlation_id"]),
+            int(stale_request["generation"]),
+            true,
+            {"preview": "stale"},
+        )
+    )
+    bridge.poll(0.0)
+    _check(completed.is_empty(), "older interaction generation is not re-emitted")
+    _check(stale.size() == 1, "stale interaction result is reported")
+    _check(state.interaction.pending_count() == 0, "stale result still clears its pending request")
+
+    var fresh_request_id := state.request_preview(
+        "targeting.preview",
+        {},
+        "interaction:fresh-preview",
+    )
+    var fresh_request := _find_sent_request(transport, fresh_request_id)
+    transport.queue_message(
+        Protocol.make_response(
+            "preview.result",
+            fresh_request_id,
+            str(fresh_request["correlation_id"]),
+            int(fresh_request["generation"]),
+            true,
+            {"preview": "fresh"},
+        )
+    )
+    bridge.poll(0.0)
+    _check(completed.size() == 1, "current interaction generation is re-emitted")
+    _check(
+        str(completed[0][2].get("preview", "")) == "fresh",
+        "fresh preview payload is preserved",
     )
 
     _dispose_bundle(bundle)
