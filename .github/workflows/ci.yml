@@ -88,6 +88,10 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
       - name: Verify Godot version
-        run: "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --version
+        shell: bash
+        run: |
+          "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --version
       - name: Parse project headlessly
-        run: "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --editor --quit
+        shell: bash
+        run: |
+          "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" --headless --path apps/godot-client --editor --quit
