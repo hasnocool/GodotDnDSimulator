@@ -52,8 +52,8 @@ class EffectApplication:
     effect_id: str
     target_id: str
     kind: EffectKind
-    before: int | str | None
-    after: int | str | None
+    before: int | None
+    after: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +77,7 @@ def _apply_condition(
         duration=effect.duration,
         stacks=effect.stacks,
     )
-    before = str(sum(item.stacks for item in matching)) if matching else None
+    before = sum(item.stacks for item in matching) if matching else None
 
     if effect.condition_stacking is ConditionStacking.UNIQUE and matching:
         return subject, EffectApplication(
@@ -97,8 +97,8 @@ def _apply_condition(
         conditions = subject.conditions + (new_instance,)
 
     updated = subject.with_conditions(conditions)
-    after = str(
-        sum(item.stacks for item in updated.conditions if item.condition_id == effect.condition_id)
+    after = sum(
+        item.stacks for item in updated.conditions if item.condition_id == effect.condition_id
     )
     return updated, EffectApplication(
         effect.effect_id,
@@ -121,7 +121,7 @@ def _remove_condition(
         item for item in subject.conditions if item.condition_id != effect.condition_id
     )
     updated = subject.with_conditions(conditions)
-    before = str(sum(item.stacks for item in matching)) if matching else None
+    before = sum(item.stacks for item in matching) if matching else None
     return updated, EffectApplication(
         effect.effect_id,
         subject.subject_id,
