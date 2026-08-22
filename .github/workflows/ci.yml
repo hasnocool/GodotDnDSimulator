@@ -61,3 +61,5 @@ jobs:
         run: godot --headless --path apps/godot-client --script res://tests/spell_ui_tests.gd
       - name: Character creator tests
         run: godot --headless --path apps/godot-client --script res://tests/character_creator_tests.gd
+      - name: World RPG tests
+        run: godot --headless --path apps/godot-client --script res://tests/world_rpg_tests.gd
