@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.5 Tactical combat
+## Current focus: v0.6 Spatial authority
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, and v0.4 character runtime have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten, but v0.5 builds on the merged actor/rules runtime rather than duplicating it.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, and v0.5 tactical-combat implementation have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.6 builds the missing headless spatial authority beside v0.5 combat rather than moving legality into Godot or duplicating action economy.
 
 ### v0.1 carryover: repository and governance
 
@@ -200,7 +200,7 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, and v0.4 
 
 ---
 
-## v0.5 Tactical combat
+## v0.5 Tactical combat carryover
 
 - [x] Encounter lifecycle.
 - [x] Initiative/round/turn order.
@@ -214,7 +214,7 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, and v0.4 
 - [x] Incapacitation/death-state rules supported by licensed content through explicit zero-HP policy.
 - [x] Deterministic combat event log/replay fixtures.
 
-### v0.5 validation
+### v0.5 validation carryover
 
 - [x] Reuse the repository `pcg32-v1` RNG/dice abstraction for initiative, attacks, damage dice, and death saves.
 - [x] Keep combat mutations event-sourced through versioned `CombatEvent` records and a pure reducer.
@@ -223,29 +223,45 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, and v0.4 
 - [x] Keep Godot presentation and v0.6 path/range/LOS/cover/terrain/AoE authority outside combat.
 - [x] Add deterministic and adversarial tests for initiative, turns, actions, reactions, attacks, defenses, HP/state changes, conditions, malformed events, and replay parity.
 - [x] Reach at least the repository coverage threshold for the combat package in local testing.
-- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on the v0.5 PR head in CI.
+- [ ] Confirm Ruff, Mypy, full repository coverage, governance/schema, importer determinism, and Godot checks on the v0.5-compatible merged head in CI.
 
-### v0.5 exit criterion
+### v0.5 exit criterion carryover
 
-- [ ] Demonstrate a complete deterministic headless encounter whose authoritative state is reproducible from the same preparing actors plus ordered v1 combat events, passing repository CI with no Godot or v0.6 spatial rule authority.
+- [ ] Demonstrate a complete deterministic headless encounter whose authoritative state is reproducible from the same preparing actors plus ordered v1 combat events, passing repository CI with no Godot spatial/rule authority.
 
 ---
 
 ## v0.6 Spatial authority
 
-- [ ] Logical grid/space interface.
-- [ ] Occupancy.
-- [ ] Distance/reach.
-- [ ] Movement cost/path legality.
-- [ ] Terrain/elevation.
-- [ ] LOS/visibility.
-- [ ] Cover.
-- [ ] AoE/shape queries.
-- [ ] Movement mode adapters.
-- [ ] Godot navigation adapter contract.
-- [ ] Headless spatial conformance scenarios.
+- [x] Logical grid/space interface with a backend-independent `LogicalSpace` protocol and initial bounded square-grid implementation.
+- [x] Multi-cell occupancy/footprints and collision validation.
+- [x] Distance/reach with explicit grid, Manhattan, and Euclidean metrics.
+- [x] Movement cost, deterministic pathfinding, proposed-path validation, and reachable-space queries.
+- [x] Difficult terrain, per-cell movement-mode compatibility, and elevation-aware movement policy.
+- [x] Logical LOS/visibility with terrain/placement blockers and elevation-aware obstacle height.
+- [x] Explicit logical cover classification and source reporting.
+- [x] Generic sphere/cube/cylinder/cone/line AoE/shape queries returning cells and entity membership.
+- [x] Actor movement-mode adapters reusing v0.4 walk/climb/swim/fly/burrow speed records.
+- [x] Godot/navigation proposal contract where navigation is an input and headless spatial validation remains authoritative.
+- [x] Geometric threat-zone entry/exit inputs without taking over v0.5 reaction legality/spending.
+- [x] Versioned spatial movement events, pure reducer, canonical JSON/JSONL serialization, schema, and deterministic replay.
+- [x] JSON-shaped read-only `SpatialQueryService` for occupancy/distance/reach/path/reachable/LOS/cover/area/movement-mode/threat queries.
+- [x] v0.5/v0.6 integration that validates a route/cost before spending the exact cost through `CombatRuntime`.
+- [x] Headless spatial conformance, adversarial validation, replay, navigation-proposal, query, and combat-integration scenarios.
+- [x] Document spatial ownership, movement/replay semantics, Godot adapter boundary, and v0.7 handoff in `docs/V0.6_SPATIAL_AUTHORITY.md`.
+
+### v0.6 validation / exit criterion
+
+- [ ] Confirm Ruff, strict Mypy, full pytest/coverage, governance/schema, importer determinism, and Godot checks execute successfully on the exact v0.6 PR head.
+- [ ] Validate `schemas/v1/spatial-event.schema.json` against representative serialized movement events in the executable suite.
+- [ ] Demonstrate headless movement, targeting distance/reach, LOS, cover, and AoE scenarios on the exact integrated head with no Godot rule authority.
+- [ ] Mark v0.6 complete only after the exact-head executable gates pass.
+
+---
 
 ## v0.7 Godot vertical slice
+
+Detailed client execution lives in `apps/godot-client/TODO.md`; keep root acceptance items synchronized with demonstrated behavior rather than duplicating client implementation details here.
 
 - [ ] Orthographic isometric camera rig.
 - [ ] Pan/zoom/90-degree rotation.
