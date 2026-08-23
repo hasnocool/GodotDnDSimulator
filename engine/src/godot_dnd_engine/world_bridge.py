@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
@@ -27,6 +28,7 @@ from .client_bridge import (
 from .engine import SimulationEngine
 from .errors import SequenceError, ValidationError
 from .rules import Ability
+from .serialization import dumps_canonical
 from .spell_slice import SpellEnabledTacticalSession
 from .world import EncounterGate, WorldRuntime, demo_campaign, restore_world_runtime
 
@@ -122,11 +124,28 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         if isinstance(query_type, str) and query_type.startswith(
             ("world.", "dialogue.", "shop.", "inventory.")
         ):
-            if query_type in {"world.snapshot", "world.save"}:
+            if query_type == "world.snapshot":
                 return _response(
                     request,
                     "query.result",
                     payload={"world_snapshot": self.world.snapshot()},
+                )
+            if query_type == "world.save":
+                encoding = query.get("encoding", "structured")
+                if encoding == "structured":
+                    return _response(
+                        request,
+                        "query.result",
+                        payload={"world_snapshot": self.world.snapshot()},
+                    )
+                if encoding == "lossless-json":
+                    return _response(
+                        request,
+                        "query.result",
+                        payload=_lossless_world_save_payload(self.world),
+                    )
+                raise ValidationError(
+                    f"unsupported world.save encoding: {encoding!r}"
                 )
             result = self.world.query(query_type, query)
             if query_type == "world.actions":
@@ -234,13 +253,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         payload: Mapping[str, Any],
     ) -> dict[str, object]:
         self._require_world_sequence(expected_sequence)
-        snapshot_value = _require_mapping(
-            payload.get("world_snapshot"),
-            "world_snapshot",
-        )
+        snapshot_value = _world_snapshot_from_load_payload(payload)
         self.world = restore_world_runtime(
             self.world.definition,
-            dict(snapshot_value),
+            snapshot_value,
         )
         self.active_world_encounter_id = None
         return _response(
@@ -418,6 +434,48 @@ async def serve(
     )
     async with server:
         await server.serve_forever()
+
+
+def _lossless_world_save_payload(world: WorldRuntime) -> dict[str, object]:
+    snapshot = world.snapshot()
+    area = next(
+        item
+        for item in world.definition.areas
+        if item.area_id == world.state.current_area_id
+    )
+    return {
+        "world_snapshot_json": dumps_canonical(snapshot),
+        "save_metadata": {
+            "campaign_id": world.definition.campaign_id,
+            "sequence": world.state.sequence,
+            "area_id": area.area_id,
+            "area_name": area.name,
+        },
+    }
+
+
+def _world_snapshot_from_load_payload(
+    payload: Mapping[str, Any],
+) -> dict[str, object]:
+    if "world_snapshot_json" not in payload:
+        return dict(
+            _require_mapping(
+                payload.get("world_snapshot"),
+                "world_snapshot",
+            )
+        )
+    serialized = payload.get("world_snapshot_json")
+    if not isinstance(serialized, str) or not serialized.strip():
+        raise ValidationError(
+            "world_snapshot_json must be a non-empty JSON string"
+        )
+    if len(serialized.encode("utf-8")) > MAX_MESSAGE_BYTES:
+        raise ValidationError("world_snapshot_json exceeds bridge size limit")
+    try:
+        decoded = json.loads(serialized)
+    except json.JSONDecodeError as exc:
+        raise ValidationError("world_snapshot_json is malformed JSON") from exc
+    return dict(_require_mapping(decoded, "world_snapshot_json"))
 
 
 def _ability_scores(
