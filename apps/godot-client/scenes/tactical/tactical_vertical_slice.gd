@@ -3,6 +3,7 @@ extends Node3D
 
 const ActorScene = preload("res://scenes/actors/tactical_actor_view.tscn")
 const InteractionModes = preload("res://input/interaction_modes.gd")
+const DEBUG_SHAPE_KINDS := ["sphere", "cylinder", "cone", "line"]
 
 var _state: ClientStateCoordinator
 var _controller: ClientInteractionController
@@ -17,6 +18,9 @@ var _path_request_id := ""
 var _reachable_request_id := ""
 var _target_request_id := ""
 var _area_request_id := ""
+var _preview_authority_sequence := -1
+var _debug_shape_index := 0
+var _debug_shape_direction := Vector2.RIGHT
 
 @onready var _map: TacticalMapView = $TacticalMap
 @onready var _actors_root: Node3D = $Actors
@@ -24,6 +28,7 @@ var _area_request_id := ""
 @onready var _camera_rig: TacticalCameraController = $TacticalCamera
 @onready var _camera: Camera3D = $TacticalCamera/Yaw/Tilt/Camera3D
 @onready var _event_presenter: TacticalEventPresenter = $EventPresenter
+@onready var _vfx_presenter: TacticalVFXPresenter = $VFXPresenter
 @onready var _occlusion: TacticalOcclusionController = $OcclusionController
 @onready var _hud: TacticalHUD = $HUD/TacticalHUD
 
@@ -34,8 +39,12 @@ func _ready() -> void:
     _hud.strike_requested.connect(_on_strike_requested)
     _hud.end_turn_requested.connect(_on_end_turn_requested)
     _hud.area_debug_requested.connect(_on_area_debug_requested)
+    _hud.shape_kind_requested.connect(_on_shape_kind_requested)
+    _hud.shape_rotate_requested.connect(_on_shape_rotate_requested)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
     _event_presenter.combat_log_entry.connect(_hud.append_log)
     _event_presenter.actor_emphasis_requested.connect(_on_actor_emphasis_requested)
+    _event_presenter.vfx_cue_requested.connect(_on_vfx_cue_requested)
 
 
 func bind_client_state(state: ClientStateCoordinator) -> void:
@@ -53,6 +62,7 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
     _state.interaction.selection_changed.connect(_on_selection_changed)
     _state.interaction.hover_changed.connect(_on_hover_changed)
     _state.interaction.mode_changed.connect(_on_interaction_mode_changed)
+    _state.presentation.options_changed.connect(_on_presentation_options_changed)
     _event_presenter.bind_state(_state)
     _camera_rig.set_reduced_motion(_state.presentation.reduced_motion())
     _refresh_from_authority()
@@ -99,10 +109,32 @@ func request_end_turn() -> void:
     _on_end_turn_requested()
 
 
+func debug_overlay() -> TacticalOverlay:
+    return _overlay
+
+
+func tactical_hud() -> TacticalHUD:
+    return _hud
+
+
+func vfx_presenter() -> TacticalVFXPresenter:
+    return _vfx_presenter
+
+
+func debug_shape_kind() -> String:
+    return _debug_shape_kind()
+
+
+func debug_shape_direction() -> Vector2:
+    return _debug_shape_direction
+
+
 func _exit_tree() -> void:
+    _cancel_scene_preview_requests()
     _unbind_controller()
     _unbind_state()
     _occlusion.clear()
+    _overlay.clear_debug()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -133,12 +165,14 @@ func _refresh_from_authority() -> void:
     _reconcile_actor_views()
     _ensure_selection()
     _refresh_indicators()
+    _refresh_debug_layers()
     _hud.apply_tactical_state(
         _tactical,
         _state.interaction.selected_actor_id(),
     )
     _request_actions()
     _refresh_occlusion()
+    _refresh_active_preview_after_state_change()
 
 
 func _reconcile_actor_views() -> void:
@@ -178,6 +212,7 @@ func _reconcile_actor_views() -> void:
             _map.cell_to_world(cell),
             _state.presentation.reduced_motion(),
         )
+        view.set_debug_identity_visible(_state.presentation.debug_visible())
     for actor_id_value in _actor_views.keys():
         var actor_id := str(actor_id_value)
         if seen.has(actor_id):
@@ -215,6 +250,19 @@ func _refresh_indicators() -> void:
         view.set_selected(actor_id == selected)
         view.set_hovered(actor_id == hovered)
         view.set_current_turn(actor_id == current)
+        view.set_debug_identity_visible(_state.presentation.debug_visible())
+
+
+func _refresh_debug_layers() -> void:
+    if _state == null:
+        return
+    var visible := _state.presentation.debug_visible()
+    _map.set_debug_labels_visible(visible)
+    _overlay.show_occupancy(_tactical.get("actors", []), visible)
+    for actor_id_value in _actor_views.keys():
+        var view := actor_view(str(actor_id_value))
+        if view != null:
+            view.set_debug_identity_visible(visible)
 
 
 func _request_actions() -> void:
@@ -230,6 +278,25 @@ func _request_actions() -> void:
     )
 
 
+func _request_reachable_for_selected() -> void:
+    if _state == null or _controller == null:
+        return
+    var actor_id := _state.interaction.selected_actor_id()
+    if actor_id.is_empty():
+        return
+    if not _reachable_request_id.is_empty():
+        _state.cancel_pending(_reachable_request_id)
+    _reachable_request_id = _state.request_preview(
+        "spatial.reachable",
+        {
+            "entity_id": actor_id,
+            "movement_mode": "walk",
+        },
+        "v07-reachable:%s" % actor_id,
+    )
+    _controller.register_mode_request(_reachable_request_id)
+
+
 func _on_move_requested() -> void:
     if _state == null or _controller == null:
         return
@@ -239,16 +306,7 @@ func _on_move_requested() -> void:
     _controller.clear_command_intent()
     _armed_cell.clear()
     _overlay.clear_all()
-    var request_id := _state.request_preview(
-        "spatial.reachable",
-        {
-            "entity_id": actor_id,
-            "movement_mode": "walk",
-        },
-        "v07-reachable:%s" % actor_id,
-    )
-    _reachable_request_id = request_id
-    _controller.register_mode_request(request_id)
+    _request_reachable_for_selected()
     _hud.set_preview_text("Choose a destination within authoritative movement range")
 
 
@@ -262,7 +320,9 @@ func _on_strike_requested() -> void:
     _controller.clear_command_intent()
     _armed_target = ""
     _overlay.clear_all()
-    _hud.set_preview_text("Choose a target; reach, LOS, and cover come from the engine")
+    _hud.set_preview_text(
+        "Choose a target; reach, LOS, and cover come from the engine · Context cycles targets"
+    )
 
 
 func _on_end_turn_requested() -> void:
@@ -292,19 +352,26 @@ func _on_area_debug_requested() -> void:
     if not _controller.transition_to(InteractionModes.Mode.SHAPE_PREVIEW):
         return
     _overlay.clear_all()
-    var request_id := _state.request_preview(
-        "spatial.area",
-        {
-            "shape": {
-                "kind": "sphere",
-                "center": position_value,
-                "radius_feet": 10,
-            },
-        },
-        "v07-area:%s" % actor_id,
-    )
-    _area_request_id = request_id
-    _controller.register_mode_request(request_id)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    _request_area_at(position_value)
+
+
+func _on_shape_kind_requested() -> void:
+    _debug_shape_index = (_debug_shape_index + 1) % DEBUG_SHAPE_KINDS.size()
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    if _controller != null and _controller.current_mode() == InteractionModes.Mode.SHAPE_PREVIEW:
+        var origin := _shape_origin()
+        if not origin.is_empty():
+            _request_area_at(origin)
+
+
+func _on_shape_rotate_requested() -> void:
+    _debug_shape_direction = Vector2(-_debug_shape_direction.y, _debug_shape_direction.x)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    if _controller != null and _controller.current_mode() == InteractionModes.Mode.SHAPE_PREVIEW:
+        var origin := _shape_origin()
+        if not origin.is_empty():
+            _request_area_at(origin)
 
 
 func _on_select_requested() -> void:
@@ -350,6 +417,12 @@ func _on_confirm_requested(mode: int) -> void:
 
 
 func _on_context_requested(mode: int) -> void:
+    if mode == InteractionModes.Mode.TARGET:
+        _cycle_target()
+        return
+    if mode == InteractionModes.Mode.SHAPE_PREVIEW:
+        _on_shape_rotate_requested()
+        return
     if mode not in [InteractionModes.Mode.INSPECT, InteractionModes.Mode.SELECT]:
         return
     _cycle_selection()
@@ -372,6 +445,8 @@ func _on_controller_mode_changed(mode: int, _mode_name: String) -> void:
         _overlay.clear_all()
         _armed_cell.clear()
         _armed_target = ""
+        if _state != null:
+            _state.interaction.set_targeted_actor("")
     _request_actions()
 
 
@@ -413,6 +488,7 @@ func _request_path(cell: Dictionary) -> void:
         return
     _controller.clear_command_intent()
     _armed_cell.clear()
+    _hovered_cell = cell.duplicate(true)
     if not _path_request_id.is_empty():
         _state.cancel_pending(_path_request_id)
     var correlation := "v07-path:%d:%d" % [
@@ -453,20 +529,113 @@ func _request_attack_preview(target_id: String) -> void:
 func _request_area_at(cell: Dictionary) -> void:
     if _state == null or _controller == null:
         return
+    _hovered_cell = cell.duplicate(true)
     if not _area_request_id.is_empty():
         _state.cancel_pending(_area_request_id)
     _area_request_id = _state.request_preview(
         "spatial.area",
-        {
-            "shape": {
-                "kind": "sphere",
-                "center": cell,
-                "radius_feet": 10,
-            },
-        },
-        "v07-area:%d:%d" % [int(cell.get("x", 0)), int(cell.get("y", 0))],
+        {"shape": _debug_shape_payload(cell)},
+        "v07-area:%s:%d:%d" % [
+            _debug_shape_kind(),
+            int(cell.get("x", 0)),
+            int(cell.get("y", 0)),
+        ],
     )
     _controller.register_mode_request(_area_request_id)
+    _hud.set_preview_text(
+        "%s origin %d,%d · direction %s · engine computes area membership" % [
+            _debug_shape_kind().capitalize(),
+            int(cell.get("x", 0)),
+            int(cell.get("y", 0)),
+            _direction_text(_debug_shape_direction),
+        ]
+    )
+
+
+func _debug_shape_payload(cell: Dictionary) -> Dictionary:
+    match _debug_shape_kind():
+        "cylinder":
+            return {
+                "kind": "cylinder",
+                "center": cell.duplicate(true),
+                "radius_feet": 10,
+                "height_feet": 10,
+            }
+        "cone":
+            return {
+                "kind": "cone",
+                "origin": cell.duplicate(true),
+                "direction": {
+                    "x": _debug_shape_direction.x,
+                    "y": _debug_shape_direction.y,
+                },
+                "length_feet": 15,
+                "angle_degrees": 90,
+            }
+        "line":
+            return {
+                "kind": "line",
+                "origin": cell.duplicate(true),
+                "direction": {
+                    "x": _debug_shape_direction.x,
+                    "y": _debug_shape_direction.y,
+                },
+                "length_feet": 20,
+                "width_feet": 5,
+            }
+        _:
+            return {
+                "kind": "sphere",
+                "center": cell.duplicate(true),
+                "radius_feet": 10,
+            }
+
+
+func _debug_shape_kind() -> String:
+    return str(DEBUG_SHAPE_KINDS[_debug_shape_index])
+
+
+func _shape_origin() -> Dictionary:
+    if not _hovered_cell.is_empty():
+        return _hovered_cell.duplicate(true)
+    if _state == null:
+        return {}
+    var actor := _actor_data(_state.interaction.selected_actor_id())
+    var position_value: Variant = actor.get("position", {})
+    return (
+        (position_value as Dictionary).duplicate(true)
+        if typeof(position_value) == TYPE_DICTIONARY
+        else {}
+    )
+
+
+func _direction_text(direction: Vector2) -> String:
+    if absf(direction.x) >= absf(direction.y):
+        return "east" if direction.x >= 0.0 else "west"
+    return "south" if direction.y >= 0.0 else "north"
+
+
+func _refresh_active_preview_after_state_change() -> void:
+    if _state == null or _controller == null:
+        return
+    var sequence := _state.authoritative.sequence()
+    if sequence == _preview_authority_sequence:
+        return
+    _preview_authority_sequence = sequence
+    var mode := _controller.current_mode()
+    if mode == InteractionModes.Mode.MOVE:
+        if not _armed_cell.is_empty():
+            _request_path(_armed_cell)
+        elif not _hovered_cell.is_empty():
+            _request_path(_hovered_cell)
+        else:
+            _request_reachable_for_selected()
+    elif mode == InteractionModes.Mode.TARGET:
+        var target_id := _state.interaction.targeted_actor_id()
+        if not target_id.is_empty():
+            _request_attack_preview(target_id)
+    elif mode == InteractionModes.Mode.SHAPE_PREVIEW and not _hovered_cell.is_empty():
+        _request_area_at(_hovered_cell)
 
 
 func _on_query_completed(
@@ -484,18 +653,27 @@ func _on_preview_completed(
     payload: Dictionary,
 ) -> void:
     if correlation_id.begins_with("v07-reachable:"):
+        _reachable_request_id = ""
         _overlay.show_reachable(payload)
         return
     if correlation_id.begins_with("v07-path:"):
+        _path_request_id = ""
         _apply_path_preview(payload)
         return
     if correlation_id.begins_with("v07-attack:"):
+        _target_request_id = ""
         _apply_attack_preview(payload)
         return
     if correlation_id.begins_with("v07-area:"):
+        _area_request_id = ""
         _overlay.show_area(payload)
         var ids: Variant = payload.get("entity_ids", [])
-        _hud.set_preview_text("Authoritative area members: %s" % ids)
+        _hud.set_preview_text(
+            "%s · authoritative area members: %s" % [
+                _debug_shape_kind().capitalize(),
+                ids,
+            ]
+        )
 
 
 func _apply_path_preview(payload: Dictionary) -> void:
@@ -513,8 +691,12 @@ func _apply_path_preview(payload: Dictionary) -> void:
         return
     _armed_cell = (last_value as Dictionary).duplicate(true)
     var actor_id := _state.interaction.selected_actor_id()
+    var segment_text := _segment_cost_text(payload.get("segments", []))
     _hud.set_preview_text(
-        "Path %d ft · select again or Confirm to move" % int(payload.get("cost_feet", 0))
+        "Path %d ft%s · select again or Confirm to move" % [
+            int(payload.get("cost_feet", 0)),
+            segment_text,
+        ]
     )
     _controller.set_command_intent(
         _command(
@@ -528,6 +710,23 @@ func _apply_path_preview(payload: Dictionary) -> void:
             int(_armed_cell.get("y", 0)),
         ],
     )
+
+
+func _segment_cost_text(value: Variant) -> String:
+    if typeof(value) != TYPE_ARRAY or (value as Array).is_empty():
+        return ""
+    var rows: Array[String] = []
+    for raw in value:
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var segment: Dictionary = raw
+        rows.append(
+            "%s %d ft" % [
+                str(segment.get("terrain_id", segment.get("reason", "segment"))),
+                int(segment.get("cost_feet", 0)),
+            ]
+        )
+    return " · %s" % ", ".join(rows) if not rows.is_empty() else ""
 
 
 func _apply_attack_preview(payload: Dictionary) -> void:
@@ -596,6 +795,13 @@ func _on_interaction_mode_changed(mode: int, _generation: int) -> void:
         _overlay.clear_all()
 
 
+func _on_presentation_options_changed() -> void:
+    if _state == null:
+        return
+    _camera_rig.set_reduced_motion(_state.presentation.reduced_motion())
+    _refresh_debug_layers()
+
+
 func _on_actor_emphasis_requested(actor_id: String) -> void:
     var view := actor_view(actor_id)
     if view == null:
@@ -608,6 +814,24 @@ func _on_actor_emphasis_requested(actor_id: String) -> void:
                     _state != null
                     and _state.interaction.hovered_actor_id() == actor_id
                 )
+    )
+
+
+func _on_vfx_cue_requested(
+    cue_id: String,
+    actor_id: String,
+    payload: Dictionary,
+) -> void:
+    if _state == null:
+        return
+    var view := actor_view(actor_id)
+    if view == null:
+        return
+    _vfx_presenter.present(
+        cue_id,
+        view,
+        payload,
+        _state.presentation.reduced_motion(),
     )
 
 
@@ -626,19 +850,45 @@ func _focus_selected_or_current() -> void:
 func _cycle_selection() -> void:
     if _state == null:
         return
-    var ids: Array[String] = []
-    var actors_value: Variant = _tactical.get("actors", [])
-    if typeof(actors_value) != TYPE_ARRAY:
-        return
-    for actor_value in actors_value:
-        if typeof(actor_value) == TYPE_DICTIONARY:
-            ids.append(str((actor_value as Dictionary).get("actor_id", "")))
-    ids = ids.filter(func(value: String) -> bool: return not value.is_empty())
+    var ids := _actor_ids(false)
     if ids.is_empty():
         return
     var selected := _state.interaction.selected_actor_id()
     var index := ids.find(selected)
     _state.interaction.set_selected_actor(ids[(index + 1) % ids.size()])
+
+
+func _cycle_target() -> void:
+    if _state == null:
+        return
+    var selected := _state.interaction.selected_actor_id()
+    var ids := _actor_ids(true)
+    ids = ids.filter(func(value: String) -> bool: return value != selected)
+    if ids.is_empty():
+        _hud.set_preview_text("No other authoritative target candidates are present")
+        return
+    var current := _state.interaction.targeted_actor_id()
+    var index := ids.find(current)
+    var next_target := ids[(index + 1) % ids.size()]
+    _state.interaction.set_hovered_actor(next_target)
+    _request_attack_preview(next_target)
+
+
+func _actor_ids(living_only: bool) -> Array[String]:
+    var ids: Array[String] = []
+    var actors_value: Variant = _tactical.get("actors", [])
+    if typeof(actors_value) != TYPE_ARRAY:
+        return ids
+    for actor_value in actors_value:
+        if typeof(actor_value) != TYPE_DICTIONARY:
+            continue
+        var actor: Dictionary = actor_value
+        if living_only and str(actor.get("life_state", "conscious")) == "dead":
+            continue
+        var actor_id := str(actor.get("actor_id", ""))
+        if not actor_id.is_empty():
+            ids.append(actor_id)
+    return ids
 
 
 func _refresh_occlusion() -> void:
@@ -664,6 +914,9 @@ func _pick(pointer: Vector2) -> Dictionary:
     var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 200.0)
     query.collide_with_areas = false
     query.collide_with_bodies = true
+    # Occlusion blockers are presentation-only MeshInstance3D nodes, deliberately
+    # without collision bodies. Fading/hidden foreground geometry therefore cannot
+    # intercept actor or tactical-surface picking.
     return get_world_3d().direct_space_state.intersect_ray(query)
 
 
@@ -720,10 +973,32 @@ func _actor_data(actor_id: String) -> Dictionary:
     return {}
 
 
+func _cancel_scene_preview_requests() -> void:
+    if _state == null:
+        _path_request_id = ""
+        _reachable_request_id = ""
+        _target_request_id = ""
+        _area_request_id = ""
+        return
+    for request_id in [
+        _path_request_id,
+        _reachable_request_id,
+        _target_request_id,
+        _area_request_id,
+    ]:
+        if not request_id.is_empty():
+            _state.cancel_pending(request_id)
+    _path_request_id = ""
+    _reachable_request_id = ""
+    _target_request_id = ""
+    _area_request_id = ""
+
+
 func _unbind_state() -> void:
     _event_presenter.unbind_state()
     if _state == null:
         return
+    _cancel_scene_preview_requests()
     _disconnect(_state.authoritative_changed, _on_authoritative_changed)
     _disconnect(_state.query_completed, _on_query_completed)
     _disconnect(_state.preview_completed, _on_preview_completed)
@@ -731,6 +1006,7 @@ func _unbind_state() -> void:
     _disconnect(_state.interaction.selection_changed, _on_selection_changed)
     _disconnect(_state.interaction.hover_changed, _on_hover_changed)
     _disconnect(_state.interaction.mode_changed, _on_interaction_mode_changed)
+    _disconnect(_state.presentation.options_changed, _on_presentation_options_changed)
     _state = null
 
 

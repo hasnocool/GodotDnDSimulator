@@ -19,8 +19,13 @@ godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/autho
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/state_shell_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/input_interaction_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_camera_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_hud_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tactical_vertical_slice_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/todo_backlog_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/navigation_debug_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/debug_identity_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/spell_ui_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/spell_palette_grouping_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/character_creator_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_rpg_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_rpg_completion_tests.gd

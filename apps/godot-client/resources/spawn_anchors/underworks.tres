@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MapEntrySpawnAnchor" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/map_entry_spawn_anchor.gd" id="1_anchor"]
+
+[resource]
+script = ExtResource("1_anchor")
+anchor_id = "spawn:underworks"
+area_id = "area:underworks"
+cell = Vector2i(1, 4)
+facing_quarter = 1

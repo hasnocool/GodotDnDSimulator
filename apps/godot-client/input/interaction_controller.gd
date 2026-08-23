@@ -299,7 +299,7 @@ func _on_command_completed(
     _command_intent.clear()
     _intent_correlation_id = ""
     if _state != null and InteractionModes.is_cancellable(_state.interaction.mode()):
-        _mode_request_ids.clear()
+        _cancel_mode_requests()
         _state.interaction.set_targeted_actor("")
         _state.interaction.set_mode(_fallback_mode())
 

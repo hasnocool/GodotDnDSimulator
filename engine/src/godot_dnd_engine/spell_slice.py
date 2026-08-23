@@ -164,6 +164,7 @@ class SpellEnabledTacticalSession:
         direction = _direction(
             command.payload.get("direction", {"x": 1.0, "y": 0.0})
         )
+        definition = self.spell_runtime.definition(spell_id)
         transition = self.spell_runtime.cast(
             self.spell_state,
             self.tactical.encounter,
@@ -184,7 +185,8 @@ class SpellEnabledTacticalSession:
             "actor_id": caster_id,
             "payload": {
                 "spell_id": spell_id,
-                "slot_level": self.spell_runtime.definition(spell_id).cast_level(slot_level),
+                "slot_level": definition.cast_level(slot_level),
+                "effect_kinds": [effect.kind.value for effect in definition.effects],
                 "targets": [
                     {
                         "target_id": outcome.target_id,

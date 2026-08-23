@@ -12,7 +12,10 @@ from godot_dnd_engine.client_bridge import PROTOCOL_VERSION
 from godot_dnd_engine.engine import SimulationEngine
 from godot_dnd_engine.spell_slice import SpellEnabledTacticalSession
 from godot_dnd_engine.world import WorldRuntime, demo_campaign, restore_world_runtime
-from godot_dnd_engine.world_bridge import WorldClientBridgeSession
+from godot_dnd_engine.world_bridge import (
+    WorldClientBridgeSession,
+    _seed_premade_characters,
+)
 
 
 def _request(
@@ -39,6 +42,8 @@ def _payload(response: dict[str, object] | None) -> dict[str, Any]:
 
 def _bridge() -> WorldClientBridgeSession:
     campaign_id = "campaign:v1-completion"
+    creator = CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog()))
+    _seed_premade_characters(creator)
     return WorldClientBridgeSession(
         SimulationEngine.create(
             campaign_id=campaign_id,
@@ -46,7 +51,7 @@ def _bridge() -> WorldClientBridgeSession:
             seed=73,
         ),
         None,
-        CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog())),
+        creator,
         WorldRuntime(replace(demo_campaign(), campaign_id=campaign_id), seed=73),
     )
 
@@ -93,7 +98,7 @@ def _advance_to_road_encounter(bridge: WorldClientBridgeSession) -> None:
     _command(
         bridge,
         "world.start",
-        {"party_ids": ["actor:hero-a"]},
+        {"party_ids": ["actor:premade-mira"]},
         "road-start",
     )
     _command(
@@ -298,7 +303,18 @@ def test_begin_encounter_resyncs_tactical_stream_and_blocks_world_progress() -> 
     tactical_state = tactical_snapshot["state"]
     assert isinstance(tactical_state, dict)
     assert tactical_state["sequence"] == 7
+    tactical = tactical_state["tactical"]
+    assert isinstance(tactical, dict)
+    assert tactical["encounter_id"] == "encounter:road-ambush"
+    assert tactical["display_name"] == "Roadside Scavengers"
+    assert tactical["space"]["space_id"] == "space:old-road-ambush"
+    actor_ids = {row["actor_id"] for row in tactical["actors"]}
+    assert "actor:premade-mira" in actor_ids
+    assert "actor:road-scavenger-a" in actor_ids
+    assert "actor:ember" not in actor_ids
+    assert "actor:shale" not in actor_ids
     assert started_payload["result"]["tactical_sequence"] == 7
+    assert started_payload["result"]["tactical_party_ids"] == ["actor:premade-mira"]
     assert bridge.active_world_encounter_id == "encounter:road-ambush"
 
     actions = bridge.handle_message(

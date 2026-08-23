@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
+from .actors import ActorState
 from .character_bridge import CharacterClientBridgeSession
 from .character_creator import (
     CharacterCreatorRuntime,
@@ -31,6 +32,10 @@ from .rules import Ability
 from .serialization import dumps_canonical
 from .spell_slice import SpellEnabledTacticalSession
 from .world import EncounterGate, WorldRuntime, demo_campaign, restore_world_runtime
+from .world.tactical_templates import (
+    WORLD_PARTY_TEAM,
+    create_world_spell_tactical_session,
+)
 
 WORLD_CAPABILITIES = (
     "world.runtime.v1",
@@ -42,7 +47,6 @@ WORLD_CAPABILITIES = (
     "quests.v1",
     "shops.v1",
 )
-PARTY_PROXY_TEAM = "team:ember"
 BLOCKED_DURING_TACTICAL = frozenset(
     {
         "world.travel",
@@ -431,7 +435,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "finish or lose the active tactical encounter first"
                 )
         previous_sequence = self.spell_tactical.sequence
-        self.spell_tactical = SpellEnabledTacticalSession.create(
+        party_actors = self._party_tactical_actors()
+        self.spell_tactical = create_world_spell_tactical_session(
+            encounter_id=encounter_id,
+            party_actors=party_actors,
             campaign_id=self.engine.state.campaign_id,
             session_id=self.engine.state.session_id,
             seed=self._encounter_seed(encounter_id),
@@ -454,6 +461,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                         self.spell_tactical.tactical.encounter.encounter_id
                     ),
                     "tactical_sequence": self.spell_tactical.sequence,
+                    "tactical_party_ids": [actor.actor_id for actor in party_actors],
                 },
             },
         )
@@ -560,6 +568,24 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 "world encounter prerequisites are not satisfied"
             )
 
+    def _party_tactical_actors(self) -> tuple[ActorState, ...]:
+        if not self.world.state.party_ids:
+            raise ValidationError("start the world campaign with a party before combat")
+        actors: list[ActorState] = []
+        missing: list[str] = []
+        for actor_id in self.world.state.party_ids:
+            record = self.creator.records.get(actor_id)
+            if record is None:
+                missing.append(actor_id)
+                continue
+            actors.append(record.actor)
+        if missing:
+            raise ValidationError(
+                "active party character records are unavailable: "
+                + ", ".join(sorted(missing))
+            )
+        return tuple(actors)
+
     def _encounter_seed(self, encounter_id: str) -> int:
         material = (
             f"{self.engine.state.campaign_id}|{encounter_id}|"
@@ -583,7 +609,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 "finish the active tactical encounter before recording victory"
             )
         winner = self._tactical_winner_team()
-        if winner != PARTY_PROXY_TEAM:
+        if winner != WORLD_PARTY_TEAM:
             self.active_world_encounter_id = None
             raise ValidationError(
                 "the party did not win the bound tactical encounter"

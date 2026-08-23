@@ -7,6 +7,7 @@ var _space: Dictionary = {}
 var _cell_nodes: Dictionary = {}
 var _cell_size_feet := 5
 var _world_cell_size := 1.0
+var _debug_labels_visible := false
 
 
 func apply_authoritative_space(space_data: Dictionary) -> void:
@@ -29,6 +30,25 @@ func apply_authoritative_space(space_data: Dictionary) -> void:
             var terrain: Dictionary = terrain_by_key.get(key, {})
             _create_cell(x, y, terrain)
     map_rebuilt.emit(width, height)
+
+
+func set_debug_labels_visible(value: bool) -> void:
+    _debug_labels_visible = value
+    for cell_value in _cell_nodes.values():
+        if not (cell_value is Node3D):
+            continue
+        var cell := cell_value as Node3D
+        var label := cell.get_node_or_null("DebugIdentity") as Label3D
+        if label != null:
+            label.visible = value
+
+
+func debug_label_count() -> int:
+    var count := 0
+    for cell_value in _cell_nodes.values():
+        if cell_value is Node3D and (cell_value as Node3D).has_node("DebugIdentity"):
+            count += 1
+    return count
 
 
 func cell_to_world(cell: Dictionary) -> Vector3:
@@ -70,6 +90,7 @@ func _create_cell(x: int, y: int, terrain: Dictionary) -> void:
     var root := Node3D.new()
     root.name = "Cell_%d_%d" % [x, y]
     var elevation_feet := int(terrain.get("elevation_feet", 0))
+    var terrain_id := str(terrain.get("terrain_id", "terrain:open"))
     root.position = Vector3(
         float(x) * _world_cell_size,
         _elevation_to_world(elevation_feet),
@@ -78,7 +99,7 @@ func _create_cell(x: int, y: int, terrain: Dictionary) -> void:
     root.set_meta("grid_x", x)
     root.set_meta("grid_y", y)
     root.set_meta("elevation_feet", elevation_feet)
-    root.set_meta("terrain_id", str(terrain.get("terrain_id", "terrain:open")))
+    root.set_meta("terrain_id", terrain_id)
     add_child(root)
 
     var floor_mesh := MeshInstance3D.new()
@@ -114,6 +135,16 @@ func _create_cell(x: int, y: int, terrain: Dictionary) -> void:
         root.add_child(obstacle)
         if bool(terrain.get("blocks_los", false)):
             obstacle.add_to_group("tactical_occluder")
+
+    var debug_label := Label3D.new()
+    debug_label.name = "DebugIdentity"
+    debug_label.text = "%d,%d\n%s" % [x, y, terrain_id]
+    debug_label.position = Vector3(0.0, 0.16, 0.0)
+    debug_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    debug_label.no_depth_test = true
+    debug_label.font_size = 9
+    debug_label.visible = _debug_labels_visible
+    root.add_child(debug_label)
 
     _cell_nodes[_cell_key(x, y)] = root
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scenes/tactical/tactical_spell_slice.gd" id="1_slice"]
 [ext_resource type="Script" path="res://scenes/tactical/tactical_map_view.gd" id="2_map"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://presentation/occlusion_controller.gd" id="6_occlusion"]
 [ext_resource type="PackedScene" path="res://ui/hud/tactical_hud.tscn" id="7_hud"]
 [ext_resource type="PackedScene" path="res://ui/actions/spell_palette.tscn" id="8_spells"]
+[ext_resource type="Script" path="res://presentation/tactical_vfx_presenter.gd" id="9_vfx"]
 
 [sub_resource type="Environment" id="Environment_slice"]
 background_mode = 1
@@ -40,6 +41,9 @@ position = Vector3(3.5, 0, 2.5)
 
 [node name="EventPresenter" type="Node" parent="."]
 script = ExtResource("5_events")
+
+[node name="VFXPresenter" type="Node3D" parent="."]
+script = ExtResource("9_vfx")
 
 [node name="OcclusionController" type="Node" parent="."]
 script = ExtResource("6_occlusion")

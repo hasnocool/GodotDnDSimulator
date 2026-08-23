@@ -38,6 +38,26 @@ func _run() -> void:
                 "movement_remaining": 10,
             },
         },
+        {
+            "active_effects": [
+                {
+                    "effect_id": "effect:ongoing",
+                    "spell_id": "spell:resonant-field",
+                    "caster_id": "actor:caster",
+                    "target_ids": ["actor:test"],
+                    "remaining_rounds": 2,
+                    "concentration": false,
+                },
+                {
+                    "effect_id": "effect:concentration",
+                    "spell_id": "spell:binding-haze",
+                    "caster_id": "actor:test",
+                    "target_ids": ["actor:other"],
+                    "remaining_rounds": 3,
+                    "concentration": true,
+                },
+            ],
+        },
     )
     var selected: Label = hud.get_node("SelectedPanel/SelectedMargin/SelectedVBox/SelectedLabel")
     var status: Label = hud.get_node("SelectedPanel/SelectedMargin/SelectedVBox/StatusLabel")
@@ -48,6 +68,14 @@ func _run() -> void:
     _check(status.text.contains("Bonus ready"), "resource row renders available bonus action")
     _check(status.text.contains("Reaction ready"), "resource row renders available reaction")
     _check(status.text.contains("Focus 1/2"), "resource row renders generic authoritative resource")
+    _check(
+        status.text.contains("spell:resonant-field · ongoing · 2 round(s)"),
+        "HUD presents non-concentration active effects generically",
+    )
+    _check(
+        status.text.contains("spell:binding-haze · concentration · 3 round(s)"),
+        "HUD presents concentration effects without special spell logic",
+    )
 
     root.remove_child(hud)
     hud.queue_free()

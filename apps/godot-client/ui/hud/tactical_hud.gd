@@ -5,6 +5,8 @@ signal move_requested()
 signal strike_requested()
 signal end_turn_requested()
 signal area_debug_requested()
+signal shape_kind_requested()
+signal shape_rotate_requested()
 
 var _log_lines: Array[String] = []
 
@@ -19,6 +21,8 @@ var _log_lines: Array[String] = []
 @onready var _strike_button: Button = %StrikeButton
 @onready var _end_turn_button: Button = %EndTurnButton
 @onready var _area_button: Button = %AreaButton
+@onready var _shape_kind_button: Button = %ShapeKindButton
+@onready var _shape_rotate_button: Button = %ShapeRotateButton
 
 
 func _ready() -> void:
@@ -26,6 +30,8 @@ func _ready() -> void:
     _strike_button.pressed.connect(func() -> void: strike_requested.emit())
     _end_turn_button.pressed.connect(func() -> void: end_turn_requested.emit())
     _area_button.pressed.connect(func() -> void: area_debug_requested.emit())
+    _shape_kind_button.pressed.connect(func() -> void: shape_kind_requested.emit())
+    _shape_rotate_button.pressed.connect(func() -> void: shape_rotate_requested.emit())
 
 
 func apply_tactical_state(tactical: Dictionary, selected_actor_id: String) -> void:
@@ -46,13 +52,20 @@ func apply_tactical_state(tactical: Dictionary, selected_actor_id: String) -> vo
                 "%s (%d)" % [str(actor.get("name", actor_id)), int(row.get("total", 0))]
             )
     _initiative_label.text = " → ".join(initiative_names)
-    apply_selected_actor(_actor_by_id(tactical, selected_actor_id))
+    var spellcasting_value: Variant = tactical.get("spellcasting", {})
+    var spellcasting: Dictionary = (
+        spellcasting_value if typeof(spellcasting_value) == TYPE_DICTIONARY else {}
+    )
+    apply_selected_actor(
+        _actor_by_id(tactical, selected_actor_id),
+        spellcasting,
+    )
 
 
-func apply_selected_actor(actor: Dictionary) -> void:
+func apply_selected_actor(actor: Dictionary, spellcasting: Dictionary = {}) -> void:
     if actor.is_empty():
         _selected_label.text = "No actor selected"
-        _status_label.text = "Conditions · none\nResources · —"
+        _status_label.text = "Conditions · none\nResources · —\nEffects · none"
         return
     var hp_value: Variant = actor.get("hit_points", {})
     var hp: Dictionary = hp_value if typeof(hp_value) == TYPE_DICTIONARY else {}
@@ -70,9 +83,10 @@ func apply_selected_actor(actor: Dictionary) -> void:
         int(actor.get("armor_class", 0)),
         int(economy.get("movement_remaining", 0)),
     ]
-    _status_label.text = "%s\n%s" % [
+    _status_label.text = "%s\n%s\n%s" % [
         _conditions_text(actor.get("conditions", [])),
         _resources_text(actor, economy),
+        _effects_text(str(actor.get("actor_id", "")), spellcasting),
     ]
 
 
@@ -94,8 +108,23 @@ func apply_actions(payload: Dictionary) -> void:
         button.tooltip_text = reason
 
 
+func set_shape_debug_state(kind: String, direction: Vector2) -> void:
+    _shape_kind_button.text = "Shape: %s" % kind.capitalize()
+    _shape_kind_button.tooltip_text = "Cycle sphere, cylinder, cone, and line"
+    _shape_rotate_button.text = "Rotate %s" % _direction_label(direction)
+    _shape_rotate_button.tooltip_text = "Rotate cone/line direction by 90 degrees"
+
+
 func set_preview_text(text: String) -> void:
     _preview_label.text = text
+
+
+func preview_text() -> String:
+    return _preview_label.text
+
+
+func status_text() -> String:
+    return _status_label.text
 
 
 func set_error(user_message: String, debug_detail: String = "") -> void:
@@ -113,6 +142,10 @@ func append_log(text: String) -> void:
     if _log_lines.size() > 8:
         _log_lines.pop_front()
     _log_label.text = "\n".join(_log_lines)
+
+
+func log_text() -> String:
+    return _log_label.text
 
 
 func _conditions_text(value: Variant) -> String:
@@ -155,6 +188,39 @@ func _resources_text(actor: Dictionary, economy: Dictionary) -> String:
                 ]
             )
     return "Resources · %s" % " · ".join(rows)
+
+
+func _effects_text(actor_id: String, spellcasting: Dictionary) -> String:
+    if actor_id.is_empty():
+        return "Effects · none"
+    var rows: Array[String] = []
+    var effects_value: Variant = spellcasting.get("active_effects", [])
+    if typeof(effects_value) == TYPE_ARRAY:
+        for effect_value in effects_value:
+            if typeof(effect_value) != TYPE_DICTIONARY:
+                continue
+            var effect: Dictionary = effect_value
+            var target_ids_value: Variant = effect.get("target_ids", [])
+            var target_ids: Array = (
+                target_ids_value if typeof(target_ids_value) == TYPE_ARRAY else []
+            )
+            if str(effect.get("caster_id", "")) != actor_id and not target_ids.has(actor_id):
+                continue
+            var mode := "concentration" if bool(effect.get("concentration", false)) else "ongoing"
+            rows.append(
+                "%s · %s · %d round(s)" % [
+                    str(effect.get("spell_id", effect.get("effect_id", "effect"))),
+                    mode,
+                    int(effect.get("remaining_rounds", 0)),
+                ]
+            )
+    return "Effects · %s" % ("none" if rows.is_empty() else " · ".join(rows))
+
+
+func _direction_label(direction: Vector2) -> String:
+    if absf(direction.x) >= absf(direction.y):
+        return "E" if direction.x >= 0.0 else "W"
+    return "S" if direction.y >= 0.0 else "N"
 
 
 func _availability(available: bool) -> String:
