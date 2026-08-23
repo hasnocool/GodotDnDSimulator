@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
 
 from .agent_api import AgentAction, AgentControlMode
 from .agent_world_bridge import AgentWorldClientBridgeSession
@@ -62,22 +61,22 @@ class AutoplayResult:
     final_observation: dict[str, object]
 
     def summary(self) -> dict[str, object]:
-        world = self.final_observation.get("world", {})
-        world_dict = world if isinstance(world, dict) else {}
+        world_value = self.final_observation.get("world", {})
+        world = world_value if isinstance(world_value, dict) else {}
         return {
             "completed": self.completed,
             "reason": self.reason,
             "step_count": len(self.steps),
-            "world_sequence": world_dict.get("sequence"),
-            "area": world_dict.get("area"),
-            "flags": world_dict.get("flags", []),
-            "completed_encounters": world_dict.get("completed_encounters", []),
+            "world_sequence": world.get("sequence"),
+            "area": world.get("area"),
+            "flags": world.get("flags", []),
+            "completed_encounters": world.get("completed_encounters", []),
         }
 
 
 @dataclass(slots=True)
 class LanternsBelowAutoplayPolicy:
-    """Simple deterministic policy intended for regression testing, not optimal play."""
+    """Simple deterministic regression policy, deliberately not an optimal AI."""
 
     market_bought: bool = False
     market_equipped: bool = False
@@ -85,24 +84,22 @@ class LanternsBelowAutoplayPolicy:
     market_sold: bool = False
 
     def choose(self, observation: dict[str, object]) -> AgentAction | None:
-        action_rows = _action_rows(observation.get("legal_actions"))
-        if not action_rows:
+        actions = _action_rows(observation.get("legal_actions"))
+        if not actions:
             return None
         if observation.get("context") == "tactical":
-            return self._choose_tactical(observation, action_rows)
-        return self._choose_world(observation, action_rows)
+            return self._choose_tactical(observation, actions)
+        return self._choose_world(observation, actions)
 
     def after_action(self, action: AgentAction) -> None:
-        if action.command_type == "shop.buy" and action.payload.get("item_id") == "item:rope-coil":
+        item_id = action.payload.get("item_id")
+        if action.command_type == "shop.buy" and item_id == "item:rope-coil":
             self.market_bought = True
-        elif (
-            action.command_type == "inventory.equip"
-            and action.payload.get("item_id") == "item:rope-coil"
-        ):
+        elif action.command_type == "inventory.equip" and item_id == "item:rope-coil":
             self.market_equipped = True
         elif action.command_type == "world.rest":
             self.market_rested = True
-        elif action.command_type == "shop.sell" and action.payload.get("item_id") == "item:rope-coil":
+        elif action.command_type == "shop.sell" and item_id == "item:rope-coil":
             self.market_sold = True
 
     def _choose_tactical(
@@ -112,28 +109,43 @@ class LanternsBelowAutoplayPolicy:
     ) -> AgentAction:
         tactical_value = observation.get("tactical", {})
         tactical = tactical_value if isinstance(tactical_value, dict) else {}
-        current_actor_id = str(tactical.get("current_actor_id", ""))
         actors = _dict_rows(tactical.get("actors"))
+        current_actor_id = str(tactical.get("current_actor_id", ""))
         current = next(
             (row for row in actors if row.get("actor_id") == current_actor_id),
             {},
         )
         current_team = str(current.get("team", "neutral"))
         if current_team != "party":
-            return _prefer(actions, command_type="tactical.end_turn") or actions[0]
+            return _pick(actions, "tactical.end_turn") or actions[0]
 
+        enemy_ids = {
+            str(row.get("actor_id", ""))
+            for row in actors
+            if str(row.get("team", "neutral")) != current_team
+            and str(row.get("life_state", "")) != "dead"
+        }
         arc_lance = next(
             (
                 action
                 for action in actions
                 if action.command_type == "tactical.cast_spell"
                 and action.metadata.get("spell_id") == "spell:arc-lance"
+                and _targets_enemy(action, enemy_ids)
             ),
             None,
         )
         if arc_lance is not None:
             return arc_lance
-        strike = _prefer(actions, command_type="tactical.attack")
+        strike = next(
+            (
+                action
+                for action in actions
+                if action.command_type == "tactical.attack"
+                and action.payload.get("target_id") in enemy_ids
+            ),
+            None,
+        )
         if strike is not None:
             return strike
         movement = [item for item in actions if item.command_type == "tactical.move"]
@@ -142,7 +154,7 @@ class LanternsBelowAutoplayPolicy:
                 movement,
                 key=lambda item: self._movement_score(item, actors, current_team),
             )
-        return _prefer(actions, command_type="tactical.end_turn") or actions[0]
+        return _pick(actions, "tactical.end_turn") or actions[0]
 
     def _movement_score(
         self,
@@ -155,7 +167,7 @@ class LanternsBelowAutoplayPolicy:
             return (1_000_000, 1_000_000, action.action_id)
         x = int(destination.get("x", 0))
         y = int(destination.get("y", 0))
-        distances = []
+        distances: list[int] = []
         for actor in actors:
             if (
                 str(actor.get("team", "neutral")) == current_team
@@ -171,9 +183,8 @@ class LanternsBelowAutoplayPolicy:
                     abs(y - int(position.get("y", 0))),
                 )
             )
-        distance = min(distances) if distances else 1_000_000
         return (
-            distance,
+            min(distances) if distances else 1_000_000,
             int(action.metadata.get("cost_feet", 0)),
             action.action_id,
         )
@@ -187,30 +198,11 @@ class LanternsBelowAutoplayPolicy:
         world = world_value if isinstance(world_value, dict) else {}
         party_ids = world.get("party_ids", [])
         if not isinstance(party_ids, list) or not party_ids:
-            return _prefer(actions, command_type="world.start") or actions[0]
+            return _pick(actions, "world.start") or actions[0]
 
         active_dialogue = world.get("active_dialogue")
         if isinstance(active_dialogue, dict):
-            dialogue_id = str(active_dialogue.get("dialogue_id", ""))
-            node_id = str(active_dialogue.get("node_id", ""))
-            if dialogue_id == "dialogue:warden-ilar":
-                choice = (
-                    "choice:accept-quarry"
-                    if node_id == "node:warden-intro"
-                    else "choice:leave-warden"
-                )
-                return _prefer_payload(actions, "dialogue.choose", "choice_id", choice) or actions[0]
-            if dialogue_id == "dialogue:surveyor-echo":
-                return (
-                    _prefer_payload(
-                        actions,
-                        "dialogue.choose",
-                        "choice_id",
-                        "choice:keep-lantern",
-                    )
-                    or actions[0]
-                )
-            return actions[0]
+            return self._dialogue_choice(active_dialogue, actions)
 
         flags = _string_set(world.get("flags"))
         completed_interactions = _string_set(world.get("completed_interactions"))
@@ -221,153 +213,149 @@ class LanternsBelowAutoplayPolicy:
 
         if area_id == "area:reedhollow-square":
             if "flag:quarry-mission" not in flags:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "dialogue.start",
-                        "dialogue_id",
-                        "dialogue:warden-ilar",
-                    )
-                    or actions[0]
-                )
-            if not self.market_sold:
-                return _prefer_payload(actions, "world.travel", "area_id", "area:market-row") or actions[0]
-            return _prefer_payload(actions, "world.travel", "area_id", "area:old-road") or actions[0]
+                return _pick(
+                    actions,
+                    "dialogue.start",
+                    dialogue_id="dialogue:warden-ilar",
+                ) or actions[0]
+            destination = "area:market-row" if not self.market_sold else "area:old-road"
+            return _pick(actions, "world.travel", area_id=destination) or actions[0]
 
         if area_id == "area:market-row":
-            if not self.market_bought:
-                return (
-                    _prefer_payload(actions, "shop.buy", "item_id", "item:rope-coil")
-                    or actions[0]
-                )
-            if not self.market_equipped:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "inventory.equip",
-                        "item_id",
-                        "item:rope-coil",
-                    )
-                    or actions[0]
-                )
-            if not self.market_rested:
-                return _prefer(actions, command_type="world.rest") or actions[0]
-            if not self.market_sold:
-                return (
-                    _prefer_payload(actions, "shop.sell", "item_id", "item:rope-coil")
-                    or actions[0]
-                )
-            return (
-                _prefer_payload(
-                    actions,
-                    "world.travel",
-                    "area_id",
-                    "area:reedhollow-square",
-                )
-                or actions[0]
-            )
+            return self._market_action(actions)
 
         if area_id == "area:old-road":
             if "interaction:collapsed-marker" not in completed_interactions:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.resolve_interaction",
-                        "interaction_id",
-                        "interaction:collapsed-marker",
-                    )
-                    or actions[0]
-                )
+                return _pick(
+                    actions,
+                    "world.resolve_interaction",
+                    interaction_id="interaction:collapsed-marker",
+                ) or actions[0]
             if "encounter:road-ambush" not in completed_encounters:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.begin_encounter",
-                        "encounter_id",
-                        "encounter:road-ambush",
-                    )
-                    or actions[0]
-                )
-            return _prefer_payload(actions, "world.travel", "area_id", "area:quarry-mouth") or actions[0]
+                return _pick(
+                    actions,
+                    "world.begin_encounter",
+                    encounter_id="encounter:road-ambush",
+                ) or actions[0]
+            return _pick(
+                actions,
+                "world.travel",
+                area_id="area:quarry-mouth",
+            ) or actions[0]
 
         if area_id == "area:quarry-mouth":
             if "interaction:flooded-gate" not in completed_interactions:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.resolve_interaction",
-                        "interaction_id",
-                        "interaction:flooded-gate",
-                    )
-                    or actions[0]
-                )
+                return _pick(
+                    actions,
+                    "world.resolve_interaction",
+                    interaction_id="interaction:flooded-gate",
+                ) or actions[0]
             if "encounter:quarry-watchers" not in completed_encounters:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.begin_encounter",
-                        "encounter_id",
-                        "encounter:quarry-watchers",
-                    )
-                    or actions[0]
-                )
-            return _prefer_payload(actions, "world.travel", "area_id", "area:underworks") or actions[0]
+                return _pick(
+                    actions,
+                    "world.begin_encounter",
+                    encounter_id="encounter:quarry-watchers",
+                ) or actions[0]
+            return _pick(
+                actions,
+                "world.travel",
+                area_id="area:underworks",
+            ) or actions[0]
 
         if area_id == "area:underworks":
-            if "interaction:survey-lantern" not in completed_interactions:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.resolve_interaction",
-                        "interaction_id",
-                        "interaction:survey-lantern",
-                    )
-                    or actions[0]
-                )
-            if "interaction:stonefall-trigger" not in completed_interactions:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.resolve_interaction",
-                        "interaction_id",
-                        "interaction:stonefall-trigger",
-                    )
-                    or actions[0]
-                )
-            if "flag:lantern-kept" not in flags and "flag:echo-freed" not in flags:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "dialogue.start",
-                        "dialogue_id",
-                        "dialogue:surveyor-echo",
-                    )
-                    or actions[0]
-                )
-            if "encounter:underworks-swarm" not in completed_encounters:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.begin_encounter",
-                        "encounter_id",
-                        "encounter:underworks-swarm",
-                    )
-                    or actions[0]
-                )
-            return _prefer_payload(actions, "world.travel", "area_id", "area:lantern-vault") or actions[0]
+            return self._underworks_action(
+                actions,
+                flags,
+                completed_interactions,
+                completed_encounters,
+            )
 
         if area_id == "area:lantern-vault":
             if "encounter:vault-warden" not in completed_encounters:
-                return (
-                    _prefer_payload(
-                        actions,
-                        "world.begin_encounter",
-                        "encounter_id",
-                        "encounter:vault-warden",
-                    )
-                    or actions[0]
-                )
+                return _pick(
+                    actions,
+                    "world.begin_encounter",
+                    encounter_id="encounter:vault-warden",
+                ) or actions[0]
         return actions[0]
+
+    def _dialogue_choice(
+        self,
+        active_dialogue: dict[str, object],
+        actions: list[AgentAction],
+    ) -> AgentAction:
+        dialogue_id = str(active_dialogue.get("dialogue_id", ""))
+        node_id = str(active_dialogue.get("node_id", ""))
+        if dialogue_id == "dialogue:warden-ilar":
+            choice_id = (
+                "choice:accept-quarry"
+                if node_id == "node:warden-intro"
+                else "choice:leave-warden"
+            )
+            return _pick(actions, "dialogue.choose", choice_id=choice_id) or actions[0]
+        if dialogue_id == "dialogue:surveyor-echo":
+            return _pick(
+                actions,
+                "dialogue.choose",
+                choice_id="choice:keep-lantern",
+            ) or actions[0]
+        return actions[0]
+
+    def _market_action(self, actions: list[AgentAction]) -> AgentAction:
+        if not self.market_bought:
+            return _pick(actions, "shop.buy", item_id="item:rope-coil") or actions[0]
+        if not self.market_equipped:
+            return _pick(
+                actions,
+                "inventory.equip",
+                item_id="item:rope-coil",
+            ) or actions[0]
+        if not self.market_rested:
+            return _pick(actions, "world.rest") or actions[0]
+        if not self.market_sold:
+            return _pick(actions, "shop.sell", item_id="item:rope-coil") or actions[0]
+        return _pick(
+            actions,
+            "world.travel",
+            area_id="area:reedhollow-square",
+        ) or actions[0]
+
+    def _underworks_action(
+        self,
+        actions: list[AgentAction],
+        flags: set[str],
+        completed_interactions: set[str],
+        completed_encounters: set[str],
+    ) -> AgentAction:
+        if "interaction:survey-lantern" not in completed_interactions:
+            return _pick(
+                actions,
+                "world.resolve_interaction",
+                interaction_id="interaction:survey-lantern",
+            ) or actions[0]
+        if "interaction:stonefall-trigger" not in completed_interactions:
+            return _pick(
+                actions,
+                "world.resolve_interaction",
+                interaction_id="interaction:stonefall-trigger",
+            ) or actions[0]
+        if "flag:lantern-kept" not in flags and "flag:echo-freed" not in flags:
+            return _pick(
+                actions,
+                "dialogue.start",
+                dialogue_id="dialogue:surveyor-echo",
+            ) or actions[0]
+        if "encounter:underworks-swarm" not in completed_encounters:
+            return _pick(
+                actions,
+                "world.begin_encounter",
+                encounter_id="encounter:underworks-swarm",
+            ) or actions[0]
+        return _pick(
+            actions,
+            "world.travel",
+            area_id="area:lantern-vault",
+        ) or actions[0]
 
 
 def create_autoplay_session(
@@ -391,7 +379,8 @@ def create_autoplay_session(
         CharacterCreatorRuntime(demo_character_catalog())
     )
     _seed_premade_characters(creator)
-    world = WorldRuntime(replace(demo_campaign(), campaign_id=campaign_id), seed=seed)
+    definition = replace(demo_campaign(), campaign_id=campaign_id)
+    world = WorldRuntime(definition, seed=seed)
     return AgentWorldClientBridgeSession(
         engine,
         tactical,
@@ -424,29 +413,13 @@ def run_lanterns_below_autoplay(
         world_value = observation.get("world", {})
         world = world_value if isinstance(world_value, dict) else {}
         if "flag:campaign-complete" in _string_set(world.get("flags")):
-            return AutoplayResult(True, "campaign complete", tuple(steps), observation)
-
-        if observation.get("context") == "tactical":
-            current_actor = observation.get("current_actor_id")
-            if isinstance(current_actor, str) and current_actor:
-                tactical_value = observation.get("tactical", {})
-                tactical = tactical_value if isinstance(tactical_value, dict) else {}
-                actors = _dict_rows(tactical.get("actors"))
-                row = next(
-                    (item for item in actors if item.get("actor_id") == current_actor),
-                    {},
-                )
-                team = str(row.get("team", "neutral"))
-                session.agent.controllers.set_control(
-                    current_actor,
-                    AgentControlMode.AGENT,
-                    policy_id=(
-                        "baseline-party"
-                        if team == "party"
-                        else "baseline-passive-npc"
-                    ),
-                )
-
+            return AutoplayResult(
+                True,
+                "campaign complete",
+                tuple(steps),
+                observation,
+            )
+        _assign_current_tactical_controller(session, observation)
         action = policy.choose(observation)
         if action is None:
             return AutoplayResult(
@@ -477,13 +450,41 @@ def run_lanterns_below_autoplay(
         if diagnostics is not None:
             diagnostics.write("autoplay", "step", **step.to_dict())
 
-    final_observation = session.agent.observe()
     return AutoplayResult(
         False,
         f"step limit reached ({max_steps})",
         tuple(steps),
-        final_observation,
+        session.agent.observe(),
     )
+
+
+def _assign_current_tactical_controller(
+    session: AgentWorldClientBridgeSession,
+    observation: dict[str, object],
+) -> None:
+    if observation.get("context") != "tactical":
+        return
+    current_actor = observation.get("current_actor_id")
+    if not isinstance(current_actor, str) or not current_actor:
+        return
+    tactical_value = observation.get("tactical", {})
+    tactical = tactical_value if isinstance(tactical_value, dict) else {}
+    actors = _dict_rows(tactical.get("actors"))
+    row = next(
+        (item for item in actors if item.get("actor_id") == current_actor),
+        {},
+    )
+    team = str(row.get("team", "neutral"))
+    session.agent.controllers.set_control(
+        current_actor,
+        AgentControlMode.AGENT,
+        policy_id=("baseline-party" if team == "party" else "baseline-passive-npc"),
+    )
+
+
+def _targets_enemy(action: AgentAction, enemy_ids: set[str]) -> bool:
+    value = action.payload.get("target_ids", [])
+    return isinstance(value, list) and any(str(item) in enemy_ids for item in value)
 
 
 def _action_rows(value: object) -> list[AgentAction]:
@@ -497,16 +498,13 @@ def _action_rows(value: object) -> list[AgentAction]:
         metadata = item.get("metadata", {})
         if not isinstance(payload, dict) or not isinstance(metadata, dict):
             continue
+        actor_value = item.get("actor_id")
         rows.append(
             AgentAction(
                 action_id=str(item.get("action_id", "")),
                 label=str(item.get("label", "")),
                 command_type=str(item.get("command_type", "")),
-                actor_id=(
-                    str(item["actor_id"])
-                    if isinstance(item.get("actor_id"), str)
-                    else None
-                ),
+                actor_id=str(actor_value) if isinstance(actor_value, str) else None,
                 payload=dict(payload),
                 expected_sequence=int(item.get("expected_sequence", 0)),
                 context=str(item.get("context", "")),
@@ -528,25 +526,20 @@ def _string_set(value: object) -> set[str]:
     return {str(item) for item in value}
 
 
-def _prefer(
-    actions: list[AgentAction],
-    *,
-    command_type: str,
-) -> AgentAction | None:
-    return next((item for item in actions if item.command_type == command_type), None)
-
-
-def _prefer_payload(
+def _pick(
     actions: list[AgentAction],
     command_type: str,
-    key: str,
-    value: object,
+    **payload_matches: object,
 ) -> AgentAction | None:
     return next(
         (
-            item
-            for item in actions
-            if item.command_type == command_type and item.payload.get(key) == value
+            action
+            for action in actions
+            if action.command_type == command_type
+            and all(
+                action.payload.get(key) == expected
+                for key, expected in payload_matches.items()
+            )
         ),
         None,
     )
