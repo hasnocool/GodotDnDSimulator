@@ -7,6 +7,12 @@ project uses semantic versioning as documented in `docs/adr/0002-versioning.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Tactical Move, Strike, End Turn, and spell actions now follow the authoritative current-turn actor
+  instead of the actor selected only for inspection, preventing the whole action bar from becoming
+  disabled when selection and initiative differ.
+
 ## [1.0.0] - 2026-08-23
 
 ### Added
