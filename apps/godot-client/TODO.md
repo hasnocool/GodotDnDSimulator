@@ -12,9 +12,10 @@ product work remain separate rather than being silently treated as implementatio
 
 Build a polished Godot 4.x 3D orthographic/isometric client that renders authoritative engine state,
 turns player input into typed intents, presents engine-computed legality/results, and never becomes
-the authority for rules, spatial legality, combat, randomness, or campaign state.
+the authority for rules, spatial legality, combat, randomness, campaign state, or AI gameplay
+legality.
 
-Detailed evidence for the final backlog sweep is recorded in `docs/TODO_BACKLOG_COMPLETION.md`.
+Detailed v1.0.1 agent/debug API documentation is in `docs/AGENT_AUTOMATION_API.md`.
 
 ---
 
@@ -188,6 +189,23 @@ Detailed evidence for the final backlog sweep is recorded in `docs/TODO_BACKLOG_
 - [x] Three fixed manual save slots use lossless engine snapshots, threaded bounded disk I/O,
       versioned envelopes, backup recovery, authoritative load validation, and disconnect recovery.
 
+### C22 — v1.0.1 agent debugging and UI automation
+
+- [x] Persist bounded `ClientLog` diagnostics asynchronously as JSONL under `user://logs/`.
+- [x] Add dedicated `automation` and `agent` diagnostic categories without changing gameplay state.
+- [x] Register opt-in `UiAutomation` autoload disabled by default.
+- [x] Bind UI automation only to `127.0.0.1`, allow explicit token authentication, limit clients,
+      and bound incoming request size.
+- [x] Expose visible control-tree snapshot/inspect data including text, class, bounds, focus, shell
+      state, authoritative sequence, and client log path.
+- [x] Expose focus, human-like viewport activation/click, editable text, and registered semantic input
+      actions without arbitrary script execution.
+- [x] Expose recent client logs and live viewport screenshot capture for debugging agents.
+- [x] Add versioned UI-automation request schema and Python loopback client/CLI.
+- [x] Add headless Godot tests for snapshot, focus, viewport button activation, text editing,
+      fail-closed unknown paths, and log retrieval.
+- [x] Register UI automation tests in local and hosted Godot CI suites.
+
 ---
 
 ## Authored world encounter handoff
@@ -207,11 +225,14 @@ Detailed evidence for the final backlog sweep is recorded in `docs/TODO_BACKLOG_
 The following are deliberately not checked from source inspection alone.
 
 - [ ] Execute Ruff, strict Mypy, full Python pytest/coverage, governance/schema/importer determinism,
-      and every registered Godot headless suite on the exact integrated head.
+      agent autoplay smoke, project parse, and every registered Godot headless suite on the exact
+      integrated head.
 - [ ] Confirm the exact integrated client parses under the repository Godot version with no script or
       resource errors.
 - [ ] Demonstrate the real Godot TCP transport negotiating/resynchronizing with the localhost Python
       host in an executable integration session.
+- [ ] Connect a debugging agent to the live `UiAutomation` RPC and record a real UI snapshot,
+      human-like interaction, correlated engine/client logs, and screenshot.
 - [ ] Demonstrate the complete tactical encounter interactively through the Godot desktop client.
 - [ ] Demonstrate spell casting interactively from authoritative discovery/preview through accepted
       command.
@@ -221,10 +242,9 @@ The following are deliberately not checked from source inspection alone.
 
 ## Conditional future work
 
-These are intentionally policy/profiling dependent rather than missing v1.0 implementation.
+These are intentionally policy/profiling dependent rather than missing current implementation.
 
-- [ ] Add actor-view pooling only if measured profiling shows it improves representative tactical
-      scenes.
+- [ ] Pool/reuse actor visuals only after profiling shows it improves representative tactical scenes.
 - [ ] Add autosave/checkpoint retention only after a product policy specifies checkpoint timing and
       retention; manual production save/load is complete.
 - [ ] Add save migration/export/import when a future envelope-format change or cross-device workflow
@@ -239,6 +259,7 @@ When client work is discovered:
 - identify the owning roadmap milestone/dependency;
 - describe observable behavior rather than vague improvement;
 - keep rules/spatial/combat authority in the engine;
+- keep AI policies restricted to engine-supplied legal actions;
 - update root `TODO.md` when root milestone state changes;
 - keep this file, root agent files, changelog, docs, and tests synchronized;
 - distinguish code completion from evidence that must actually execute.

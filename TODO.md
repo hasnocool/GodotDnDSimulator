@@ -4,123 +4,120 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 Do not check an item merely because scaffolding exists, and do not leave implemented work unchecked
 when repository tests/code provide direct evidence.
 
-## Current focus: v1.0 Playable RPG
+## Current focus: v1.0.1 Agent playtesting and observability
 
-The v0.1 foundation through v1.0 playable-RPG implementation are present. The v1.0 world campaign
-now launches four distinct authored tactical encounters using the actual selected party rather than
-reusing the Sunken Courtyard proxy. Remaining open work is limited to repository administration,
-full official-source audit/provenance, exact-head executable evidence, manual desktop acceptance,
-profiling-dependent optimization, and explicitly conditional future save-product requirements.
+The v0.1 foundation through v1.0 playable RPG implementation are present. v1.0.1 adds a
+provider-neutral AI/test-agent control boundary, deterministic full-campaign autoplay, structured
+disk diagnostics, and an opt-in Godot UI automation API without moving rules or state authority out
+of the Python engine.
 
-Implementation/evidence details for the final code-backed backlog sweep are in
-`docs/TODO_BACKLOG_COMPLETION.md`.
+The API and security/authority model are documented in `docs/AGENT_AUTOMATION_API.md` and
+`docs/adr/0004-agent-control-and-ui-automation.md`.
+
+---
+
+## v1.0.1 implementation
+
+### AI/player/NPC control boundary
+
+- [x] Expose versioned structured `agent.observe`, `agent.actions`, and `agent.controllers` queries.
+- [x] Generate fresh legal action tokens from authoritative world/tactical/spell queries rather than
+      accepting arbitrary AI state mutations.
+- [x] Bind every action token to the authoritative sequence and reject stale/unknown tokens before
+      execution.
+- [x] Route `agent.execute` back through the normal typed bridge command path so engine validation,
+      sequencing, rules, spatial authority, combat, and RNG remain authoritative.
+- [x] Support explicit per-actor `human` / `agent` control with policy IDs.
+- [x] Default party members to human control and non-party tactical actors to agent control.
+- [x] Allow the hero and any other known party character to be switched to AI control.
+- [x] Expose legal world actions for dialogue, travel, interactions, encounters, shop trade,
+      equipment, rest, and encounter completion.
+- [x] Expose legal tactical attack, spell, movement, and end-turn actions using existing previews and
+      availability queries.
+- [x] Add `schemas/agent/v1/agent-observation.schema.json` and schema regression coverage.
+
+### Automated end-to-end campaign testing
+
+- [x] Add a provider-neutral deterministic baseline agent policy for regression use.
+- [x] Switch all four premade heroes to agent control for the automated campaign run.
+- [x] Exercise Warden dialogue, trade, equipment, rest, travel, skill/environment interactions, the
+      Surveyor's Echo branch, all four authored tactical encounters, and final campaign completion.
+- [x] Let tactical NPC/enemy turns run through the same agent-control API with a deterministic passive
+      regression policy.
+- [x] Prefer legal hostile tactical actions for party agents and never bypass tactical previews.
+- [x] Add same-seed deterministic action-trace/final-observation parity coverage.
+- [x] Add `godot-dnd-agent-autoplay` CLI and local/hosted CI smoke invocation.
+
+### Structured observability
+
+- [x] Add bounded background JSONL diagnostics for the Python bridge/agent/autoplay path.
+- [x] Log bridge operation/result metadata without intentionally recording automation tokens or
+      credentials as secrets.
+- [x] Persist Godot `ClientLog` entries asynchronously to `user://logs/client-*.jsonl` while retaining
+      bounded in-memory diagnostics.
+- [x] Add agent/automation log categories and expose the live client log path.
+- [x] Ignore repository-local `.logs/` output.
+
+### Godot debugging-agent API
+
+- [x] Add opt-in `UiAutomation` autoload disabled by default.
+- [x] Bind the network API to `127.0.0.1` only with optional explicit local token authentication.
+- [x] Bound request size and concurrent automation clients.
+- [x] Expose visible control-tree snapshots with text, class, focus, bounds, shell state, and
+      authoritative sequence diagnostics.
+- [x] Expose narrow UI operations for inspect, focus, activation through viewport mouse input,
+      coordinate click, editable text, and registered `InputMap` actions.
+- [x] Expose recent structured client logs and screenshot capture.
+- [x] Deliberately omit arbitrary method calls, script evaluation, arbitrary file access, and direct
+      engine-state mutation from the UI API.
+- [x] Add `schemas/client/v1/ui-automation-request.schema.json`.
+- [x] Add loopback-only Python `UiAutomationClient` plus `godot-dnd-ui-automation` CLI.
+- [x] Add headless Godot automation tests and Python client framing tests.
+
+### Documentation/governance
+
+- [x] Add v1.0.1 roadmap milestone and ADR.
+- [x] Document external-agent loop, API examples, diagnostics paths, UI-debug workflow, and security
+      boundary.
+- [x] Register the new Python/Godot suites in local and hosted CI.
+
+---
+
+## v1.0.1 executable evidence still required
+
+These are deliberately not inferred from source inspection.
+
+- [ ] Execute Ruff, strict Mypy, full pytest/coverage, governance/schema/importer checks, agent
+      autoplay smoke, project parse, and every registered Godot headless suite on the exact integrated
+      head using a runner where jobs actually execute.
+- [ ] Run the live Python bridge and Godot client together, connect a debugging agent through the
+      loopback UI RPC, and record a real snapshot -> interaction -> logs -> screenshot reproduction.
+- [ ] Demonstrate a complete desktop Godot campaign/debug session driven by an automation agent where
+      the agent uses UI actions for presentation/input debugging and the engine API for legal gameplay
+      decisions.
 
 ---
 
 ## Implemented milestone summary
 
-### v0.1 Project foundation
+### v0.1-v0.6 engine foundation
 
-- [x] Repository/governance/documentation foundation.
-- [x] Headless Python 3.12 engine and Godot 4.x presentation project structure.
-- [x] Typed command/event/state contracts, deterministic RNG/dice, reducer boundary, snapshots,
-      replay, schemas, validation, developer tooling, CI definitions, and security checks.
+- [x] Repository governance, deterministic headless engine, typed command/event/state contracts,
+      PCG32 RNG/dice, reducers/snapshots/replay, schemas/stable IDs, source importer, rules runtime,
+      shared actor model, tactical combat, and spatial authority.
 
-### v0.2 Official SRD pipeline implementation
+### v0.7-v0.9 client/spells/creator
 
-- [x] Approved-source allowlist and licensing/attribution boundary.
-- [x] Async resumable fetch/cache/checksum infrastructure.
-- [x] PDF extraction/normalization with provenance.
-- [x] Versioned canonical schemas and deterministic compiler/export/reporting/diff pipeline.
-- [x] Mocked source/policy/extraction/compiler/schema/report/diff/tamper regression coverage.
-- [x] Deterministic importer fixture smoke build.
+- [x] Godot bridge/state/input architecture and tactical vertical slice.
+- [x] Generic deterministic spell runtime with data-driven Godot spell UI.
+- [x] Complete engine-driven character creator and level-up flow.
 
-### v0.3 Rules runtime
+### v1.0 playable RPG
 
-- [x] Typed deterministic D20/modifier/resource/requirement/target/effect/duration/condition/reaction
-      runtime with capability declarations and canonical-entity-shaped conformance fixtures.
-
-### v0.4 Character runtime
-
-- [x] Shared immutable hero/NPC/creature actor model, stats, HP/AC, skills, movement, senses,
-      inventory/equipment, conditions/resources/effects, choices, creation, serialization, and
-      migration coverage.
-
-### v0.5 Tactical combat
-
-- [x] Deterministic event-sourced encounter lifecycle, initiative/turns, action economy, movement
-      accounting, attacks, damage/healing, defenses, reactions, conditions, zero-HP policy, replay,
-      schemas, and adversarial coverage.
-
-### v0.6 Spatial authority
-
-- [x] Grid/occupancy/footprints, distance/reach, terrain/elevation, movement/pathfinding/reachable,
-      LOS/cover, generic AoE shapes, movement modes, navigation proposals, threat transitions,
-      spatial events/replay, read-only query service, and combat integration.
-- [x] Validate `schemas/v1/spatial-event.schema.json` against representative serialized movement
-      events in `tests/test_spatial_schema.py`.
-- [x] Expose authoritative per-segment path cost, terrain, elevation delta, and movement-mode data
-      for client previews with regression coverage.
-
-### v0.7 Godot vertical slice
-
-- [x] Orthographic/isometric tactical camera, pan/zoom/rotation/focus and aspect-ratio-aware bounds.
-- [x] Original tactical map, authoritative actor rendering, selection/picking, movement/path previews,
-      target/LOS/cover/AoE presentation, action HUD, combat log, VFX/audio hooks, occlusion, and debug
-      overlays without client-side rules authority.
-- [x] Headless bridge/state/input/camera/HUD/tactical integration suites are registered in local CI.
-
-### v0.8 Spell runtime
-
-- [x] Spell slots/known/prepared state, attack/save/healing/condition/ongoing/concentration/duration,
-      targeting/AoE, upcasting/scaling, event serialization/RNG continuation, bridge queries/previews,
-      and Godot spell UI.
-- [x] Godot spell UI renders concentration and generic ongoing effects and groups actions by
-      engine-provided legal slot level with data-driven tooltips.
-
-### v0.9 Complete character creator
-
-- [x] Engine-driven identity/species/background/class/abilities/skills/equipment/spell-feature steps,
-      appearance/profile metadata, authoritative review/create, level-up, external catalog adapter,
-      versioned record schema, bridge integration, and headless Godot creator UI.
-- [x] Representative `CharacterRecord` schema regression exists in `tests/test_character_schema.py`.
-
-### v1.0 Playable RPG
-
-- [x] Exploration loop.
-- [x] Dialogue system.
-- [x] Quest state machine/branching consequences.
-- [x] Inventory/equipment UI.
-- [x] Trade/shop flow.
-- [x] Rest flow.
-- [x] Travel/area transitions.
-- [x] Journal/map/party screens.
-- [x] Production manual save/load UX.
-- [x] Original village area.
-- [x] Original dungeon area.
-- [x] Skill-check interaction.
-- [x] Trap/environment interaction.
-- [x] Three authored tactical encounters bound to distinct world encounter gates.
-- [x] Authored boss tactical encounter bound to the boss gate.
-- [x] One branching quest.
-- [x] Four premade heroes.
-- [x] Release packaging/attribution/credits.
-- [x] End-to-end world-campaign completion test including save/restore continuation.
-
-### v1.0 implementation evidence
-
-- `engine/src/godot_dnd_engine/world/tactical_templates.py` defines deterministic Road Ambush,
-  Quarry Watchers, Underworks Swarm, and Hollow Warden tactical templates with distinct maps,
-  enemies, terrain, placements, and selected-party combatants.
-- `tests/test_world_tactical_templates.py` verifies template uniqueness, actual party identity, no
-  proxy actors, and deterministic same-seed snapshots.
-- `tests/test_v1_completion.py` verifies the original campaign loop, authoritative world/tactical
-  handoff, branch choice, save/restore parity, encounter progression, and final campaign-complete
-  state.
-- `apps/godot-client/tests/world_rpg_completion_tests.gd` verifies the Adventure presentation and
-  intent boundary.
-- `scripts/package_v1_release.py` builds the deterministic tracked-file release source bundle with
-  attribution and development-addon exclusions.
+- [x] Exploration, dialogue, branching quest state, inventory/equipment, trade, rest, travel,
+      journal/map/party, production manual save/load, original village/dungeon content, interactions,
+      three authored regular tactical encounters, authored boss encounter, four premade heroes,
+      release packaging/credits, and end-to-end campaign completion coverage.
 
 ---
 
@@ -148,7 +145,7 @@ Implementation/evidence details for the final code-backed backlog sweep are in
 
 ---
 
-## Remaining exact-head executable evidence gates
+## Remaining earlier exact-head executable evidence gates
 
 These require an integrated checkout where the commands actually execute. GitHub-hosted jobs have
 repeatedly terminated before step 1, and the current agent container cannot resolve GitHub to clone
@@ -156,20 +153,10 @@ the repository, so they remain unchecked rather than being inferred from test de
 
 - [ ] Demonstrate a headless deterministic v0.1 command producing reproducible event/state output in
       an executing CI/local-CI run.
-- [ ] Confirm v0.3 Ruff, strict Mypy, full pytest/coverage, importer determinism, governance/schema,
-      and Godot checks on an integrated head.
-- [ ] Confirm v0.4 character-runtime deterministic serialization/creation and repository checks on an
-      integrated head.
-- [ ] Confirm v0.5 deterministic tactical encounter/replay and repository checks on an integrated
-      head.
-- [ ] Execute the v0.6 repository checks plus headless movement, distance/reach, LOS, cover, and AoE
-      scenarios on the integrated head.
-- [ ] Execute all C1-C3/v0.7 Godot headless suites and confirm project/script/resource parsing under
+- [ ] Confirm v0.3-v0.9 Ruff, strict Mypy, pytest/coverage, importer determinism, schemas/governance,
+      and registered Godot checks on an integrated head.
+- [ ] Execute all v0.7-v1.0 Godot headless suites and confirm project/script/resource parsing under
       the repository Godot version.
-- [ ] Execute the v0.8 Python/Godot suites and demonstrate attack, save, healing, concentration,
-      duration, ongoing, AoE, and upcast families with deterministic replay/RNG continuation.
-- [ ] Execute the v0.9 Python/Godot/schema suites and external-catalog creation/level-up roundtrip on
-      the integrated head.
 
 ---
 
@@ -185,8 +172,9 @@ the repository, so they remain unchecked rather than being inferred from test de
 
 ## Future milestones
 
-Detailed scope for v1.1-v2.9 lives in `ROADMAP.md`. Add actionable items here when a future milestone
-becomes near-term; do not duplicate the entire roadmap as unchecked backlog noise.
+Detailed scope for v1.1-v2.9 lives in `ROADMAP.md`. Advanced utility AI, planning, perception,
+memories, social behavior, and richer LLM policies remain v1.4+ work and should consume the v1.0.1
+legal-action boundary rather than gaining direct state mutation access.
 
 ## Backlog hygiene
 

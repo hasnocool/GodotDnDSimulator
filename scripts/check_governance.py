@@ -19,6 +19,7 @@ REQUIRED_FILES = (
     "docs/GIT_WORKFLOW.md",
     "docs/PROJECT_PLAN.md",
     "docs/RULES_INGESTION.md",
+    "docs/AGENT_AUTOMATION_API.md",
     "docs/V0.6_SPATIAL_AUTHORITY.md",
     "docs/V0.7_GODOT_VERTICAL_SLICE.md",
     "docs/V0.8_SPELL_RUNTIME.md",
@@ -28,6 +29,7 @@ REQUIRED_FILES = (
     "docs/V1.0_GODOT_RPG_COMPLETION.md",
     "docs/adr/0001-engine-runtime.md",
     "docs/adr/0002-versioning.md",
+    "docs/adr/0004-agent-control-and-ui-automation.md",
     "pyproject.toml",
     "apps/godot-client/AGENTS.md",
     "apps/godot-client/TODO.md",
@@ -41,6 +43,8 @@ REQUIRED_FILES = (
     "schemas/v1/character-record.schema.json",
     "schemas/v1/world-event.schema.json",
     "schemas/v1/godot-world-save-envelope.schema.json",
+    "schemas/agent/v1/agent-observation.schema.json",
+    "schemas/client/v1/ui-automation-request.schema.json",
 )
 
 
@@ -77,12 +81,13 @@ def run() -> list[str]:
             ("v0.8", "Spell runtime"),
             ("v0.9", "Complete character creator"),
             ("v1.0", "Playable RPG"),
+            ("v1.0.1", "Agent playtesting and observability"),
         )
     )
     if not any(focus in todo for focus in milestone_focuses):
         errors.append(
             "TODO.md must declare a recognized current milestone focus "
-            "from v0.1 through v1.0"
+            "from v0.1 through v1.0.1"
         )
     if "## [Unreleased]" not in changelog:
         errors.append("CHANGELOG.md must contain an Unreleased section")
@@ -98,11 +103,16 @@ def run() -> list[str]:
         (agents, "apps/godot-client/TODO.md", "root AGENTS client TODO reference"),
         (client_agents, "presentation", "client presentation-authority boundary"),
         (client_agents, "headless", "client headless-testing requirement"),
-        (client_todo, "## C21 — v1.0 RPG client shell", "client v1.0 execution section"),
+        (client_todo, "### C21 — v1.0 RPG client shell", "client v1.0 execution section"),
         (
             client_todo,
-            "docs/V1.0_GODOT_RPG_COMPLETION.md",
-            "client v1.0 completion evidence",
+            "### C22 — v1.0.1 agent debugging and UI automation",
+            "client v1.0.1 automation section",
+        ),
+        (
+            client_todo,
+            "docs/AGENT_AUTOMATION_API.md",
+            "client automation documentation reference",
         ),
     )
     for content, needle, label in client_requirements:

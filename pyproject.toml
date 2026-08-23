@@ -15,7 +15,9 @@ dependencies = [
 ]
 
 [project.scripts]
-godot-dnd-client-bridge = "godot_dnd_engine.world_bridge:main"
+godot-dnd-client-bridge = "godot_dnd_engine.agent_world_bridge:main"
+godot-dnd-agent-autoplay = "godot_dnd_engine.agent_autoplay:main"
+godot-dnd-ui-automation = "godot_dnd_engine.ui_automation_client:main"
 
 [project.optional-dependencies]
 rules = [

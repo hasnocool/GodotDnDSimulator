@@ -34,6 +34,8 @@ jobs:
         run: python scripts/determinism_smoke.py
       - name: Importer smoke
         run: python -m tools.rules_importer.smoke
+      - name: Agent autoplay smoke
+        run: python -m godot_dnd_engine.agent_autoplay --seed 23 --max-steps 2000 --no-disk-log
 
   godot:
     name: Godot headless client
@@ -57,10 +59,20 @@ jobs:
         run: godot --headless --path apps/godot-client --script res://tests/input_interaction_tests.gd
       - name: Tactical camera tests
         run: godot --headless --path apps/godot-client --script res://tests/tactical_camera_tests.gd
+      - name: Tactical HUD tests
+        run: godot --headless --path apps/godot-client --script res://tests/tactical_hud_tests.gd
       - name: Tactical vertical-slice tests
         run: godot --headless --path apps/godot-client --script res://tests/tactical_vertical_slice_tests.gd
+      - name: TODO backlog tests
+        run: godot --headless --path apps/godot-client --script res://tests/todo_backlog_tests.gd
+      - name: Navigation debug tests
+        run: godot --headless --path apps/godot-client --script res://tests/navigation_debug_tests.gd
+      - name: Debug identity tests
+        run: godot --headless --path apps/godot-client --script res://tests/debug_identity_tests.gd
       - name: Spell UI tests
         run: godot --headless --path apps/godot-client --script res://tests/spell_ui_tests.gd
+      - name: Spell palette grouping tests
+        run: godot --headless --path apps/godot-client --script res://tests/spell_palette_grouping_tests.gd
       - name: Character creator tests
         run: godot --headless --path apps/godot-client --script res://tests/character_creator_tests.gd
       - name: World RPG tests
@@ -69,3 +81,5 @@ jobs:
         run: godot --headless --path apps/godot-client --script res://tests/world_rpg_completion_tests.gd
       - name: World save/load tests
         run: godot --headless --path apps/godot-client --script res://tests/world_save_load_tests.gd
+      - name: UI automation tests
+        run: godot --headless --path apps/godot-client --script res://tests/ui_automation_tests.gd
