@@ -309,7 +309,9 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                             and price <= self.world.state.currency
                         )
                         if active_tactical:
-                            item["buy_reason"] = "Finish the active tactical encounter first."
+                            item["buy_reason"] = (
+                                "Finish the active tactical encounter first."
+                            )
                         elif not stock_available:
                             item["buy_reason"] = "Out of stock."
                         elif price > self.world.state.currency:
@@ -318,7 +320,9 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                             item["buy_reason"] = ""
                         item["sell_available"] = owned > 0 and not active_tactical
                         if active_tactical:
-                            item["sell_reason"] = "Finish the active tactical encounter first."
+                            item["sell_reason"] = (
+                                "Finish the active tactical encounter first."
+                            )
                         elif owned <= 0:
                             item["sell_reason"] = "Party does not own this item."
                         else:
@@ -356,7 +360,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "slots": [
                         {
                             "slot_id": slot_id,
-                            "label": slot_id.split(":", 1)[-1].replace("_", " ").title(),
+                            "label": slot_id.split(":", 1)[-1].replace(
+                                "_",
+                                " ",
+                            ).title(),
                         }
                         for slot_id in slots
                     ],
@@ -416,18 +423,14 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         encounter_id = _payload_id(payload, "encounter_id")
         gate = self._world_encounter(encounter_id)
         self._require_gate_available(gate)
+        if self.spell_tactical is None:
+            raise ValidationError("tactical provider is unavailable")
         if self.active_world_encounter_id is not None:
-            if (
-                self.spell_tactical is not None
-                and self.spell_tactical.tactical.encounter.status.value
-                != "ended"
-            ):
+            if self.spell_tactical.tactical.encounter.status.value != "ended":
                 raise ValidationError(
                     "finish or lose the active tactical encounter first"
                 )
-        previous_sequence = (
-            self.spell_tactical.sequence if self.spell_tactical is not None else -1
-        )
+        previous_sequence = self.spell_tactical.sequence
         self.spell_tactical = SpellEnabledTacticalSession.create(
             campaign_id=self.engine.state.campaign_id,
             session_id=self.engine.state.session_id,
@@ -461,6 +464,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         expected_sequence: int | None,
         payload: Mapping[str, Any],
     ) -> dict[str, object]:
+        if self.active_world_encounter_id is not None:
+            raise ValidationError(
+                "finish the active tactical encounter before loading world state"
+            )
         self._require_world_sequence(expected_sequence)
         snapshot_value = _world_snapshot_from_load_payload(payload)
         self.world = restore_world_runtime(
