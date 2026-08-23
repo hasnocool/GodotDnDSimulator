@@ -38,18 +38,26 @@ func _request_spells() -> void:
 func _on_move_requested() -> void:
     if not _select_current_actor_for_action():
         return
+    _release_ui_focus_for_map_action()
     super._on_move_requested()
 
 
 func _on_strike_requested() -> void:
     if not _select_current_actor_for_action():
         return
+    _release_ui_focus_for_map_action()
     super._on_strike_requested()
+
+
+func _on_area_debug_requested() -> void:
+    _release_ui_focus_for_map_action()
+    super._on_area_debug_requested()
 
 
 func _on_spell_selected(spell: Dictionary, slot_level: int) -> void:
     if not _select_current_actor_for_action():
         return
+    _release_ui_focus_for_map_action()
     super._on_spell_selected(spell, slot_level)
 
 
@@ -69,3 +77,11 @@ func _select_current_actor_for_action() -> bool:
     if _state.interaction.selected_actor_id() != actor_id:
         _state.interaction.set_selected_actor(actor_id)
     return true
+
+
+func _release_ui_focus_for_map_action() -> void:
+    if not is_inside_tree():
+        return
+    var focus_owner := get_viewport().gui_get_focus_owner()
+    if focus_owner != null:
+        focus_owner.release_focus()

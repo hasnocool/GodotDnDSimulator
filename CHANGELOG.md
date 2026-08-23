@@ -12,6 +12,9 @@ project uses semantic versioning as documented in `docs/adr/0002-versioning.md`.
 - Tactical Move, Strike, End Turn, and spell actions now follow the authoritative current-turn actor
   instead of the actor selected only for inspection, preventing the whole action bar from becoming
   disabled when selection and initiative differ.
+- Tactical action buttons now release Godot GUI focus before map interaction begins, so the next
+  map click reaches movement/target selection and Enter/Space confirms the armed map action instead
+  of re-triggering the previously focused HUD button.
 
 ## [1.0.0] - 2026-08-23
 
