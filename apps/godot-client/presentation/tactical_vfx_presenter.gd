@@ -18,8 +18,8 @@ func present(
     _last_actor_id = actor_view.actor_id
     var root := Node3D.new()
     root.name = "VFX_%s" % cue_id.replace(":", "_")
-    root.global_position = actor_view.global_position + Vector3.UP * 0.72
     add_child(root)
+    root.global_position = actor_view.global_position + Vector3.UP * 0.72
     _active_count += 1
 
     var ring := MeshInstance3D.new()
