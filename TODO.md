@@ -2,9 +2,9 @@
 
 This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with implementation. Do not check an item merely because partial scaffolding exists.
 
-## Current focus: v0.9 Complete character creator
+## Current focus: v1.0 Playable RPG
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, and v0.8 spell-runtime implementations have been merged. Outstanding repository/CI and full-official-source v0.2 audit items remain visible below as carryover; they must not be silently forgotten. v0.9 now adds a complete rules-driven character creation and advancement flow whose choices and validation come from the authoritative engine rather than hardcoded Godot lists.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, v0.8 spell runtime, and v0.9 character-creator implementations have been merged. Outstanding repository/CI, full-official-source v0.2 audit, and exact-head acceptance items remain visible below as carryover; they must not be silently forgotten. v1.0 now turns those production foundations into the complete original campaign and RPG client loop while keeping world, character, combat, and inventory authority in the headless engine.
 
 ### v0.1 carryover: repository and governance
 
@@ -345,11 +345,11 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 - [ ] Exploration loop.
 - [ ] Dialogue system.
 - [ ] Quest state machine/branching consequences.
-- [ ] Inventory/equipment UI.
+- [x] Inventory/equipment UI.
 - [ ] Trade/shop flow.
 - [ ] Rest flow.
 - [ ] Travel/area transitions.
-- [ ] Journal/map/party screens.
+- [x] Journal/map/party screens.
 - [ ] Production save/load UX.
 - [ ] Original village area.
 - [ ] Original dungeon area.
