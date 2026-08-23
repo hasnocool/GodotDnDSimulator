@@ -7,6 +7,8 @@ project uses semantic versioning as documented in `docs/adr/0002-versioning.md`.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-23
+
 ### Added
 
 - Python 3.12 authoritative headless simulation engine with typed commands/events/state, immutable

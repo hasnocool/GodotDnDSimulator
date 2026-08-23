@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "godot-dnd-engine"
-version = "1.0.0.dev0"
+version = "1.0.0"
 description = "Deterministic headless simulation engine for GodotDnDSimulator"
 readme = "README.md"
 requires-python = ">=3.12"
