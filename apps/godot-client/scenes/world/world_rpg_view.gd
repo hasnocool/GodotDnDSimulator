@@ -19,6 +19,9 @@ var _world_sequence := 0
 @onready var _encounters: VBoxContainer = %Encounters
 @onready var _shops: VBoxContainer = %Shops
 @onready var _journal: RichTextLabel = %Journal
+@onready var _map: RichTextLabel = %Map
+@onready var _party: RichTextLabel = %Party
+@onready var _inventory: RichTextLabel = %Inventory
 @onready var _close: Button = %Close
 
 
@@ -60,6 +63,8 @@ func _refresh_world() -> void:
     _state.request_query("world.snapshot", {}, "world:snapshot")
     _state.request_query("world.actions", {}, "world:actions")
     _state.request_query("world.journal", {}, "world:journal")
+    _state.request_query("world.map", {}, "world:map")
+    _state.request_query("world.party", {}, "world:party")
 
 
 func _start_campaign() -> void:
@@ -104,6 +109,7 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
     var party_value: Variant = world_state.get("party_ids", [])
     _start.disabled = typeof(party_value) == TYPE_ARRAY and not (party_value as Array).is_empty()
     _render_state_summary(world_state)
+    _render_inventory(world_state)
 
 
 func _render_state_summary(world_state: Dictionary) -> void:
@@ -244,13 +250,72 @@ func _render_journal(payload: Dictionary) -> void:
     var lines: Array[String] = []
     var quests_value: Variant = payload.get("quests", {})
     if typeof(quests_value) == TYPE_DICTIONARY:
+        lines.append("[b]Quests[/b]")
         for quest_id in (quests_value as Dictionary).keys():
             lines.append("%s: %s" % [quest_id, (quests_value as Dictionary)[quest_id]])
     var entries_value: Variant = payload.get("entries", [])
     if typeof(entries_value) == TYPE_ARRAY:
+        lines.append("\n[b]Journal[/b]")
         for entry in entries_value:
-            lines.append(str(entry))
+            lines.append("• %s" % str(entry))
     _journal.text = "\n".join(lines)
+
+
+func _render_map(payload: Dictionary) -> void:
+    var lines: Array[String] = []
+    var current_area_id := str(payload.get("current_area_id", ""))
+    var areas_value: Variant = payload.get("areas", [])
+    if typeof(areas_value) == TYPE_ARRAY:
+        for area_value in areas_value:
+            if typeof(area_value) != TYPE_DICTIONARY:
+                continue
+            var area: Dictionary = area_value
+            var area_id := str(area.get("area_id", ""))
+            var marker := "▶" if area_id == current_area_id else "•"
+            var visited := "visited" if bool(area.get("visited", false)) else "unknown"
+            lines.append("%s [b]%s[/b] · %s" % [marker, str(area.get("name", area_id)), visited])
+            var exits_value: Variant = area.get("exits", [])
+            if typeof(exits_value) == TYPE_ARRAY and not (exits_value as Array).is_empty():
+                lines.append("    exits: %s" % ", ".join(exits_value as Array))
+    _map.text = "\n".join(lines)
+
+
+func _render_party(payload: Dictionary) -> void:
+    var lines: Array[String] = []
+    var party_value: Variant = payload.get("party_ids", [])
+    if typeof(party_value) == TYPE_ARRAY:
+        if (party_value as Array).is_empty():
+            lines.append("No active party. Create or load heroes, then start the campaign.")
+        else:
+            lines.append("[b]Active party[/b]")
+            for actor_id in party_value:
+                lines.append("• %s" % str(actor_id))
+    var equipped_value: Variant = payload.get("equipped", {})
+    if typeof(equipped_value) == TYPE_DICTIONARY and not (equipped_value as Dictionary).is_empty():
+        lines.append("\n[b]Equipped[/b]")
+        for key in (equipped_value as Dictionary).keys():
+            lines.append("%s: %s" % [str(key), str((equipped_value as Dictionary)[key])])
+    _party.text = "\n".join(lines)
+
+
+func _render_inventory(world_state: Dictionary) -> void:
+    var lines: Array[String] = []
+    lines.append("[b]Party inventory[/b]")
+    lines.append("Currency: %d" % int(world_state.get("currency", 0)))
+    var inventory_value: Variant = world_state.get("inventory", {})
+    if typeof(inventory_value) == TYPE_DICTIONARY:
+        var inventory: Dictionary = inventory_value
+        if inventory.is_empty():
+            lines.append("No items carried.")
+        else:
+            for item_id in inventory.keys():
+                lines.append("• %s × %d" % [str(item_id), int(inventory[item_id])])
+    var equipped_value: Variant = world_state.get("equipped", {})
+    if typeof(equipped_value) == TYPE_DICTIONARY and not (equipped_value as Dictionary).is_empty():
+        lines.append("\n[b]Equipped[/b]")
+        for key in (equipped_value as Dictionary).keys():
+            lines.append("%s: %s" % [str(key), str((equipped_value as Dictionary)[key])])
+    _inventory.text = "\n".join(lines)
 
 
 func _request_dialogue() -> void:
@@ -293,6 +358,10 @@ func _on_query_completed(correlation_id: String, _generation: int, payload: Dict
             _render_actions(payload)
         "world:journal":
             _render_journal(payload)
+        "world:map":
+            _render_map(payload)
+        "world:party":
+            _render_party(payload)
         "world:dialogue":
             _render_dialogue(payload)
 
