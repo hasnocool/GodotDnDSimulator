@@ -193,7 +193,7 @@ static func validate_message(message: Dictionary) -> String:
     for key in required:
         if not message.has(key):
             return "bridge message missing field: %s" % key
-    if typeof(message["bridge_version"]) != TYPE_INT:
+    if not _is_integral_number(message["bridge_version"]):
         return "bridge_version must be an integer"
     if typeof(message["kind"]) != TYPE_STRING or str(message["kind"]).is_empty():
         return "kind must be a non-empty string"
@@ -201,7 +201,7 @@ static func validate_message(message: Dictionary) -> String:
         return "request_id must be a string"
     if typeof(message["correlation_id"]) != TYPE_STRING:
         return "correlation_id must be a string"
-    if typeof(message["generation"]) != TYPE_INT or int(message["generation"]) < 0:
+    if not _is_integral_number(message["generation"]) or int(message["generation"]) < 0:
         return "generation must be an integer >= 0"
     if typeof(message["payload"]) != TYPE_DICTIONARY:
         return "payload must be an object"
@@ -210,6 +210,15 @@ static func validate_message(message: Dictionary) -> String:
     if message.has("error") and typeof(message["error"]) != TYPE_DICTIONARY:
         return "error must be an object when present"
     return ""
+
+
+static func _is_integral_number(value: Variant) -> bool:
+    if typeof(value) == TYPE_INT:
+        return true
+    if typeof(value) != TYPE_FLOAT:
+        return false
+    var float_value := float(value)
+    return is_finite(float_value) and float_value == floor(float_value)
 
 
 static func validate_compatible(message: Dictionary) -> String:

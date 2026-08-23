@@ -34,6 +34,13 @@ func _test_protocol_validation() -> void:
         Protocol.validate_message(broken) == "bridge message missing field: generation",
         "missing protocol field is rejected",
     )
+    var json_round_trip := hello.duplicate(true)
+    json_round_trip["bridge_version"] = 1.0
+    json_round_trip["generation"] = 0.0
+    _check(
+        Protocol.validate_message(json_round_trip).is_empty(),
+        "JSON numeric values validate when integral",
+    )
 
 
 func _test_command_acceptance_and_authoritative_events() -> void:

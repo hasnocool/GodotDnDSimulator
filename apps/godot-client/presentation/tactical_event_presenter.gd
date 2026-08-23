@@ -237,5 +237,5 @@ func _remember_event(event_key: String) -> void:
     _seen_order.append(event_key)
     if _seen_order.size() <= MAX_SEEN_EVENTS:
         return
-    var stale := _seen_order.pop_front()
+    var stale: String = str(_seen_order.pop_front())
     _seen_event_keys.erase(stale)

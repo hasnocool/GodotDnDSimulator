@@ -103,6 +103,8 @@ project uses semantic versioning as documented in `docs/adr/0002-versioning.md`.
 
 ### Fixed
 
+- Godot TCP bridge negotiation now accepts integral JSON numbers parsed as floats, preventing valid
+  Python bridge responses from being rejected before capability negotiation.
 - Snapshot restore and replay preserve exact deterministic RNG continuation rather than restoring
   visible state alone.
 - Client bridge/mirror sequencing rejects stale/gapped authority while accepting integral JSON
