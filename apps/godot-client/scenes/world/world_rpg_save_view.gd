@@ -1,6 +1,8 @@
 extends "res://scenes/world/world_rpg_view.gd"
 
 var _equipment_options: Dictionary = {}
+var _legacy_equipment_fallback := false
+var _equipment_query_pending := false
 
 @onready var _save_load_panel: WorldSavePanel = %SaveLoad
 @onready var _exploration_summary: Label = %ExplorationSummary
@@ -37,11 +39,17 @@ func show_world() -> void:
 
 func _refresh_world() -> void:
     super._refresh_world()
-    if _state != null:
-        _state.request_query(
-            "inventory.equipment_options",
-            {},
-            "world:equipment-options",
+    if _state == null:
+        return
+    _equipment_query_pending = true
+    var request_id := _state.request_query(
+        "inventory.equipment_options",
+        {},
+        "world:equipment-options",
+    )
+    if request_id.is_empty():
+        _enable_legacy_equipment_fallback(
+            "Equipment compatibility query is unavailable; enter an engine slot ID."
         )
 
 
@@ -211,15 +219,22 @@ func _render_shop(shop: Dictionary) -> void:
 
 
 func _refresh_equip_controls(world_state: Dictionary) -> void:
-    if _equipment_options.is_empty():
-        # Keep older fixtures/tools functional while the authoritative compatibility
-        # query is still in flight. The free-text control is hidden from players and
-        # the Python bridge still validates every submitted item/slot combination.
+    if _legacy_equipment_fallback:
         super._refresh_equip_controls(world_state)
-        _equip_slot_options.clear()
-        _equip.disabled = false
+        _equip_slot.visible = true
+        _equip_slot_options.visible = false
         return
 
+    if _equipment_options.is_empty():
+        super._refresh_equip_controls(world_state)
+        _equip_slot.visible = false
+        _equip_slot_options.visible = true
+        _equip_slot_options.clear()
+        _equip.disabled = true
+        return
+
+    _equip_slot.visible = false
+    _equip_slot_options.visible = true
     _equip_actor.clear()
     _equip_item.clear()
     _equip_slot_options.clear()
@@ -248,7 +263,7 @@ func _refresh_equip_controls(world_state: Dictionary) -> void:
 
 
 func _on_equipment_item_selected(_index: int) -> void:
-    if not _equipment_options.is_empty():
+    if not _legacy_equipment_fallback and not _equipment_options.is_empty():
         _refresh_slot_choices()
 
 
@@ -294,12 +309,10 @@ func _equip_selected() -> void:
     var actor_id := str(_equip_actor.get_item_metadata(_equip_actor.selected))
     var item_id := str(_equip_item.get_item_metadata(_equip_item.selected))
     var slot_id := ""
-    if _equip_slot_options.item_count > 0:
-        slot_id = str(_equip_slot_options.get_item_metadata(_equip_slot_options.selected))
-    elif _equipment_options.is_empty():
-        # Non-user-facing compatibility path for older headless fixtures. Production
-        # UI keeps this LineEdit hidden and the bridge remains the legality authority.
+    if _legacy_equipment_fallback:
         slot_id = _equip_slot.text.strip_edges()
+    elif _equip_slot_options.item_count > 0:
+        slot_id = str(_equip_slot_options.get_item_metadata(_equip_slot_options.selected))
     if slot_id.is_empty():
         _status.text = "No engine-approved equipment slot is available."
         return
@@ -316,9 +329,39 @@ func _on_query_completed(
     payload: Dictionary,
 ) -> void:
     if correlation_id == "world:equipment-options":
+        _equipment_query_pending = false
+        _legacy_equipment_fallback = false
+        _equip_slot.visible = false
+        _equip_slot_options.visible = true
         _equipment_options = payload.duplicate(true)
         var state_value: Variant = _world_snapshot.get("state", {})
         if typeof(state_value) == TYPE_DICTIONARY:
             _refresh_equip_controls(state_value as Dictionary)
         return
     super._on_query_completed(correlation_id, generation, payload)
+
+
+func _on_query_failed(
+    correlation_id: String,
+    generation: int,
+    user_message: String,
+    debug_detail: String,
+) -> void:
+    if correlation_id == "world:equipment-options":
+        _equipment_query_pending = false
+        _enable_legacy_equipment_fallback(
+            "Equipment compatibility choices are unavailable on this engine; enter an engine slot ID."
+        )
+        return
+    super._on_query_failed(correlation_id, generation, user_message, debug_detail)
+
+
+func _enable_legacy_equipment_fallback(message: String) -> void:
+    _equipment_options.clear()
+    _legacy_equipment_fallback = true
+    _equip_slot.visible = true
+    _equip_slot_options.visible = false
+    var state_value: Variant = _world_snapshot.get("state", {})
+    if typeof(state_value) == TYPE_DICTIONARY:
+        super._refresh_equip_controls(state_value as Dictionary)
+    _status.text = message
