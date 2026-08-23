@@ -18,6 +18,10 @@ func _run() -> void:
     root.add_child(hud)
     await process_frame
 
+    _check(
+        hud.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+        "full-screen tactical HUD ignores map mouse hits outside its interactive children",
+    )
     await _check_button_releases_focus(
         hud.get_node("ActionPanel/ActionMargin/Actions/MoveButton") as Button,
         "Move",
