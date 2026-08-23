@@ -23,8 +23,31 @@ func _run() -> void:
     camera.set_map_bounds(Rect2(Vector2.ZERO, Vector2(5.0, 4.0)))
     camera.focus_world_position(Vector3(9.0, 0.0, -3.0))
     _check(
-        camera.focus_position().is_equal_approx(Vector3(5.0, 0.0, 0.0)),
-        "camera focus clamps to authoritative map bounds",
+        camera.focus_position().is_equal_approx(Vector3(2.5, 0.0, 2.0)),
+        "maps smaller than the orthographic footprint stay centered instead of exposing void",
+    )
+    var compact_limits: Rect2 = camera.focus_limits()
+    _check(
+        is_equal_approx(compact_limits.size.x, 0.0) and is_equal_approx(compact_limits.size.y, 0.0),
+        "small-map focus limits collapse to the authoritative map center",
+    )
+
+    camera.set_zoom(6.0)
+    camera.set_map_bounds(Rect2(Vector2.ZERO, Vector2(80.0, 60.0)))
+    var padded_limits: Rect2 = camera.focus_limits()
+    _check(
+        padded_limits.position.x > 0.0 and padded_limits.position.y > 0.0,
+        "camera focus limits reserve aspect-aware padding from the minimum map edges",
+    )
+    _check(
+        padded_limits.end.x < 80.0 and padded_limits.end.y < 60.0,
+        "camera focus limits reserve aspect-aware padding from the maximum map edges",
+    )
+    camera.focus_world_position(Vector3(999.0, 0.0, 999.0))
+    _check(
+        camera.focus_position().x <= padded_limits.end.x
+            and camera.focus_position().z <= padded_limits.end.y,
+        "camera focus clamps inside the padded visible footprint",
     )
 
     camera.rotate_quarter(1)
