@@ -3,6 +3,7 @@ extends Node3D
 
 const ActorScene = preload("res://scenes/actors/tactical_actor_view.tscn")
 const InteractionModes = preload("res://input/interaction_modes.gd")
+const DEBUG_SHAPE_KINDS := ["sphere", "cylinder", "cone", "line"]
 
 var _state: ClientStateCoordinator
 var _controller: ClientInteractionController
@@ -18,6 +19,8 @@ var _reachable_request_id := ""
 var _target_request_id := ""
 var _area_request_id := ""
 var _preview_authority_sequence := -1
+var _debug_shape_index := 0
+var _debug_shape_direction := Vector2.RIGHT
 
 @onready var _map: TacticalMapView = $TacticalMap
 @onready var _actors_root: Node3D = $Actors
@@ -36,6 +39,9 @@ func _ready() -> void:
     _hud.strike_requested.connect(_on_strike_requested)
     _hud.end_turn_requested.connect(_on_end_turn_requested)
     _hud.area_debug_requested.connect(_on_area_debug_requested)
+    _hud.shape_kind_requested.connect(_on_shape_kind_requested)
+    _hud.shape_rotate_requested.connect(_on_shape_rotate_requested)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
     _event_presenter.combat_log_entry.connect(_hud.append_log)
     _event_presenter.actor_emphasis_requested.connect(_on_actor_emphasis_requested)
     _event_presenter.vfx_cue_requested.connect(_on_vfx_cue_requested)
@@ -113,6 +119,14 @@ func tactical_hud() -> TacticalHUD:
 
 func vfx_presenter() -> TacticalVFXPresenter:
     return _vfx_presenter
+
+
+func debug_shape_kind() -> String:
+    return _debug_shape_kind()
+
+
+func debug_shape_direction() -> Vector2:
+    return _debug_shape_direction
 
 
 func _exit_tree() -> void:
@@ -338,19 +352,26 @@ func _on_area_debug_requested() -> void:
     if not _controller.transition_to(InteractionModes.Mode.SHAPE_PREVIEW):
         return
     _overlay.clear_all()
-    var request_id := _state.request_preview(
-        "spatial.area",
-        {
-            "shape": {
-                "kind": "sphere",
-                "center": position_value,
-                "radius_feet": 10,
-            },
-        },
-        "v07-area:%s" % actor_id,
-    )
-    _area_request_id = request_id
-    _controller.register_mode_request(request_id)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    _request_area_at(position_value)
+
+
+func _on_shape_kind_requested() -> void:
+    _debug_shape_index = (_debug_shape_index + 1) % DEBUG_SHAPE_KINDS.size()
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    if _controller != null and _controller.current_mode() == InteractionModes.Mode.SHAPE_PREVIEW:
+        var origin := _shape_origin()
+        if not origin.is_empty():
+            _request_area_at(origin)
+
+
+func _on_shape_rotate_requested() -> void:
+    _debug_shape_direction = Vector2(-_debug_shape_direction.y, _debug_shape_direction.x)
+    _hud.set_shape_debug_state(_debug_shape_kind(), _debug_shape_direction)
+    if _controller != null and _controller.current_mode() == InteractionModes.Mode.SHAPE_PREVIEW:
+        var origin := _shape_origin()
+        if not origin.is_empty():
+            _request_area_at(origin)
 
 
 func _on_select_requested() -> void:
@@ -398,6 +419,9 @@ func _on_confirm_requested(mode: int) -> void:
 func _on_context_requested(mode: int) -> void:
     if mode == InteractionModes.Mode.TARGET:
         _cycle_target()
+        return
+    if mode == InteractionModes.Mode.SHAPE_PREVIEW:
+        _on_shape_rotate_requested()
         return
     if mode not in [InteractionModes.Mode.INSPECT, InteractionModes.Mode.SELECT]:
         return
@@ -510,16 +534,85 @@ func _request_area_at(cell: Dictionary) -> void:
         _state.cancel_pending(_area_request_id)
     _area_request_id = _state.request_preview(
         "spatial.area",
-        {
-            "shape": {
-                "kind": "sphere",
-                "center": cell,
-                "radius_feet": 10,
-            },
-        },
-        "v07-area:%d:%d" % [int(cell.get("x", 0)), int(cell.get("y", 0))],
+        {"shape": _debug_shape_payload(cell)},
+        "v07-area:%s:%d:%d" % [
+            _debug_shape_kind(),
+            int(cell.get("x", 0)),
+            int(cell.get("y", 0)),
+        ],
     )
     _controller.register_mode_request(_area_request_id)
+    _hud.set_preview_text(
+        "%s origin %d,%d · direction %s · engine computes area membership" % [
+            _debug_shape_kind().capitalize(),
+            int(cell.get("x", 0)),
+            int(cell.get("y", 0)),
+            _direction_text(_debug_shape_direction),
+        ]
+    )
+
+
+func _debug_shape_payload(cell: Dictionary) -> Dictionary:
+    match _debug_shape_kind():
+        "cylinder":
+            return {
+                "kind": "cylinder",
+                "center": cell.duplicate(true),
+                "radius_feet": 10,
+                "height_feet": 10,
+            }
+        "cone":
+            return {
+                "kind": "cone",
+                "origin": cell.duplicate(true),
+                "direction": {
+                    "x": _debug_shape_direction.x,
+                    "y": _debug_shape_direction.y,
+                },
+                "length_feet": 15,
+                "angle_degrees": 90,
+            }
+        "line":
+            return {
+                "kind": "line",
+                "origin": cell.duplicate(true),
+                "direction": {
+                    "x": _debug_shape_direction.x,
+                    "y": _debug_shape_direction.y,
+                },
+                "length_feet": 20,
+                "width_feet": 5,
+            }
+        _:
+            return {
+                "kind": "sphere",
+                "center": cell.duplicate(true),
+                "radius_feet": 10,
+            }
+
+
+func _debug_shape_kind() -> String:
+    return str(DEBUG_SHAPE_KINDS[_debug_shape_index])
+
+
+func _shape_origin() -> Dictionary:
+    if not _hovered_cell.is_empty():
+        return _hovered_cell.duplicate(true)
+    if _state == null:
+        return {}
+    var actor := _actor_data(_state.interaction.selected_actor_id())
+    var position_value: Variant = actor.get("position", {})
+    return (
+        (position_value as Dictionary).duplicate(true)
+        if typeof(position_value) == TYPE_DICTIONARY
+        else {}
+    )
+
+
+func _direction_text(direction: Vector2) -> String:
+    if absf(direction.x) >= absf(direction.y):
+        return "east" if direction.x >= 0.0 else "west"
+    return "south" if direction.y >= 0.0 else "north"
 
 
 func _refresh_active_preview_after_state_change() -> void:
@@ -575,7 +668,12 @@ func _on_preview_completed(
         _area_request_id = ""
         _overlay.show_area(payload)
         var ids: Variant = payload.get("entity_ids", [])
-        _hud.set_preview_text("Authoritative area members: %s" % ids)
+        _hud.set_preview_text(
+            "%s · authoritative area members: %s" % [
+                _debug_shape_kind().capitalize(),
+                ids,
+            ]
+        )
 
 
 func _apply_path_preview(payload: Dictionary) -> void:
