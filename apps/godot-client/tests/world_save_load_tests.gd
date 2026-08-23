@@ -15,6 +15,7 @@ func _initialize() -> void:
 
 func _run() -> void:
     await _test_world_save_load_roundtrip()
+    await _test_disconnect_clears_pending_save_ui()
     await _test_adventure_scene_reconciles_only_authoritative_loads()
     if _failures == 0:
         print("Godot world save/load tests: PASS")
@@ -80,8 +81,15 @@ func _test_world_save_load_roundtrip() -> void:
     await process_frame
     var save_request := _last_query(transport, "world.save")
     _check(not save_request.is_empty(), "Save Game requests an authoritative world.save snapshot")
+    var save_request_payload: Dictionary = save_request.get("payload", {})
+    var save_query: Dictionary = save_request_payload.get("query", {})
+    _check(
+        str(save_query.get("encoding", "")) == "lossless-json",
+        "Save Game explicitly requests the lossless engine encoding",
+    )
 
     var saved_snapshot := _world_snapshot(5, "Old Quarry Road")
+    var saved_snapshot_json := _lossless_world_snapshot_json(5, "Old Quarry Road")
     transport.queue_message(
         Protocol.make_response(
             "query.result",
@@ -89,7 +97,15 @@ func _test_world_save_load_roundtrip() -> void:
             str(save_request["correlation_id"]),
             int(save_request["generation"]),
             true,
-            {"world_snapshot": saved_snapshot},
+            {
+                "world_snapshot_json": saved_snapshot_json,
+                "save_metadata": {
+                    "campaign_id": "campaign:test",
+                    "sequence": 5,
+                    "area_id": "area:test-5",
+                    "area_name": "Old Quarry Road",
+                },
+            },
         )
     )
     bridge.poll(0.0)
@@ -98,6 +114,16 @@ func _test_world_save_load_roundtrip() -> void:
 
     var save_path := ProjectSettings.globalize_path(root_dir).path_join("slot-1.json")
     _check(FileAccess.file_exists(save_path), "save slot is persisted under the configured user path")
+    var save_file := FileAccess.open(save_path, FileAccess.READ)
+    _check(save_file != null, "persisted save file can be inspected")
+    if save_file != null:
+        var persisted_text := save_file.get_as_text()
+        save_file.close()
+        _check(
+            persisted_text.contains("9223372036854775001"),
+            "persisted save preserves 64-bit RNG digits as engine-owned text",
+        )
+
     var load_button: Button = panel.get_node("Buttons/LoadGame")
     _check(not load_button.disabled, "saved slot becomes loadable")
     var details: Label = panel.get_node("SaveDetails")
@@ -115,10 +141,9 @@ func _test_world_save_load_roundtrip() -> void:
     _check(str(command.get("command_type", "")) == "world.load", "load uses world.load")
     _check(int(command.get("expected_sequence", -1)) == 9, "load validates against the current world sequence")
     var load_payload: Dictionary = command.get("payload", {})
-    var submitted_snapshot: Dictionary = load_payload.get("world_snapshot", {})
     _check(
-        int((submitted_snapshot.get("state", {}) as Dictionary).get("sequence", -1)) == 5,
-        "load submits the persisted authoritative snapshot unchanged",
+        str(load_payload.get("world_snapshot_json", "")) == saved_snapshot_json,
+        "load submits the lossless engine snapshot string unchanged",
     )
     var panel_snapshot: Dictionary = panel.get("_world_snapshot")
     _check(
@@ -145,6 +170,65 @@ func _test_world_save_load_roundtrip() -> void:
     panel.queue_free()
     await process_frame
     _cleanup_test_root(root_dir)
+
+
+func _test_disconnect_clears_pending_save_ui() -> void:
+    var panel_scene := load("res://scenes/world/world_save_panel.tscn") as PackedScene
+    if panel_scene == null:
+        _check(false, "save/load panel loads for disconnect regression")
+        return
+    var panel = panel_scene.instantiate()
+    root.add_child(panel)
+    await process_frame
+
+    var bridge = EngineBridgeScript.new()
+    var transport = FakeTransportScript.new()
+    var coordinator = CoordinatorScript.new()
+    coordinator.bind_bridge(bridge)
+    _check(bridge.initialize(transport) == OK, "disconnect test bridge initializes")
+    var hello := _last_message(transport, "bridge.hello")
+    transport.queue_message(
+        Protocol.make_response(
+            "bridge.hello.accepted",
+            str(hello["request_id"]),
+            str(hello["correlation_id"]),
+            int(hello["generation"]),
+            true,
+            {
+                "protocol": Protocol.PROTOCOL_NAME,
+                "capabilities": ["commands.v1", "queries.v1", "world.save-replay.v1"],
+            },
+        )
+    )
+    bridge.poll(0.0)
+    coordinator.authoritative.ingest_snapshot(_core_snapshot())
+    panel.call("bind_client_state", coordinator)
+    panel.call("set_world_snapshot", _world_snapshot(3, "Reedhollow Square"))
+
+    var save_button: Button = panel.get_node("Buttons/SaveGame")
+    save_button.pressed.emit()
+    await process_frame
+    _check(
+        not str(panel.get("_save_query_slot")).is_empty(),
+        "disconnect regression starts with a pending save query",
+    )
+    transport.simulate_disconnect("cable removed")
+    await process_frame
+    _check(
+        str(panel.get("_save_query_slot")).is_empty(),
+        "bridge disconnect clears the pending save query slot",
+    )
+    _check(
+        not bool(panel.call("_operation_in_progress")),
+        "bridge disconnect does not leave save/load controls permanently busy",
+    )
+    var status: Label = panel.get_node("SaveStatus")
+    _check(status.text.contains("connection lost"), "disconnect is visible to the save/load user")
+
+    bridge.shutdown()
+    root.remove_child(panel)
+    panel.queue_free()
+    await process_frame
 
 
 func _test_adventure_scene_reconciles_only_authoritative_loads() -> void:
@@ -250,6 +334,20 @@ func _world_snapshot(sequence: int, area_name: String) -> Dictionary:
         "rng": {"algorithm": "pcg32-v1", "state": sequence + 1, "increment": 3},
         "events": [],
     }
+
+
+func _lossless_world_snapshot_json(sequence: int, area_name: String) -> String:
+    return (
+        "{\"events\":[],\"rng\":{\"algorithm\":\"pcg32-v1\","
+        + "\"increment\":1442695040888963407,\"state\":9223372036854775001},"
+        + "\"schema_version\":1,\"state\":{\"active_dialogue\":null,"
+        + "\"area\":{\"area_id\":\"area:test-%d\",\"name\":\"%s\",\"tags\":[]},"
+        % [sequence, area_name]
+        + "\"campaign_id\":\"campaign:test\",\"completed_encounters\":[],"
+        + "\"currency\":0,\"equipped\":{},\"flags\":[],\"inventory\":{},"
+        + "\"journal\":[],\"mode\":\"world\",\"party_ids\":[],\"quests\":{},"
+        + "\"rest_count\":0,\"sequence\":%d}}" % sequence
+    )
 
 
 func _cleanup_test_root(root_dir: String) -> void:
