@@ -50,9 +50,13 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
                     "events.v1",
                     "request-cancel.v1",
                     "request-generation.v1",
+                    "characters.creator.v1",
+                    "characters.creator.commands.v1",
+                    "characters.levelup.v1",
                     "world.runtime.v1",
                     "world.commands.v1",
                     "world.queries.v1",
+                    "world.save-replay.v1",
                     "dialogue.v1",
                     "quests.v1",
                     "shops.v1",
@@ -90,9 +94,13 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
     var world_snapshot_request := _last_query(transport, "world.snapshot")
     var actions_request := _last_query(transport, "world.actions")
     var journal_request := _last_query(transport, "world.journal")
+    var map_request := _last_query(transport, "world.map")
+    var party_request := _last_query(transport, "world.party")
     _check(not world_snapshot_request.is_empty(), "world overlay requests world snapshot")
     _check(not actions_request.is_empty(), "world overlay requests available actions")
     _check(not journal_request.is_empty(), "world overlay requests journal")
+    _check(not map_request.is_empty(), "world overlay requests authoritative map")
+    _check(not party_request.is_empty(), "world overlay requests authoritative party")
 
     transport.queue_message(
         Protocol.make_response(
@@ -132,6 +140,53 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
             {"quests": {"quest:test": "available"}, "entries": ["Arrival"]},
         )
     )
+    transport.queue_message(
+        Protocol.make_response(
+            "query.result",
+            str(map_request["request_id"]),
+            str(map_request["correlation_id"]),
+            int(map_request["generation"]),
+            true,
+            {
+                "current_area_id": "area:reedhollow-square",
+                "areas": [
+                    {
+                        "area_id": "area:reedhollow-square",
+                        "name": "Reedhollow Square",
+                        "exits": ["area:old-road"],
+                        "visited": true,
+                    },
+                    {
+                        "area_id": "area:old-road",
+                        "name": "Old Quarry Road",
+                        "exits": ["area:reedhollow-square"],
+                        "visited": false,
+                    },
+                ],
+            },
+        )
+    )
+    transport.queue_message(
+        Protocol.make_response(
+            "query.result",
+            str(party_request["request_id"]),
+            str(party_request["correlation_id"]),
+            int(party_request["generation"]),
+            true,
+            {
+                "party_ids": ["actor:premade-mira", "actor:premade-aster"],
+                "equipped": {"actor:premade-mira:main_hand": "item:lantern-blade"},
+            },
+        )
+    )
+    await process_frame
+
+    var mira_request := _last_character_query(transport, "actor:premade-mira")
+    var aster_request := _last_character_query(transport, "actor:premade-aster")
+    _check(not mira_request.is_empty(), "party card requests Mira character record")
+    _check(not aster_request.is_empty(), "party card requests Aster character record")
+    transport.queue_message(_character_response(mira_request, _character_record("actor:premade-mira", "Mira Quill", "guardian", 18, 16)))
+    transport.queue_message(_character_response(aster_request, _character_record("actor:premade-aster", "Aster Vale", "scholar", 12, 13)))
     await process_frame
 
     _check(
@@ -145,10 +200,87 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
     var travel_box = world.get_node("Panel/Margin/VBox/Columns/ActionsScroll/Actions/Travel")
     _check(travel_box.get_child_count() == 1, "travel UI renders engine-returned actions")
 
+    var map_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Map")
+    var party_cards: VBoxContainer = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Party/PartyCards")
+    var inventory_items: VBoxContainer = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/ItemsScroll/InventoryItems")
+    var journal_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Journal")
+    _check(map_view.text.contains("Reedhollow Square"), "map tab renders authoritative area data")
+    _check(map_view.text.contains("Old Quarry Road"), "map tab renders connected area data")
+    _check(_tree_text(party_cards).contains("Mira Quill"), "party cards render authoritative character names")
+    _check(_tree_text(party_cards).contains("HP 18/18 · AC 16"), "party cards render authoritative actor stats")
+    _check(_tree_text(party_cards).contains("item:lantern-blade"), "party cards render authoritative equipment")
+    _check(_tree_text(inventory_items).contains("item:field-kit × 2"), "inventory tab renders snapshot inventory")
+    _check(journal_view.text.contains("quest:test"), "journal tab renders authoritative quest state")
+
+    var equip_slot: LineEdit = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/EquipSlot")
+    var equip_button: Button = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/Equip")
+    equip_slot.text = "main_hand"
+    equip_button.pressed.emit()
+    await process_frame
+    var equip_command := _last_message(transport, "command.submit")
+    _check(not equip_command.is_empty(), "inventory UI submits an authoritative command")
+    var equip_payload: Dictionary = equip_command.get("payload", {}).get("command", {})
+    _check(str(equip_payload.get("command_type", "")) == "inventory.equip", "inventory UI uses inventory.equip")
+    _check(int(equip_payload.get("expected_sequence", -1)) == 0, "equipment command uses isolated world sequence")
+    var equipment_intent: Dictionary = equip_payload.get("payload", {})
+    _check(str(equipment_intent.get("actor_id", "")) == "actor:premade-mira", "equipment intent targets selected party actor")
+    _check(str(equipment_intent.get("item_id", "")) == "item:field-kit", "equipment intent uses an owned item")
+    _check(str(equipment_intent.get("slot", "")) == "main_hand", "equipment slot is submitted as intent for engine validation")
+
     shell.shutdown()
     root.remove_child(shell)
     shell.queue_free()
     await process_frame
+
+
+func _character_response(request: Dictionary, record: Dictionary) -> Dictionary:
+    return Protocol.make_response(
+        "query.result",
+        str(request["request_id"]),
+        str(request["correlation_id"]),
+        int(request["generation"]),
+        true,
+        {"record": record},
+    )
+
+
+func _character_record(actor_id: String, name: String, class_name_value: String, hp: int, ac: int) -> Dictionary:
+    return {
+        "schema_version": 1,
+        "catalog_id": "catalog:test",
+        "species_id": "species:test",
+        "background_id": "background:test",
+        "class_id": "class:%s" % class_name_value,
+        "ability_method_id": "ability:test",
+        "appearance": {},
+        "biography": "",
+        "personality": "",
+        "spell_ids": [],
+        "feature_ids": [],
+        "actor": {
+            "schema_version": 1,
+            "actor_id": actor_id,
+            "name": name,
+            "kind": "hero",
+            "size": "medium",
+            "level": 1,
+            "proficiency_bonus": 2,
+            "abilities": {},
+            "hit_points": {"current": hp, "maximum": hp, "temporary": 0},
+            "defense": {"armor_class": ac},
+            "skills": [],
+            "saves": [],
+            "proficiencies": [],
+            "movement": [],
+            "senses": [],
+            "inventory": [],
+            "equipment": [],
+            "resources": [],
+            "conditions": [],
+            "selected_options": [],
+            "tags": [],
+        },
+    }
 
 
 func _core_snapshot() -> Dictionary:
@@ -172,11 +304,11 @@ func _world_snapshot(sequence: int) -> Dictionary:
             "sequence": sequence,
             "mode": "world",
             "area": {"area_id": "area:reedhollow-square", "name": "Reedhollow Square", "tags": ["village"]},
-            "party_ids": [],
+            "party_ids": ["actor:premade-mira", "actor:premade-aster"],
             "flags": [],
             "quests": {"quest:test": "available"},
-            "inventory": {},
-            "equipped": {},
+            "inventory": {"item:field-kit": 2},
+            "equipped": {"actor:premade-mira:main_hand": "item:lantern-blade"},
             "currency": 25,
             "active_dialogue": null,
             "completed_encounters": [],
@@ -205,6 +337,31 @@ func _last_query(transport, query_type: String) -> Dictionary:
         if str(payload.get("query_type", "")) == query_type:
             return message
     return {}
+
+
+func _last_character_query(transport, actor_id: String) -> Dictionary:
+    for index in range(transport.sent_messages.size() - 1, -1, -1):
+        var message: Dictionary = transport.sent_messages[index]
+        if str(message.get("kind", "")) != "query.request":
+            continue
+        var payload: Dictionary = message.get("payload", {})
+        if str(payload.get("query_type", "")) != "characters.get":
+            continue
+        var query: Dictionary = payload.get("query", {})
+        if str(query.get("actor_id", "")) == actor_id:
+            return message
+    return {}
+
+
+func _tree_text(node: Node) -> String:
+    var lines: Array[String] = []
+    if node is Label:
+        lines.append((node as Label).text)
+    elif node is RichTextLabel:
+        lines.append((node as RichTextLabel).text)
+    for child in node.get_children():
+        lines.append(_tree_text(child))
+    return "\n".join(lines)
 
 
 func _check(condition: bool, message: String) -> void:
