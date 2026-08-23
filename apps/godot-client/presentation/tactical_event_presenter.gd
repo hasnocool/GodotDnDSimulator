@@ -14,6 +14,7 @@ var _state: ClientStateCoordinator
 var _queued := 0
 var _seen_event_keys: Dictionary = {}
 var _seen_order: Array[String] = []
+var _debug_expanded := false
 
 
 func bind_state(state: ClientStateCoordinator) -> void:
@@ -30,6 +31,14 @@ func unbind_state() -> void:
         _state.presentation_events_received.disconnect(_on_presentation_events)
     _state = null
     _queued = 0
+
+
+func set_debug_expanded(enabled: bool) -> void:
+    _debug_expanded = enabled
+
+
+func debug_expanded() -> bool:
+    return _debug_expanded
 
 
 func reset_deduplication() -> void:
@@ -71,13 +80,13 @@ func _present(event: Dictionary) -> void:
     var payload: Dictionary = (
         payload_value if typeof(payload_value) == TYPE_DICTIONARY else {}
     )
-    var prefix := "[%d] %s" % [sequence, event_type]
+    var prefix := _prefix(sequence, event_type)
     match event_type:
         "tactical.actor_moved":
             combat_log_entry.emit(
-                "%s · %s moved %d ft" % [
+                "%s%s moved %d ft" % [
                     prefix,
-                    actor_id,
+                    _identity(actor_id),
                     int(payload.get("cost_feet", 0)),
                 ]
             )
@@ -87,11 +96,11 @@ func _present(event: Dictionary) -> void:
         "tactical.attack_resolved":
             var outcome := "hit" if bool(payload.get("hit", false)) else "miss"
             combat_log_entry.emit(
-                "%s · %s %s %s (%d damage)" % [
+                "%s%s %s %s (%d damage)" % [
                     prefix,
-                    actor_id,
+                    _identity(actor_id),
                     outcome,
-                    target_id,
+                    _identity(target_id),
                     int(payload.get("damage", 0)),
                 ]
             )
@@ -106,24 +115,24 @@ func _present(event: Dictionary) -> void:
             _present_spell(prefix, actor_id, payload)
         "tactical.spell_duration_expired":
             combat_log_entry.emit(
-                "%s · Spell effect ended · %s" % [prefix, str(payload.get("spell_id", ""))]
+                "%sSpell effect ended · %s" % [prefix, str(payload.get("spell_id", ""))]
             )
             audio_cue_requested.emit("spell_expired")
             vfx_cue_requested.emit("status_expired", actor_id, payload)
         "tactical.turn_started":
-            combat_log_entry.emit("%s · Turn: %s" % [prefix, actor_id])
+            combat_log_entry.emit("%sTurn: %s" % [prefix, _identity(actor_id)])
             actor_emphasis_requested.emit(actor_id)
             audio_cue_requested.emit("turn_started")
         "tactical.encounter_ended":
             combat_log_entry.emit(
-                "%s · Encounter complete · %s" % [
+                "%sEncounter complete · %s" % [
                     prefix,
                     str(payload.get("winner_team", "")),
                 ]
             )
             audio_cue_requested.emit("encounter_complete")
         _:
-            combat_log_entry.emit(prefix)
+            combat_log_entry.emit("%s%s" % [prefix, event_type])
     event_presented.emit(event)
 
 
@@ -147,16 +156,34 @@ func _present_spell(prefix: String, actor_id: String, payload: Dictionary) -> vo
             var outcome := "resolved"
             if target.get("success") != null:
                 outcome = "success" if bool(target.get("success")) else "failed"
-            target_summaries.append("%s %s %d" % [target_id, outcome, amount_total])
+            target_summaries.append(
+                "%s %s %d" % [_identity(target_id), outcome, amount_total]
+            )
             if not target_id.is_empty():
                 actor_emphasis_requested.emit(target_id)
                 vfx_cue_requested.emit(_spell_vfx_cue(effect_kinds), target_id, target)
     var suffix := ""
     if not target_summaries.is_empty():
         suffix = " · %s" % ", ".join(target_summaries)
-    combat_log_entry.emit("%s · %s cast %s%s" % [prefix, actor_id, spell_id, suffix])
+    combat_log_entry.emit(
+        "%s%s cast %s%s" % [prefix, _identity(actor_id), spell_id, suffix]
+    )
     actor_emphasis_requested.emit(actor_id)
     audio_cue_requested.emit("spell_resolved")
+
+
+func _prefix(sequence: int, event_type: String) -> String:
+    if not _debug_expanded:
+        return ""
+    return "[%d] %s · " % [sequence, event_type]
+
+
+func _identity(actor_id: String) -> String:
+    if _debug_expanded:
+        return actor_id
+    if actor_id.is_empty():
+        return "Actor"
+    return actor_id.get_slice(":", actor_id.get_slice_count(":") - 1).replace("-", " ").capitalize()
 
 
 func _spell_vfx_cue(effect_kinds: Array[String]) -> String:
