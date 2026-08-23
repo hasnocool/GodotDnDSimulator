@@ -9,7 +9,7 @@
     "format_version",
     "slot_id",
     "metadata",
-    "world_snapshot"
+    "world_snapshot_json"
   ],
   "properties": {
     "format": {
@@ -39,9 +39,10 @@
         "area_name": {"type": "string"}
       }
     },
-    "world_snapshot": {
-      "type": "object",
-      "description": "Opaque authoritative world snapshot produced and validated by the Python world runtime."
+    "world_snapshot_json": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Lossless canonical JSON produced by the Python world runtime. Godot persists and returns this string without interpreting snapshot numeric values."
     }
   }
 }
