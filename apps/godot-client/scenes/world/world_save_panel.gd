@@ -40,6 +40,8 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
         _state.query_completed.connect(_on_query_completed)
         _state.query_failed.connect(_on_query_failed)
         _state.command_completed.connect(_on_command_completed)
+        _state.bridge_disconnected.connect(_on_bridge_disconnected)
+        _state.bridge_unbound.connect(_on_bridge_unbound)
     _update_controls()
 
 
@@ -79,7 +81,11 @@ func _save_selected_slot() -> void:
         return
     var correlation_id := _save_correlation(slot_id)
     _save_query_slot = slot_id
-    var request_id := _state.request_query("world.save", {}, correlation_id)
+    var request_id := _state.request_query(
+        "world.save",
+        {"encoding": "lossless-json"},
+        correlation_id,
+    )
     if request_id.is_empty():
         _save_query_slot = ""
         _status.text = "The authoritative save snapshot request could not be submitted."
@@ -126,18 +132,23 @@ func _on_query_completed(
         return
     var slot_id := _save_query_slot
     _save_query_slot = ""
-    var snapshot_value: Variant = payload.get("world_snapshot", null)
-    if typeof(snapshot_value) != TYPE_DICTIONARY:
-        _status.text = "The engine did not return a valid world snapshot."
+    var snapshot_value: Variant = payload.get("world_snapshot_json", "")
+    if typeof(snapshot_value) != TYPE_STRING or str(snapshot_value).strip_edges().is_empty():
+        _status.text = "The engine did not return a lossless world snapshot."
+        _update_controls()
+        return
+    var metadata_value: Variant = payload.get("save_metadata", null)
+    if typeof(metadata_value) != TYPE_DICTIONARY:
+        _status.text = "The engine did not return valid save metadata."
         _update_controls()
         return
     if _store == null:
         _status.text = "The local save store is unavailable."
         _update_controls()
         return
-    var snapshot := (snapshot_value as Dictionary).duplicate(true)
-    var metadata := _metadata_for_snapshot(snapshot)
-    if _store.save_slot(slot_id, snapshot, metadata):
+    var metadata := (metadata_value as Dictionary).duplicate(true)
+    metadata["saved_at"] = Time.get_datetime_string_from_system(false, true)
+    if _store.save_slot(slot_id, str(snapshot_value), metadata):
         _status.text = "Writing %s…" % WorldSaveStore.slot_label(slot_id)
     _update_controls()
 
@@ -168,7 +179,7 @@ func _on_store_save_completed(slot_id: String, metadata: Dictionary) -> void:
 
 func _on_store_load_completed(
     slot_id: String,
-    world_snapshot: Dictionary,
+    world_snapshot_json: String,
     _metadata: Dictionary,
 ) -> void:
     if slot_id != _load_file_slot:
@@ -190,7 +201,7 @@ func _on_store_load_completed(
         "campaign_id": str(tactical_state.get("campaign_id", "campaign:local-dev")),
         "session_id": str(tactical_state.get("session_id", "session:local-dev")),
         "command_type": "world.load",
-        "payload": {"world_snapshot": world_snapshot.duplicate(true)},
+        "payload": {"world_snapshot_json": world_snapshot_json},
         "version": 1,
         "actor_id": null,
         "expected_sequence": expected_sequence,
@@ -220,6 +231,27 @@ func _on_command_completed(
         _status.text = "%s loaded and validated." % WorldSaveStore.slot_label(slot_id)
     else:
         _status.text = _failure_text("Load rejected", user_message, debug_detail)
+    _update_controls()
+
+
+func _on_bridge_disconnected(reason: String) -> void:
+    _reset_network_operation(
+        "Engine connection lost; pending save/load request cleared. %s" % reason
+    )
+
+
+func _on_bridge_unbound() -> void:
+    _reset_network_operation("Engine bridge is reconnecting; pending save/load request cleared.")
+
+
+func _reset_network_operation(message: String) -> void:
+    var had_network_operation := (
+        not _save_query_slot.is_empty() or not _load_command_slot.is_empty()
+    )
+    _save_query_slot = ""
+    _load_command_slot = ""
+    if had_network_operation:
+        _status.text = message
     _update_controls()
 
 
@@ -322,20 +354,6 @@ func _selected_slot_id() -> String:
     return str(_slot.get_item_metadata(_slot.selected))
 
 
-func _metadata_for_snapshot(snapshot: Dictionary) -> Dictionary:
-    var state_value: Variant = snapshot.get("state", {})
-    var state := state_value as Dictionary if typeof(state_value) == TYPE_DICTIONARY else {}
-    var area_value: Variant = state.get("area", {})
-    var area := area_value as Dictionary if typeof(area_value) == TYPE_DICTIONARY else {}
-    return {
-        "saved_at": Time.get_datetime_string_from_system(false, true),
-        "campaign_id": str(state.get("campaign_id", "")),
-        "sequence": int(state.get("sequence", 0)),
-        "area_id": str(area.get("area_id", "")),
-        "area_name": str(area.get("name", "Unknown area")),
-    }
-
-
 static func _save_correlation(slot_id: String) -> String:
     return "world:save-file:%s" % slot_id
 
@@ -362,6 +380,10 @@ func _unbind_client_state() -> void:
         _state.query_failed.disconnect(_on_query_failed)
     if _state.command_completed.is_connected(_on_command_completed):
         _state.command_completed.disconnect(_on_command_completed)
+    if _state.bridge_disconnected.is_connected(_on_bridge_disconnected):
+        _state.bridge_disconnected.disconnect(_on_bridge_disconnected)
+    if _state.bridge_unbound.is_connected(_on_bridge_unbound):
+        _state.bridge_unbound.disconnect(_on_bridge_unbound)
     _state = null
 
 
