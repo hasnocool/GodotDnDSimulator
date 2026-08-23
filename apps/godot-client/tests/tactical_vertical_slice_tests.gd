@@ -2,6 +2,7 @@ extends SceneTree
 
 const Protocol = preload("res://bridge/bridge_protocol.gd")
 const FakeTransportScript = preload("res://bridge/fake_engine_transport.gd")
+const InteractionModes = preload("res://input/interaction_modes.gd")
 
 var _failures := 0
 var _settings: Node
@@ -15,6 +16,7 @@ func _run() -> void:
     _settings = root.get_node("ClientSettings")
     _settings.reset_defaults(false)
     _settings.set_value("reduced_motion", true, false)
+    _settings.set_value("debug_overlay", true, false)
     await _test_shell_and_authoritative_tactical_flow()
     _settings.reset_defaults(false)
     if _failures == 0:
@@ -93,6 +95,13 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         shell.client_state().interaction.selected_actor_id() == "actor:ember",
         "current authoritative actor becomes initial selection",
     )
+    var ember_view = scene.actor_view("actor:ember")
+    _check(ember_view.team_marker_text().contains("PARTY"), "actor has non-color faction marker")
+    _check(ember_view.condition_text().contains("Hindered"), "actor has dedicated condition slot")
+    _check(ember_view.debug_identity_text() == "actor:ember", "debug actor label uses stable ID")
+    var map = scene.get_node("TacticalMap")
+    _check(map.debug_label_count() == 48, "debug spatial IDs label every rendered cell")
+    _check(scene.debug_overlay().occupancy_marker_count() == 2, "occupancy debug layer mirrors actors")
 
     scene.request_move_mode()
     await process_frame
@@ -114,6 +123,7 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         )
     )
     await process_frame
+    _check(scene.debug_overlay().reachable_marker_count() == 2, "reachable markers match payload")
 
     scene.call("_request_path", {"x": 2, "y": 2})
     var path := _last_preview(transport, "spatial.path")
@@ -124,6 +134,42 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
             str(path["request_id"]),
             str(path["correlation_id"]),
             int(path["generation"]),
+            true,
+            {
+                "legal": true,
+                "path": [{"x": 1, "y": 2}, {"x": 2, "y": 2}],
+                "cost_feet": 10,
+                "segments": [
+                    {"terrain_id": "terrain:shallow-water", "cost_feet": 10},
+                ],
+                "reason": "",
+            },
+        )
+    )
+    await process_frame
+    _check(scene.debug_overlay().path_marker_count() == 2, "path markers match path payload")
+    _check(
+        scene.tactical_hud().preview_text().contains("terrain:shallow-water 10 ft"),
+        "movement preview shows per-segment cost when engine provides it",
+    )
+
+    var path_count_before_refresh := _preview_count(transport, "spatial.path")
+    shell.client_state().call(
+        "_on_authoritative_snapshot",
+        _snapshot(1, {"x": 1, "y": 2}, 30),
+    )
+    await process_frame
+    _check(
+        _preview_count(transport, "spatial.path") > path_count_before_refresh,
+        "active movement preview re-requests after unrelated authoritative update",
+    )
+    var refreshed_path := _last_preview(transport, "spatial.path")
+    transport.queue_message(
+        Protocol.make_response(
+            "preview.result",
+            str(refreshed_path["request_id"]),
+            str(refreshed_path["correlation_id"]),
+            int(refreshed_path["generation"]),
             true,
             {
                 "legal": true,
@@ -143,8 +189,8 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         "confirmation submits one typed tactical.move command",
     )
     _check(
-        int(move_command["payload"]["command"].get("expected_sequence", -1)) == 0,
-        "move command carries authoritative expected sequence",
+        int(move_command["payload"]["command"].get("expected_sequence", -1)) == 1,
+        "move command carries refreshed authoritative expected sequence",
     )
 
     var presentation_count := [0]
@@ -160,10 +206,10 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
             int(move_command["generation"]),
             true,
             {
-                "snapshot": _snapshot(1, {"x": 2, "y": 2}, 20),
+                "snapshot": _snapshot(2, {"x": 2, "y": 2}, 20),
                 "presentation_events": [
                     {
-                        "sequence": 1,
+                        "sequence": 2,
                         "type": "tactical.actor_moved",
                         "actor_id": "actor:ember",
                         "payload": {
@@ -179,7 +225,7 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
     )
     await process_frame
     _check(
-        shell.client_state().authoritative.sequence() == 1,
+        shell.client_state().authoritative.sequence() == 2,
         "accepted command replaces mirror with fresh authoritative snapshot",
     )
     _check(presentation_count[0] == 1, "resolved presentation events are forwarded separately")
@@ -188,11 +234,21 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         ember != null and is_equal_approx(ember.global_position.x, 2.0),
         "actor presentation reconciles to authoritative logical position",
     )
+    _check(scene.vfx_presenter().last_cue_id() == "movement", "movement event dispatches VFX")
+    _check(
+        shell.interaction_controller().current_mode() == InteractionModes.Mode.SELECT,
+        "accepted command returns controller to selection mode",
+    )
 
     scene.request_strike_mode()
-    scene.call("_request_attack_preview", "actor:shale")
+    shell.interaction_controller().handle_semantic_action(&"context")
+    await process_frame
     var attack_preview := _last_preview(transport, "tactical.attack")
-    _check(not attack_preview.is_empty(), "Strike requests engine attack preview")
+    _check(not attack_preview.is_empty(), "controller Context traverses attack targets")
+    _check(
+        str(attack_preview["payload"]["preview"].get("target_id", "")) == "actor:shale",
+        "controller traversal preserves authoritative target ID",
+    )
     transport.queue_message(
         Protocol.make_response(
             "preview.result",
@@ -214,6 +270,7 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
         )
     )
     await process_frame
+    _check(scene.debug_overlay().target_line_visible(), "LOS/cover target line renders from preview")
     var strike_request_id: String = shell.interaction_controller().confirm_current_intent()
     _check(not strike_request_id.is_empty(), "engine-approved target arms strike command")
     var strike_command := _last_message(transport, "command.submit")
@@ -224,12 +281,15 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
 
     transport.queue_message(
         Protocol.make_response(
-            "command.result",
+            "command.rejected",
             str(strike_command["request_id"]),
             str(strike_command["correlation_id"]),
             int(strike_command["generation"]),
-            true,
-            {"snapshot": _snapshot(int(strike_command["generation"]), {"x": 1, "y": 2}, 25)},
+            false,
+            {},
+            "conflict",
+            "Test rejection",
+            "rejection keeps scene usable",
         )
     )
     for _index in range(60):
@@ -238,12 +298,40 @@ func _test_shell_and_authoritative_tactical_flow() -> void:
             break
 
     var selected_actor: String = shell.client_state().interaction.selected_actor_id()
-    _check(selected_actor == "actor:ember", "ember is selected for area debug")
-    
+    _check(selected_actor == "actor:ember", "ember remains selected for area debug")
     scene.call("_on_area_debug_requested")
     await process_frame
     var area := _last_preview(transport, "spatial.area")
     _check(not area.is_empty(), "AoE debug overlay asks engine for area membership")
+    transport.queue_message(
+        Protocol.make_response(
+            "preview.result",
+            str(area["request_id"]),
+            str(area["correlation_id"]),
+            int(area["generation"]),
+            true,
+            {
+                "cells": [{"x": 1, "y": 2}, {"x": 2, "y": 2}],
+                "entity_ids": ["actor:ember"],
+            },
+        )
+    )
+    await process_frame
+    _check(scene.debug_overlay().area_marker_count() == 2, "AoE markers match authoritative cells")
+
+    scene.call("_request_area_at", {"x": 3, "y": 2})
+    var pending_area := _last_preview(transport, "spatial.area")
+    _check(not pending_area.is_empty(), "scene owns an active preview before reload")
+    var old_scene = scene
+    _check(shell.reload_tactical_scene(), "shell can reload tactical presentation")
+    await process_frame
+    var reloaded = shell.tactical_content()
+    _check(reloaded != null and reloaded != old_scene, "reload replaces the tactical scene instance")
+    _check(reloaded.actor_view("actor:ember") != null, "reloaded scene reconstructs actors from mirror")
+    _check(
+        not shell.client_state().interaction.pending_requests().has(str(pending_area["request_id"])),
+        "teardown cancels scene-owned preview requests",
+    )
 
     shell.shutdown()
     root.remove_child(shell)
@@ -321,7 +409,11 @@ func _actor(
         "hit_points": {"current": 18, "maximum": 18, "temporary": 0},
         "armor_class": 14,
         "life_state": "conscious",
-        "conditions": [],
+        "conditions": (
+            [{"condition_id": "condition:hindered", "name": "Hindered"}]
+            if actor_id == "actor:ember"
+            else []
+        ),
         "movement_modes": [{"mode": "walk", "speed_feet": 30}],
         "economy": {
             "action_available": action_available,
@@ -358,6 +450,19 @@ func _last_preview(transport, preview_type: String) -> Dictionary:
         if str(candidate["payload"].get("preview_type", "")) == preview_type:
             return candidate
     return {}
+
+
+func _preview_count(transport, preview_type: String) -> int:
+    var count := 0
+    for candidate_value in transport.sent_messages:
+        if typeof(candidate_value) != TYPE_DICTIONARY:
+            continue
+        var candidate: Dictionary = candidate_value
+        if str(candidate.get("kind", "")) != "preview.request":
+            continue
+        if str(candidate["payload"].get("preview_type", "")) == preview_type:
+            count += 1
+    return count
 
 
 func _check(condition: bool, message: String) -> void:
