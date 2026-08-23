@@ -8,6 +8,7 @@ var _spell_rows: Array[Dictionary] = []
 @onready var _title: Label = %SpellTitle
 @onready var _slots: Label = %SlotSummary
 @onready var _concentration: Label = %ConcentrationLabel
+@onready var _active_effects: Label = %ActiveEffectsLabel
 @onready var _spell_list: VBoxContainer = %SpellList
 
 
@@ -17,6 +18,7 @@ func apply_available(payload: Dictionary) -> void:
     _title.text = "Spells · %s" % actor_id
     _slots.text = _slot_text(payload.get("slots", []))
     _concentration.text = _concentration_text(payload.get("concentration"))
+    _active_effects.text = _active_effects_text(payload.get("active_effects", []))
     var spells_value: Variant = payload.get("spells", [])
     if typeof(spells_value) != TYPE_ARRAY:
         return
@@ -34,6 +36,7 @@ func clear() -> void:
     _title.text = "Spells"
     _slots.text = ""
     _concentration.text = ""
+    _active_effects.text = ""
 
 
 func spell_rows() -> Array[Dictionary]:
@@ -115,6 +118,24 @@ func _concentration_text(value: Variant) -> String:
     if rounds != null:
         suffix = " · %d rounds" % int(rounds)
     return "Concentration · %s%s" % [str(concentration.get("spell_id", "")), suffix]
+
+
+func _active_effects_text(value: Variant) -> String:
+    if typeof(value) != TYPE_ARRAY or (value as Array).is_empty():
+        return "Active effects · none"
+    var parts: Array[String] = []
+    for effect_value in value:
+        if typeof(effect_value) != TYPE_DICTIONARY:
+            continue
+        var effect: Dictionary = effect_value
+        var text := str(effect.get("spell_id", effect.get("effect_id", "effect")))
+        var rounds: Variant = effect.get("remaining_rounds")
+        if rounds != null:
+            text += " · %d rounds" % int(rounds)
+        if bool(effect.get("concentration", false)):
+            text += " · concentration"
+        parts.append(text)
+    return "Active effects · %s" % "; ".join(parts) if not parts.is_empty() else "Active effects · none"
 
 
 func _clear_buttons() -> void:
