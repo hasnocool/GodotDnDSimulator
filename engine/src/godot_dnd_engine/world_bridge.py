@@ -43,6 +43,18 @@ WORLD_CAPABILITIES = (
     "shops.v1",
 )
 PARTY_PROXY_TEAM = "team:ember"
+BLOCKED_DURING_TACTICAL = frozenset(
+    {
+        "world.travel",
+        "world.resolve_interaction",
+        "world.rest",
+        "dialogue.start",
+        "dialogue.choose",
+        "shop.buy",
+        "shop.sell",
+        "inventory.equip",
+    }
+)
 
 
 class WorldClientBridgeSession(CharacterClientBridgeSession):
@@ -84,6 +96,13 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     request,
                     command.expected_sequence,
                     command.payload,
+                )
+            if (
+                self.active_world_encounter_id is not None
+                and command.command_type in BLOCKED_DURING_TACTICAL
+            ):
+                raise ValidationError(
+                    "finish the active tactical encounter before changing world state"
                 )
             world_payload = dict(command.payload)
             if command.command_type == "world.resolve_interaction":
@@ -174,13 +193,21 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
             if item.area_id == current_area
         )
         active_dialogue = self.world.state.active_dialogue is not None
+        active_tactical = self.active_world_encounter_id is not None
         rows["area_name"] = area.name
         rows["area_tags"] = sorted(area.tags)
-        rows["exploration_prompt"] = (
-            "Finish the current conversation before travelling or resting."
-            if active_dialogue
-            else "Choose a destination, conversation, interaction, rest, shop action, or encounter."
-        )
+        if active_tactical:
+            rows["exploration_prompt"] = (
+                "Finish the active tactical encounter before continuing exploration."
+            )
+        elif active_dialogue:
+            rows["exploration_prompt"] = (
+                "Finish the current conversation before travelling or resting."
+            )
+        else:
+            rows["exploration_prompt"] = (
+                "Choose a destination, conversation, interaction, rest, shop action, or encounter."
+            )
 
         travel_value = rows.get("travel", [])
         travel: list[dict[str, object]] = []
@@ -189,24 +216,29 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 if not isinstance(value, dict):
                     continue
                 row = dict(value)
-                row["available"] = not active_dialogue
-                row["reason"] = (
-                    "Finish the active dialogue first."
-                    if active_dialogue
-                    else ""
-                )
+                row["available"] = not active_dialogue and not active_tactical
+                if active_tactical:
+                    row["reason"] = "Finish the active tactical encounter first."
+                elif active_dialogue:
+                    row["reason"] = "Finish the active dialogue first."
+                else:
+                    row["reason"] = ""
                 travel.append(row)
         rows["travel"] = travel
 
-        rows["dialogues"] = [
-            {
-                "dialogue_id": dialogue.dialogue_id,
-                "name": dialogue.nodes[0].speaker,
-            }
-            for dialogue in self.world.definition.dialogues
-            if dialogue.area_id == current_area
-            and self._dialogue_available(dialogue.dialogue_id)
-        ]
+        rows["dialogues"] = (
+            []
+            if active_tactical
+            else [
+                {
+                    "dialogue_id": dialogue.dialogue_id,
+                    "name": dialogue.nodes[0].speaker,
+                }
+                for dialogue in self.world.definition.dialogues
+                if dialogue.area_id == current_area
+                and self._dialogue_available(dialogue.dialogue_id)
+            ]
+        )
 
         interaction_value = rows.get("interactions", [])
         interactions: list[dict[str, object]] = []
@@ -216,8 +248,13 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     continue
                 row = dict(value)
                 completed = bool(row.get("completed", False))
-                row["available"] = not completed
-                row["reason"] = "Already completed." if completed else ""
+                row["available"] = not completed and not active_tactical
+                if active_tactical:
+                    row["reason"] = "Finish the active tactical encounter first."
+                elif completed:
+                    row["reason"] = "Already completed."
+                else:
+                    row["reason"] = ""
                 interactions.append(row)
         rows["interactions"] = interactions
 
@@ -233,6 +270,9 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 if active:
                     row["available"] = False
                     row["reason"] = "Tactical encounter is already active."
+                elif active_tactical:
+                    row["available"] = False
+                    row["reason"] = "Finish the active tactical encounter first."
                 elif not bool(row.get("available", False)):
                     row["reason"] = "Encounter prerequisites are not satisfied."
                 else:
@@ -264,26 +304,37 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                         price = int(item.get("buy_price", 0))
                         item["owned_quantity"] = owned
                         item["buy_available"] = (
-                            stock_available and price <= self.world.state.currency
+                            not active_tactical
+                            and stock_available
+                            and price <= self.world.state.currency
                         )
-                        if not stock_available:
+                        if active_tactical:
+                            item["buy_reason"] = "Finish the active tactical encounter first."
+                        elif not stock_available:
                             item["buy_reason"] = "Out of stock."
                         elif price > self.world.state.currency:
                             item["buy_reason"] = "Not enough currency."
                         else:
                             item["buy_reason"] = ""
-                        item["sell_available"] = owned > 0
-                        item["sell_reason"] = (
-                            "Party does not own this item." if owned <= 0 else ""
-                        )
+                        item["sell_available"] = owned > 0 and not active_tactical
+                        if active_tactical:
+                            item["sell_reason"] = "Finish the active tactical encounter first."
+                        elif owned <= 0:
+                            item["sell_reason"] = "Party does not own this item."
+                        else:
+                            item["sell_reason"] = ""
                         items.append(item)
                 shop["items"] = items
                 shops.append(shop)
         rows["shops"] = shops
-        rows["can_rest"] = not active_dialogue
-        rows["rest_reason"] = (
-            "Finish the active dialogue first." if active_dialogue else ""
-        )
+        runtime_can_rest = bool(rows.get("can_rest", False))
+        rows["can_rest"] = runtime_can_rest and not active_tactical
+        if active_tactical:
+            rows["rest_reason"] = "Finish the active tactical encounter first."
+        elif active_dialogue:
+            rows["rest_reason"] = "Finish the active dialogue first."
+        else:
+            rows["rest_reason"] = ""
         rows["premade_party_ids"] = sorted(self.creator.records)
         return rows
 
@@ -374,16 +425,22 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 raise ValidationError(
                     "finish or lose the active tactical encounter first"
                 )
+        previous_sequence = (
+            self.spell_tactical.sequence if self.spell_tactical is not None else -1
+        )
         self.spell_tactical = SpellEnabledTacticalSession.create(
             campaign_id=self.engine.state.campaign_id,
             session_id=self.engine.state.session_id,
             seed=self._encounter_seed(encounter_id),
         )
+        self.spell_tactical.tactical.sequence = previous_sequence + 1
         self.active_world_encounter_id = encounter_id
+        tactical_snapshot = self.spell_tactical.snapshot()
         return _response(
             request,
             "command.accepted",
             payload={
+                "snapshot": tactical_snapshot,
                 "world_snapshot": self.world.snapshot(),
                 "world_events": [],
                 "presentation_events": [],
@@ -393,6 +450,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "tactical_encounter_id": (
                         self.spell_tactical.tactical.encounter.encounter_id
                     ),
+                    "tactical_sequence": self.spell_tactical.sequence,
                 },
             },
         )
