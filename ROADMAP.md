@@ -1,181 +1,158 @@
-# Roadmap
-
-This roadmap defines the intended evolution of GodotDnDSimulator. Milestones are architectural commitments, not just version labels. Implementation work should normally map to one milestone and keep `TODO.md` and `CHANGELOG.md` synchronized.
+# GodotDnDSimulator Roadmap
 
 ## Product direction
 
-GodotDnDSimulator is intended to become a deterministic isometric RPG platform with:
+GodotDnDSimulator is intended to become a reusable isometric tabletop-RPG engine/platform with a
+headless deterministic simulation core and a Godot presentation client. The roadmap is milestone
+oriented: each version should leave behind a coherent, testable capability rather than a pile of
+partially connected features.
 
-- a headless authoritative simulation engine;
-- a Godot 4.x 3D orthographic client;
-- licensed SRD rules ingestion and compilation;
-- event-sourced saves/replays;
-- tactical spatial authority independent of rendering;
-- data-driven characters, abilities, spells, items, creatures, quests, and dialogue;
-- campaign creation and mod/content-pack tooling;
-- optional multiplayer and AI-driven narration/GM tooling that cannot bypass rules validation.
+The architecture and milestone work must continue to follow these boundaries:
 
-## v0.x — Foundation to first complete playable RPG
+- the Python simulation remains authoritative for rules, state, spatial legality, combat, and RNG;
+- Godot remains presentation/input/UX and submits typed intent;
+- rules/content come from reviewed original or appropriately licensed sources;
+- deterministic replay and stable IDs remain first-class;
+- AI policies may select only engine-supplied legal actions and may not mutate authoritative state.
+
+## v0.x — Engine and client foundation
 
 ### v0.1 — Project foundation
 
-Goal: establish the permanent architecture and developer workflow before feature growth.
+Goal: establish the deterministic headless/runtime boundary and repository governance.
 
-- repository structure for apps/engine/content/schemas/tools/tests/docs;
-- Godot 4.x project bootstrap;
-- headless simulation package;
-- typed command/event protocol;
-- deterministic RNG/dice abstraction;
-- state/snapshot/event serialization foundations;
-- schema/version identifiers;
-- logging and diagnostics conventions;
-- CI for formatting, linting, tests, schema validation, and docs/governance checks;
-- contribution, TODO, changelog, and Git workflow enforcement.
+- Python 3.12 authoritative engine package;
+- immutable typed command/event/state contracts;
+- deterministic PCG32 RNG and dice service;
+- pure reducer and snapshot/event replay;
+- JSON schemas and stable IDs;
+- minimal Godot 4.x project;
+- CI, tests, governance, ADRs, contribution workflow.
 
-Exit criteria: a headless deterministic command can produce a reproducible event/state transition and CI validates it.
+Exit criteria: one deterministic command produces reproducible event/state output and the repository
+checks execute successfully.
 
 ### v0.2 — Official SRD pipeline
 
-Goal: create a reproducible, legally bounded rules ingestion pipeline.
+Goal: turn approved licensed source material into deterministic canonical runtime data.
 
-- source allowlist;
-- fetch approved SRD source;
-- archive source metadata and hashes;
-- extraction/normalization pipeline;
-- heading/table/entity parsing;
-- canonical schemas;
-- provenance on every imported entity;
-- validation and deterministic export;
-- version-to-version diff tooling;
-- licensing/attribution generation;
-- unsupported-mechanic reporting;
-- no runtime dependency on scraping or parsing source documents.
+- approved-source allowlist;
+- fetch/cache/checksum/provenance manifest;
+- PDF extraction/normalization;
+- canonical rule/content schemas;
+- deterministic compiler/export;
+- unsupported-mechanics and import reports;
+- canonical entity diffing;
+- attribution bundle;
+- source/import regression coverage.
 
-Exit criteria: the selected SRD can be transformed reproducibly into validated canonical data with provenance and a meaningful import report.
+Exit criteria: a complete reviewed official source can be reproduced from its pinned source into a
+schema-valid deterministic canonical dataset with provenance and attribution.
 
 ### v0.3 — Rules runtime
 
-Goal: execute reusable rule primitives rather than prose or name-specific scripts.
+Goal: execute reusable mechanics independent of Godot and named content.
 
-- ability scores and modifiers;
-- proficiency;
-- d20 tests;
-- advantage/disadvantage;
-- difficulty classes;
-- saving throws;
-- generic modifiers;
-- resources/costs;
-- triggers;
-- effects;
+- D20 tests and saves;
+- modifiers and stacking;
+- resources and costs;
+- requirements/selectors;
+- effects and conditions;
 - durations;
-- conditions;
-- typed resolution contexts/outcomes;
-- reaction/event hooks;
-- ruleset capability declarations.
+- triggers/reactions;
+- capability declarations;
+- canonical-data conformance fixtures.
 
-Exit criteria: representative imported mechanics execute through generic primitives with deterministic tests.
+Exit criteria: representative canonical mechanics execute deterministically through typed runtime
+contracts.
 
 ### v0.4 — Character runtime
 
-Goal: represent playable and non-playable actors using the same core model.
+Goal: provide one shared actor foundation for heroes, NPCs, and creatures.
 
-- actor identity;
-- ability scores;
-- skills/proficiencies;
-- hit points and temporary hit points;
-- armor class and defenses;
-- speeds/movement modes;
-- senses;
-- equipment/inventory;
-- conditions/effects;
-- resources;
-- class/species/background data;
-- features and advancement model;
-- initial character creation domain API.
+- abilities, HP/temp HP, AC;
+- skills/saves/proficiencies;
+- movement and senses;
+- inventory/equipment;
+- resources/conditions;
+- reusable option/choice system;
+- headless character creation;
+- versioned actor serialization and migration.
 
-Exit criteria: a character can be created, serialized, loaded, modified by rules, and tested without Godot UI.
+Exit criteria: supported actors can be created, serialized, restored, and updated through reusable
+runtime primitives.
 
 ### v0.5 — Tactical combat
 
-Goal: implement a deterministic encounter loop.
+Goal: provide deterministic event-sourced turn-based combat.
 
-- initiative;
-- rounds/turns;
-- action economy;
-- movement accounting;
-- attacks;
-- damage/healing;
-- resistances/immunities/vulnerabilities where licensed rules require them;
-- reactions and reaction windows;
-- conditions in combat;
-- incapacitation/death-state handling;
 - encounter lifecycle;
-- combat log/events;
-- replay fixtures.
+- initiative/rounds/turns;
+- action economy;
+- movement budget accounting;
+- attacks/damage/healing;
+- defenses;
+- reactions;
+- conditions;
+- zero-HP policies;
+- combat events/replay/schema.
 
-Exit criteria: representative multi-round combats replay to identical results from the same seed/events.
+Exit criteria: a complete representative combat encounter can be replayed to identical final state.
 
 ### v0.6 — Spatial authority
 
-Goal: make tactical legality independent of rendering/navigation implementation.
+Goal: make movement and spatial legality headless and reusable.
 
-- logical grid/space abstraction;
-- occupancy;
+- logical spaces and square-grid backend;
+- footprints/occupancy/collision;
 - distance/reach;
-- path legality;
-- movement cost;
-- difficult terrain;
-- elevation;
-- collision boundaries;
-- line of sight;
-- cover;
-- areas of effect;
-- climbing/swimming/flying abstractions;
-- threat/opportunity interaction inputs;
-- adapters between Godot navigation and logical spatial state.
+- path legality/pathfinding/reachability;
+- terrain/elevation/movement modes;
+- LOS/cover;
+- sphere/cube/cylinder/cone/line areas;
+- threat transitions;
+- navigation proposals subordinate to authority;
+- spatial events/replay/query API.
 
-Exit criteria: movement, targeting, LOS, cover, and AoE scenarios are testable headlessly.
+Exit criteria: representative movement, LOS, cover, and AoE scenarios are reproducible without Godot.
 
-### v0.7 — Godot vertical slice
+### v0.7 — Godot tactical vertical slice
 
-Goal: make the architecture visibly playable without bypassing the engine.
+Goal: prove the client boundary with a small complete battle.
 
-- Godot 4.x 3D project;
-- orthographic isometric camera;
-- pan/zoom/rotation;
-- one small tactical map;
-- actors rendered from engine state;
-- selection and movement preview;
-- command submission to engine;
-- turn/combat HUD;
-- action bar;
-- basic animations, VFX, audio hooks;
-- roof/wall occlusion strategy;
-- debug overlays for grid, path, LOS, cover, and engine IDs.
+- true 3D orthographic/isometric camera;
+- tactical map/actor presentation;
+- pointer/controller selection;
+- authoritative movement/path preview;
+- target/LOS/cover/AoE preview;
+- action HUD/combat log;
+- presentation event/VFX/audio hooks;
+- occlusion/debug overlays;
+- headless client tests.
 
-Exit criteria: a complete small battle can be played through Godot while outcomes remain engine-authoritative.
+Exit criteria: the Sunken Courtyard battle can be completed through Godot while Python remains the
+only gameplay authority.
 
 ### v0.8 — Spell runtime
 
-Goal: support spells through generic mechanics instead of spell-name conditionals.
+Goal: add generic deterministic spellcasting without named-mechanic special cases.
 
-- spell resources/slots;
-- preparation/known-spell model as required by supported content;
-- spell attacks and saves;
-- target selectors;
-- shapes/areas;
-- durations;
-- concentration;
-- ongoing/triggered effects;
-- scaling/upcasting representation;
-- spell UI and previews;
-- conformance coverage for representative effect families.
+- known/prepared spells;
+- spell slots;
+- attack/save/automatic resolution;
+- creature/self/area targeting;
+- damage/healing/conditions;
+- duration/concentration/ongoing effects;
+- upcasting/scaling;
+- spell events/RNG continuation;
+- query/preview/command bridge;
+- data-driven Godot spell UI.
 
-Exit criteria: a broad sample of imported spells executes using reusable effect primitives.
+Exit criteria: representative spell families cast deterministically through the authoritative bridge.
 
 ### v0.9 — Complete character creator
 
-Goal: provide a rules-driven character creation and advancement flow.
+Goal: create and advance supported characters entirely from engine-supplied options.
 
 - identity;
 - species;
@@ -213,6 +190,27 @@ Goal: ship one complete original adventure using the final architecture.
 - release packaging and attribution.
 
 Exit criteria: a player can create/load a party and finish a small original campaign from beginning to end.
+
+### v1.0.1 — Agent playtesting and observability
+
+Goal: make the complete v1.0 campaign controllable and diagnosable by automated agents without
+relaxing engine authority.
+
+- provider-neutral structured agent observations;
+- freshly computed legal-action tokens with stale-state protection;
+- per-actor `human` / `agent` ownership, including AI-controlled heroes;
+- tactical AI control for party members and NPC/enemy combatants;
+- deterministic baseline policy that completes Lanterns Below end to end;
+- structured asynchronous JSONL engine/agent logging;
+- persistent structured Godot `ClientLog` JSONL output;
+- opt-in loopback-only Godot UI automation/debug RPC;
+- UI control-tree inspection, focus, activation/clicks, text input, mapped input, logs, screenshots;
+- Python UI automation client/CLI for debugging agents;
+- versioned agent/UI automation schemas and regression coverage.
+
+Exit criteria: a deterministic agent can complete the test campaign through the authoritative action
+API, and a debugging agent has a narrow localhost API capable of observing and operating the real
+Godot UI while correlating client and engine disk logs.
 
 ## v1.x — Platform depth
 
@@ -298,87 +296,59 @@ Exit criteria: a player can create/load a party and finish a small original camp
 - admin/observability interfaces;
 - resource limits.
 
-### v2.3 — Procedural world generation
+### v2.3 — Replay and spectator platform
 
-- deterministic seeds;
-- generated encounters/locations;
-- content constraints;
-- authored + generated hybrid workflows.
+- replay browser;
+- timeline scrubbing;
+- branch-from-replay tooling;
+- spectator overlays;
+- exportable deterministic scenario fixtures.
 
-### v2.4 — AI Dungeon Master
+### v2.4 — AI dungeon-master integrations
 
-- typed read/query tools;
-- legal command submission;
-- encounter/dialogue suggestions;
-- narration;
-- strict separation from authoritative state mutation;
-- local-model support where practical.
+- constrained world/encounter planning;
+- narrative suggestions;
+- encounter pacing inputs;
+- rules-aware proposal validation;
+- transparent human override;
+- no direct authoritative-state mutation.
 
-### v2.5 — AI NPC dialogue
+### v2.5 — AI NPC dialogue and character behavior
 
-- bounded character knowledge;
-- memories/relationships;
-- structured dialogue outcomes;
-- content moderation/safety boundaries;
-- deterministic game-state consequences through commands only.
+- persona/context interfaces;
+- conversation policy hooks;
+- goal/memory inputs;
+- moderation/safety boundaries;
+- deterministic state-changing choices routed through engine commands.
 
-### v2.6 — Community campaigns
+### v2.6 — Large campaigns and world streaming
 
-- pack discovery;
-- dependency installation;
-- compatibility checks;
-- save isolation;
-- migration support.
+- scalable campaign partitions;
+- streamed area/content loading;
+- long-lived event/history storage;
+- incremental save/load;
+- migration tooling.
 
-### v2.7 — Persistent worlds
+### v2.7 — Cross-client/platform hardening
 
-- long-running world simulation;
-- scheduled world events;
-- shard/instance strategy;
-- persistent faction/NPC state.
+- alternate clients;
+- dedicated-server compatibility;
+- mobile/desktop presentation tiers;
+- controller/touch accessibility refinements;
+- protocol compatibility matrices.
 
-### v2.8 — Hosted multiplayer
+### v2.8 — Creator collaboration
 
-- deployable hosted service architecture;
-- tenancy and campaign isolation;
-- operational metrics;
-- backups/restore;
-- quotas and billing hooks.
+- collaborative editing;
+- content review flows;
+- pack dependency visualization;
+- merge/conflict tooling;
+- publish validation.
 
-### v2.9 — Creator monetization
+### v2.9 — Creator monetization foundations
 
-- marketplace transaction interfaces;
-- creator revenue metadata;
-- entitlement hooks;
-- premium campaign/DLC support;
-- optional hosted/AI service monetization.
-
-## First playable vertical slice
-
-Before broad SRD coverage, prove the architecture with:
-
-- one small original village;
-- one dungeon;
-- one exploration/investigation path;
-- one dialogue/skill-check interaction;
-- one trap or environmental obstacle;
-- one locked/conditional interaction;
-- three tactical encounters;
-- one boss encounter;
-- one quest with at least one branch/consequence;
-- four premade heroes;
-- a small representative subset of classes/creatures/spells/items/conditions.
-
-The slice must use production architecture: no throwaway rules engine, UI-owned combat outcomes, or hardcoded spell-name logic.
-
-## Roadmap change policy
-
-A roadmap change should explain:
-
-- why the current plan is insufficient;
-- what milestone ownership changes;
-- compatibility/migration impact;
-- whether it increases or reduces near-term scope;
-- required TODO/documentation updates.
-
-Do not silently move unfinished work to later versions to make a milestone appear complete.
+- optional commerce integration boundaries;
+- entitlement metadata;
+- hosted-content policy hooks;
+- creator payout/accounting interfaces outside the simulation core;
+- offline/local content remains first-class.
