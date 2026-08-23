@@ -32,6 +32,7 @@ class SpellQueryService:
                 "spells": list(self.runtime.available_spells(self.state, actor_id)),
                 "slots": self._slots(actor_id),
                 "concentration": self._concentration(actor_id),
+                "active_effects": self._active_effects(actor_id),
             }
         if query_type == "spells.state":
             actor_id = _string(payload.get("actor_id"), "actor_id")
@@ -39,18 +40,7 @@ class SpellQueryService:
                 "actor_id": actor_id,
                 "slots": self._slots(actor_id),
                 "concentration": self._concentration(actor_id),
-                "active_effects": [
-                    {
-                        "effect_id": item.effect_id,
-                        "spell_id": item.spell_id,
-                        "caster_id": item.caster_id,
-                        "target_ids": list(item.target_ids),
-                        "remaining_rounds": item.remaining_rounds,
-                        "concentration": item.concentration,
-                    }
-                    for item in self.state.active_effects
-                    if item.caster_id == actor_id or actor_id in item.target_ids
-                ],
+                "active_effects": self._active_effects(actor_id),
             }
         if query_type == "spells.preview":
             caster_id = _string(payload.get("caster_id"), "caster_id")
@@ -88,10 +78,24 @@ class SpellQueryService:
             "remaining_rounds": concentration.remaining_rounds,
         }
 
+    def _active_effects(self, actor_id: str) -> list[dict[str, object]]:
+        return [
+            {
+                "effect_id": item.effect_id,
+                "spell_id": item.spell_id,
+                "caster_id": item.caster_id,
+                "target_ids": list(item.target_ids),
+                "remaining_rounds": item.remaining_rounds,
+                "concentration": item.concentration,
+            }
+            for item in self.state.active_effects
+            if item.caster_id == actor_id or actor_id in item.target_ids
+        ]
+
 
 def _string(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ValidationError(f"{label} must be a non-empty string")
+        raise ValidationError("%s must be a non-empty string" % label)
     return value
 
 
