@@ -8,7 +8,7 @@ legality into the client.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from ..actors import (
     ActorKind,
@@ -19,7 +19,7 @@ from ..actors import (
     MovementSpeed,
     SizeCategory,
 )
-from ..combat import CombatRuntime, ZeroHitPointRule
+from ..combat import CombatRuntime, EncounterState, ZeroHitPointRule
 from ..errors import ValidationError
 from ..rng import DeterministicRNG
 from ..rules import Ability, AbilityScore
@@ -45,6 +45,29 @@ WORLD_PARTY_TEAM = "party"
 _WORLD_PARTY_TAG = f"team:{WORLD_PARTY_TEAM}"
 
 
+@dataclass(frozen=True, slots=True)
+class EnemySpec:
+    actor_id: str
+    name: str
+    team_tag: str
+    hit_points: int
+    dexterity: int
+    armor_class: int
+    strength: int
+
+
+@dataclass(frozen=True, slots=True)
+class EncounterTemplateSpec:
+    display_name: str
+    space_id: str
+    width: int
+    height: int
+    party_cells: tuple[GridCell, ...]
+    enemy_cells: tuple[GridCell, ...]
+    enemies: tuple[EnemySpec, ...]
+    terrain: tuple[TerrainCell, ...]
+
+
 class AuthoredWorldTacticalSession(TacticalVerticalSliceSession):
     """Vertical-slice mechanics with authored world encounter presentation metadata."""
 
@@ -56,9 +79,29 @@ class AuthoredWorldTacticalSession(TacticalVerticalSliceSession):
         authored_slice_id: str,
         authored_display_name: str,
         authored_camera_bounds: dict[str, int],
-        **kwargs: object,
+        campaign_id: str,
+        session_id: str,
+        rng: DeterministicRNG,
+        combat_runtime: CombatRuntime,
+        spatial_runtime: SpatialRuntime,
+        encounter: EncounterState,
+        spatial: SpatialState,
+        actors: tuple[ActorState, ...],
+        sequence: int = 0,
+        recent_events: list[dict[str, object]] | None = None,
     ) -> None:
-        super().__init__(**kwargs)  # type: ignore[arg-type]
+        super().__init__(
+            campaign_id=campaign_id,
+            session_id=session_id,
+            rng=rng,
+            combat_runtime=combat_runtime,
+            spatial_runtime=spatial_runtime,
+            encounter=encounter,
+            spatial=spatial,
+            actors=actors,
+            sequence=sequence,
+            recent_events=[] if recent_events is None else recent_events,
+        )
         self.authored_slice_id = authored_slice_id
         self.authored_display_name = authored_display_name
         self.authored_camera_bounds = dict(authored_camera_bounds)
@@ -140,20 +183,15 @@ def create_world_tactical_session(
         raise ValidationError("world tactical party actor IDs must be unique")
 
     spec = _encounter_spec(encounter_id)
+    if len(party_actors) > len(spec.party_cells):
+        raise ValidationError("authored encounter does not provide enough party spawn cells")
+    if len(spec.enemies) != len(spec.enemy_cells):
+        raise ValidationError("authored encounter enemy placements are inconsistent")
+
     party = tuple(_as_party_actor(actor) for actor in party_actors)
-    enemies = tuple(
-        _enemy_actor(
-            row["actor_id"],
-            row["name"],
-            team_tag=row["team_tag"],
-            hit_points=row["hit_points"],
-            dexterity=row["dexterity"],
-            armor_class=row["armor_class"],
-            strength=row["strength"],
-        )
-        for row in spec["enemies"]
-    )
+    enemies = tuple(_enemy_actor(row) for row in spec.enemies)
     actors = (*party, *enemies)
+    party_ids = {actor.actor_id for actor in party}
 
     rng = DeterministicRNG.from_seed(seed)
     combat_runtime = CombatRuntime(rng)
@@ -161,7 +199,7 @@ def create_world_tactical_session(
     zero_hp_rules = {
         actor.actor_id: (
             ZeroHitPointRule.CHARACTER
-            if actor.actor_id in {item.actor_id for item in party}
+            if actor.actor_id in party_ids
             else ZeroHitPointRule.MONSTER
         )
         for actor in actors
@@ -174,14 +212,14 @@ def create_world_tactical_session(
     encounter = combat_runtime.start_encounter(encounter).state
 
     space = SquareGridSpace(
-        spec["space_id"],
-        width=spec["width"],
-        height=spec["height"],
+        spec.space_id,
+        width=spec.width,
+        height=spec.height,
         cell_size_feet=5,
-        terrain=spec["terrain"],
+        terrain=spec.terrain,
     )
     placements: list[SpatialPlacement] = []
-    for actor, cell in zip(party, spec["party_cells"], strict=True):
+    for actor, cell in zip(party, spec.party_cells[: len(party)], strict=True):
         placements.append(
             SpatialPlacement(
                 actor.actor_id,
@@ -189,10 +227,8 @@ def create_world_tactical_session(
                 tags=frozenset({_WORLD_PARTY_TAG, "world-party"}),
             )
         )
-    for actor, cell in zip(enemies, spec["enemy_cells"], strict=True):
-        team_tag = next(
-            tag for tag in actor.tags if tag.startswith("team:")
-        )
+    for actor, cell in zip(enemies, spec.enemy_cells, strict=True):
+        team_tag = next(tag for tag in actor.tags if tag.startswith("team:"))
         placements.append(
             SpatialPlacement(
                 actor.actor_id,
@@ -204,12 +240,12 @@ def create_world_tactical_session(
 
     return AuthoredWorldTacticalSession(
         authored_slice_id=f"world-tactical:{encounter_id.removeprefix('encounter:')}",
-        authored_display_name=spec["display_name"],
+        authored_display_name=spec.display_name,
         authored_camera_bounds={
             "min_x": 0,
             "min_y": 0,
-            "max_x": spec["width"] - 1,
-            "max_y": spec["height"] - 1,
+            "max_x": spec.width - 1,
+            "max_y": spec.height - 1,
         },
         campaign_id=campaign_id,
         session_id=session_id,
@@ -223,81 +259,80 @@ def create_world_tactical_session(
 
 
 def _as_party_actor(actor: ActorState) -> ActorState:
-    tags = {
-        tag for tag in actor.tags if not tag.startswith("team:")
-    }
+    tags = {tag for tag in actor.tags if not tag.startswith("team:")}
     tags.update({_WORLD_PARTY_TAG, "world-party"})
     return replace(actor, kind=ActorKind.HERO, tags=frozenset(tags))
 
 
-def _enemy_actor(
-    actor_id: str,
-    name: str,
-    *,
-    team_tag: str,
-    hit_points: int,
-    dexterity: int,
-    armor_class: int,
-    strength: int,
-) -> ActorState:
+def _enemy_actor(spec: EnemySpec) -> ActorState:
     abilities = tuple(
         AbilityScore(
             ability,
-            dexterity
+            spec.dexterity
             if ability is Ability.DEXTERITY
-            else (strength if ability is Ability.STRENGTH else 11),
+            else (spec.strength if ability is Ability.STRENGTH else 11),
         )
         for ability in Ability
     )
     return ActorState(
-        actor_id=actor_id,
-        name=name,
+        actor_id=spec.actor_id,
+        name=spec.name,
         kind=ActorKind.CREATURE,
         size=SizeCategory.MEDIUM,
         proficiency_bonus=2,
         abilities=abilities,
-        hit_points=HitPoints(hit_points, hit_points),
-        defense=DefenseState(armor_class),
+        hit_points=HitPoints(spec.hit_points, spec.hit_points),
+        defense=DefenseState(spec.armor_class),
         movement=(MovementSpeed(MovementMode.WALK, 30),),
-        tags=frozenset({team_tag, "world-enemy"}),
+        tags=frozenset({spec.team_tag, "world-enemy"}),
     )
 
 
-def _encounter_spec(encounter_id: str) -> dict[str, object]:
-    specs = {
-        "encounter:road-ambush": {
-            "display_name": "Roadside Scavengers",
-            "space_id": "space:old-road-ambush",
-            "width": 10,
-            "height": 7,
-            "party_cells": (
+def _encounter_spec(encounter_id: str) -> EncounterTemplateSpec:
+    specs = _encounter_specs()
+    try:
+        return specs[encounter_id]
+    except KeyError as exc:
+        raise ValidationError(
+            f"no authored tactical template exists for {encounter_id!r}"
+        ) from exc
+
+
+def _encounter_specs() -> dict[str, EncounterTemplateSpec]:
+    return {
+        "encounter:road-ambush": EncounterTemplateSpec(
+            display_name="Roadside Scavengers",
+            space_id="space:old-road-ambush",
+            width=10,
+            height=7,
+            party_cells=(
                 GridCell(1, 1),
                 GridCell(1, 3),
                 GridCell(1, 5),
                 GridCell(2, 6),
             ),
-            "enemy_cells": (GridCell(8, 2), GridCell(8, 5)),
-            "enemies": (
-                {
-                    "actor_id": "actor:road-scavenger-a",
-                    "name": "Road Scavenger",
-                    "team_tag": "team:road-scavengers",
-                    "hit_points": 12,
-                    "dexterity": 14,
-                    "armor_class": 12,
-                    "strength": 12,
-                },
-                {
-                    "actor_id": "actor:road-scavenger-b",
-                    "name": "Road Prowler",
-                    "team_tag": "team:road-scavengers",
-                    "hit_points": 14,
-                    "dexterity": 13,
-                    "armor_class": 12,
-                    "strength": 13,
-                },
+            enemy_cells=(GridCell(8, 2), GridCell(8, 5)),
+            enemies=(
+                EnemySpec(
+                    "actor:road-scavenger-a",
+                    "Road Scavenger",
+                    "team:road-scavengers",
+                    12,
+                    14,
+                    12,
+                    12,
+                ),
+                EnemySpec(
+                    "actor:road-scavenger-b",
+                    "Road Prowler",
+                    "team:road-scavengers",
+                    14,
+                    13,
+                    12,
+                    13,
+                ),
             ),
-            "terrain": (
+            terrain=(
                 TerrainCell(
                     GridCell(4, 1),
                     terrain_id="terrain:road-rubble",
@@ -315,40 +350,40 @@ def _encounter_spec(encounter_id: str) -> dict[str, object]:
                     cover=CoverLevel.THREE_QUARTERS,
                 ),
             ),
-        },
-        "encounter:quarry-watchers": {
-            "display_name": "Quarry Watchers",
-            "space_id": "space:quarry-mouth-watch",
-            "width": 10,
-            "height": 8,
-            "party_cells": (
+        ),
+        "encounter:quarry-watchers": EncounterTemplateSpec(
+            display_name="Quarry Watchers",
+            space_id="space:quarry-mouth-watch",
+            width=10,
+            height=8,
+            party_cells=(
                 GridCell(1, 1),
                 GridCell(1, 3),
                 GridCell(1, 5),
                 GridCell(1, 7),
             ),
-            "enemy_cells": (GridCell(8, 2), GridCell(8, 6)),
-            "enemies": (
-                {
-                    "actor_id": "actor:quarry-watcher-a",
-                    "name": "Quarry Watcher",
-                    "team_tag": "team:quarry-watchers",
-                    "hit_points": 18,
-                    "dexterity": 12,
-                    "armor_class": 14,
-                    "strength": 14,
-                },
-                {
-                    "actor_id": "actor:quarry-watcher-b",
-                    "name": "Quarry Sentinel",
-                    "team_tag": "team:quarry-watchers",
-                    "hit_points": 20,
-                    "dexterity": 11,
-                    "armor_class": 14,
-                    "strength": 15,
-                },
+            enemy_cells=(GridCell(8, 2), GridCell(8, 6)),
+            enemies=(
+                EnemySpec(
+                    "actor:quarry-watcher-a",
+                    "Quarry Watcher",
+                    "team:quarry-watchers",
+                    18,
+                    12,
+                    14,
+                    14,
+                ),
+                EnemySpec(
+                    "actor:quarry-watcher-b",
+                    "Quarry Sentinel",
+                    "team:quarry-watchers",
+                    20,
+                    11,
+                    14,
+                    15,
+                ),
             ),
-            "terrain": (
+            terrain=(
                 TerrainCell(
                     GridCell(4, 2),
                     terrain_id="terrain:quarry-pool",
@@ -374,53 +409,53 @@ def _encounter_spec(encounter_id: str) -> dict[str, object]:
                     cover=CoverLevel.TOTAL,
                 ),
             ),
-        },
-        "encounter:underworks-swarm": {
-            "display_name": "Underworks Swarm",
-            "space_id": "space:flooded-underworks-swarm",
-            "width": 11,
-            "height": 8,
-            "party_cells": (
+        ),
+        "encounter:underworks-swarm": EncounterTemplateSpec(
+            display_name="Underworks Swarm",
+            space_id="space:flooded-underworks-swarm",
+            width=11,
+            height=8,
+            party_cells=(
                 GridCell(1, 1),
                 GridCell(1, 3),
                 GridCell(1, 5),
                 GridCell(1, 7),
             ),
-            "enemy_cells": (
+            enemy_cells=(
                 GridCell(9, 1),
                 GridCell(9, 4),
                 GridCell(9, 7),
             ),
-            "enemies": (
-                {
-                    "actor_id": "actor:underworks-swarm-a",
-                    "name": "Lantern Swarm",
-                    "team_tag": "team:underworks-swarm",
-                    "hit_points": 14,
-                    "dexterity": 16,
-                    "armor_class": 13,
-                    "strength": 10,
-                },
-                {
-                    "actor_id": "actor:underworks-swarm-b",
-                    "name": "Flood Crawler",
-                    "team_tag": "team:underworks-swarm",
-                    "hit_points": 16,
-                    "dexterity": 14,
-                    "armor_class": 13,
-                    "strength": 12,
-                },
-                {
-                    "actor_id": "actor:underworks-swarm-c",
-                    "name": "Stone Mite Cluster",
-                    "team_tag": "team:underworks-swarm",
-                    "hit_points": 16,
-                    "dexterity": 13,
-                    "armor_class": 14,
-                    "strength": 13,
-                },
+            enemies=(
+                EnemySpec(
+                    "actor:underworks-swarm-a",
+                    "Lantern Swarm",
+                    "team:underworks-swarm",
+                    14,
+                    16,
+                    13,
+                    10,
+                ),
+                EnemySpec(
+                    "actor:underworks-swarm-b",
+                    "Flood Crawler",
+                    "team:underworks-swarm",
+                    16,
+                    14,
+                    13,
+                    12,
+                ),
+                EnemySpec(
+                    "actor:underworks-swarm-c",
+                    "Stone Mite Cluster",
+                    "team:underworks-swarm",
+                    16,
+                    13,
+                    14,
+                    13,
+                ),
             ),
-            "terrain": (
+            terrain=(
                 TerrainCell(
                     GridCell(4, 1),
                     terrain_id="terrain:underworks-water",
@@ -451,53 +486,53 @@ def _encounter_spec(encounter_id: str) -> dict[str, object]:
                     cover=CoverLevel.TOTAL,
                 ),
             ),
-        },
-        "encounter:vault-warden": {
-            "display_name": "The Hollow Warden",
-            "space_id": "space:lantern-vault-warden",
-            "width": 12,
-            "height": 9,
-            "party_cells": (
+        ),
+        "encounter:vault-warden": EncounterTemplateSpec(
+            display_name="The Hollow Warden",
+            space_id="space:lantern-vault-warden",
+            width=12,
+            height=9,
+            party_cells=(
                 GridCell(1, 2),
                 GridCell(1, 4),
                 GridCell(1, 6),
                 GridCell(2, 8),
             ),
-            "enemy_cells": (
+            enemy_cells=(
                 GridCell(10, 4),
                 GridCell(9, 1),
                 GridCell(9, 7),
             ),
-            "enemies": (
-                {
-                    "actor_id": "actor:hollow-warden",
-                    "name": "The Hollow Warden",
-                    "team_tag": "team:vault-warden",
-                    "hit_points": 42,
-                    "dexterity": 12,
-                    "armor_class": 16,
-                    "strength": 17,
-                },
-                {
-                    "actor_id": "actor:lantern-shade-a",
-                    "name": "Lantern Shade",
-                    "team_tag": "team:vault-warden",
-                    "hit_points": 12,
-                    "dexterity": 15,
-                    "armor_class": 13,
-                    "strength": 10,
-                },
-                {
-                    "actor_id": "actor:lantern-shade-b",
-                    "name": "Lantern Shade",
-                    "team_tag": "team:vault-warden",
-                    "hit_points": 12,
-                    "dexterity": 15,
-                    "armor_class": 13,
-                    "strength": 10,
-                },
+            enemies=(
+                EnemySpec(
+                    "actor:hollow-warden",
+                    "The Hollow Warden",
+                    "team:vault-warden",
+                    42,
+                    12,
+                    16,
+                    17,
+                ),
+                EnemySpec(
+                    "actor:lantern-shade-a",
+                    "Lantern Shade",
+                    "team:vault-warden",
+                    12,
+                    15,
+                    13,
+                    10,
+                ),
+                EnemySpec(
+                    "actor:lantern-shade-b",
+                    "Lantern Shade",
+                    "team:vault-warden",
+                    12,
+                    15,
+                    13,
+                    10,
+                ),
             ),
-            "terrain": (
+            terrain=(
                 TerrainCell(
                     GridCell(5, 2),
                     terrain_id="terrain:vault-dais",
@@ -525,14 +560,5 @@ def _encounter_spec(encounter_id: str) -> dict[str, object]:
                     cover=CoverLevel.TOTAL,
                 ),
             ),
-        },
+        ),
     }
-    try:
-        raw = specs[encounter_id]
-    except KeyError as exc:
-        raise ValidationError(
-            f"no authored tactical template exists for {encounter_id!r}"
-        ) from exc
-    # A narrow cast-free normalization keeps the public builder simple and the
-    # authored table immutable-by-convention.
-    return dict(raw)
