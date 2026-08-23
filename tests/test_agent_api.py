@@ -38,6 +38,24 @@ def test_agent_observation_exposes_only_legal_action_tokens() -> None:
     assert "world.start" not in str(observation["world"])
 
 
+def test_agent_observation_does_not_stringify_missing_tactical_actor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = create_autoplay_session(seed=13)
+    monkeypatch.setattr(
+        type(session.agent),
+        "_tactical_state",
+        lambda _agent: {"current_actor_id": None},
+    )
+    monkeypatch.setattr(type(session.agent), "legal_actions", lambda _agent: ())
+
+    observation = session.agent.observe()
+
+    assert observation["context"] == "tactical"
+    assert observation["current_actor_id"] is None
+    assert observation["current_controller"] is None
+
+
 def test_agent_can_control_hero_and_stale_action_tokens_are_rejected() -> None:
     session = create_autoplay_session(seed=17)
     session.agent.controllers.set_control(

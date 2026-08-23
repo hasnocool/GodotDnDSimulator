@@ -181,8 +181,13 @@ class AgentService:
 
     def observe(self) -> dict[str, object]:
         tactical = self._tactical_state()
+        raw_current_actor_id = (
+            tactical.get("current_actor_id") if tactical is not None else None
+        )
         current_actor_id = (
-            str(tactical.get("current_actor_id", "")) if tactical is not None else ""
+            raw_current_actor_id.strip()
+            if isinstance(raw_current_actor_id, str)
+            else ""
         )
         current_controller: dict[str, object] | None = None
         if current_actor_id:
