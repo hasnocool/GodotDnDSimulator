@@ -12,6 +12,12 @@ signal command_completed(
 signal command_payload_received(correlation_id: String, payload: Dictionary)
 signal presentation_events_received(events: Array)
 signal query_completed(correlation_id: String, generation: int, payload: Dictionary)
+signal query_failed(
+    correlation_id: String,
+    generation: int,
+    user_message: String,
+    debug_detail: String,
+)
 signal preview_completed(correlation_id: String, generation: int, payload: Dictionary)
 signal stale_interaction_result_ignored(
     correlation_id: String,
@@ -225,12 +231,20 @@ func _on_request_failed(
     if request_id.is_empty() or not pending.has(request_id):
         return
     var metadata: Dictionary = pending[request_id]
-    var command_failed := str(metadata.get("request_kind", "")) == "command"
+    var request_kind := str(metadata.get("request_kind", ""))
+    var generation := int(metadata.get("generation", 0))
     interaction.clear_pending(request_id)
-    if command_failed:
+    if request_kind == "command":
         command_completed.emit(
             correlation_id,
             false,
+            user_message,
+            debug_detail,
+        )
+    elif request_kind == "query" and _result_generation_is_current(correlation_id, generation):
+        query_failed.emit(
+            correlation_id,
+            generation,
             user_message,
             debug_detail,
         )
