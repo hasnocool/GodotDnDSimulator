@@ -47,9 +47,12 @@ func apply_authoritative_state(data: Dictionary) -> void:
         int(data.get("armor_class", 0)),
     ]
     _team_marker.text = _team_emblem(_team)
-    _condition_label.text = _conditions_text(data.get("conditions", []))
+    var conditions: Variant = data.get("conditions", [])
+    _condition_label.text = _conditions_text(conditions)
     _condition_label.visible = not _condition_label.text.is_empty()
-    _debug_id_label.text = actor_id
+    var debug_rows: Array[String] = [actor_id]
+    debug_rows.append_array(_condition_ids(conditions))
+    _debug_id_label.text = "\n".join(debug_rows)
     var material := _body.material_override as StandardMaterial3D
     if material != null:
         material.albedo_color = _team_color(_team)
@@ -63,6 +66,10 @@ func set_debug_identity_visible(value: bool) -> void:
 
 
 func debug_identity_text() -> String:
+    return actor_id
+
+
+func debug_label_text() -> String:
     return "" if _debug_id_label == null else _debug_id_label.text
 
 
@@ -182,16 +189,34 @@ func _build_visuals() -> void:
 
 
 func _conditions_text(value: Variant) -> String:
-    if typeof(value) != TYPE_ARRAY or (value as Array).is_empty():
+    var ids := _condition_ids(value)
+    if ids.is_empty():
         return ""
     var rows: Array[String] = []
+    if typeof(value) == TYPE_ARRAY:
+        for raw in value:
+            if typeof(raw) == TYPE_DICTIONARY:
+                var condition: Dictionary = raw
+                rows.append(str(condition.get("name", condition.get("condition_id", "status"))))
+            else:
+                rows.append(str(raw))
+    return "Status: %s" % ", ".join(rows)
+
+
+func _condition_ids(value: Variant) -> Array[String]:
+    var rows: Array[String] = []
+    if typeof(value) != TYPE_ARRAY:
+        return rows
     for raw in value:
+        var condition_id := ""
         if typeof(raw) == TYPE_DICTIONARY:
             var condition: Dictionary = raw
-            rows.append(str(condition.get("name", condition.get("condition_id", "status"))))
-        else:
-            rows.append(str(raw))
-    return "Status: %s" % ", ".join(rows)
+            condition_id = str(condition.get("condition_id", condition.get("id", "")))
+        elif typeof(raw) == TYPE_STRING:
+            condition_id = str(raw)
+        if not condition_id.is_empty():
+            rows.append(condition_id)
+    return rows
 
 
 func _team_emblem(team: String) -> String:
