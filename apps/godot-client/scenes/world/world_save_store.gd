@@ -176,7 +176,11 @@ func _finish_operation(
     result: Dictionary,
 ) -> void:
     if _thread != null and _thread.is_alive():
-        Callable(self, "_finish_operation").call_deferred(operation, slot_id, result)
+        var tree := Engine.get_main_loop() as SceneTree
+        tree.process_frame.connect(
+            Callable(self, "_finish_operation").bind(operation, slot_id, result),
+            Object.CONNECT_ONE_SHOT,
+        )
         return
     if _thread != null and _thread.is_started():
         _thread.wait_to_finish()
