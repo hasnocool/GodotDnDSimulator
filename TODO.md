@@ -350,7 +350,7 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 - [ ] Rest flow.
 - [ ] Travel/area transitions.
 - [x] Journal/map/party screens.
-- [ ] Production save/load UX.
+- [x] Production save/load UX.
 - [ ] Original village area.
 - [ ] Original dungeon area.
 - [ ] Skill-check interaction.
