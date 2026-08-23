@@ -22,3 +22,4 @@ godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/tacti
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/spell_ui_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/character_creator_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_rpg_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_save_load_tests.gd

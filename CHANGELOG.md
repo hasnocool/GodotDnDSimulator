@@ -98,6 +98,9 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Capability-gated Godot Adventure overlay plus authoritative Journal, Map, Party, and Inventory management surfaces driven by `world.*` and character bridge data.
 - v1.0 Godot party cards sourced from `characters.get` records and interactive `inventory.equip` intent routing that keeps active-party, ownership, and sequence validation in the headless world runtime.
 - `docs/V1.0_PARTY_INVENTORY_INTERACTIONS.md` documenting the v1.0 party/inventory client authority boundary, query/command flow, headless coverage, and follow-up equipment-choice contract.
+- v1.0 Godot production Save/Load management tab with three fixed manual slots, authoritative `world.save` capture, engine-validated `world.load`, slot metadata, and no optimistic world-state mutation.
+- Threaded bounded `WorldSaveStore` persistence under `user://` with versioned envelopes, temporary/backup replacement, backup recovery, fixed slot IDs, and user-visible failure handling.
+- `schemas/v1/godot-world-save-envelope.schema.json`, `res://tests/world_save_load_tests.gd`, `tests/test_godot_world_save_schema.py`, and `docs/V1.0_GODOT_SAVE_LOAD.md` covering the client save format, authority boundary, non-blocking persistence, compatibility, and regressions.
 
 ### Changed
 
@@ -108,7 +111,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Active implementation advances through v1.0 playable RPG while unfinished earlier CI/full-source audit and exact-head acceptance items remain tracked as carryover.
 - v0.5 movement-budget accounting has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
 - Root agent governance plus Claude, Gemini, and Copilot adapters require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
-- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, v0.9 character creator, and v1.0 world RPG suites.
+- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, v0.9 character creator, v1.0 world RPG, and v1.0 world save/load suites.
 - The default `godot-dnd-client-bridge` entry point now uses the v1.0 world-aware host while retaining character, tactical, and spell capabilities according to negotiated providers.
 
 ### Deprecated
@@ -146,6 +149,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Spatial authority fails closed on malformed spaces, footprints, overlaps, movement modes, stale navigation proposals, blocked/over-budget paths, non-contiguous or corrupt movement events, invalid area shapes, and unsupported read-only spatial queries.
 - Spell authority rejects unknown/unprepared spells, unavailable slots/actions, invalid target counts/selectors, out-of-range/non-visible targets, invalid points/shapes, stale sequence intent, and malformed spell event/checkpoint payloads rather than allowing Godot to infer legality.
 - Character creator authority rejects unknown choices, invalid group cardinality, unmet requirements/conflicts, malformed ability assignments/catalog data, duplicate actor IDs, unsupported advancement choices, and invalid profile payloads before creating or advancing an actor.
+- Godot save/load accepts only fixed slot IDs, bounds local files to 32 MiB, validates the versioned local envelope before exposing a snapshot to the bridge, and still requires authoritative `world.load` validation before changing displayed world state.
 
 <!--
 Release process notes:

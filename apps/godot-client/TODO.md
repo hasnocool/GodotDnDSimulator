@@ -565,7 +565,7 @@ validation and broader campaign acceptance work separate.
 - [ ] Shop/trade UI.
 - [ ] Rest/travel/area-transition UX.
 - [x] Map screen.
-- [ ] Production save/load UX.
+- [x] Production save/load UX.
 - [ ] Credits/attribution presentation.
 
 ### Current v1.0 management phase
@@ -578,6 +578,19 @@ validation and broader campaign acceptance work separate.
 - [x] Extend the FakeEngineTransport headless suite to verify character queries, rendered party data, and equipment command routing.
 - [ ] Replace the opaque equipment-slot text field with engine-provided legal slot/item compatibility choices when that query contract exists.
 - [ ] Add sell/trade inventory controls without duplicating price, stock, or ownership rules in Godot.
+
+### Current v1.0 save/load phase
+
+- [x] Add three fixed manual save slots under `user://` without deriving file paths from player text.
+- [x] Request an authoritative `world.save` snapshot immediately before writing a slot.
+- [x] Keep JSON encoding/decoding and disk reads/writes off the frame-critical thread.
+- [x] Use bounded, versioned local envelopes plus temporary/backup replacement and backup recovery.
+- [x] Submit persisted snapshots through `world.load` with the current world sequence for authoritative validation.
+- [x] Never replace displayed world state merely because a local file parsed successfully.
+- [x] Show slot metadata, busy state, unreadable-save errors, and accepted/rejected load status.
+- [x] Add headless Godot save/load coverage plus a versioned envelope schema regression.
+- [ ] Add autosave/checkpoint policy only after campaign transition semantics are stable.
+- [ ] Add explicit save migrations/export/import when future format or cross-device requirements make them necessary.
 
 ---
 

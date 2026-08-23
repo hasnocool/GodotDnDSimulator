@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hasnocool.github.io/GodotDnDSimulator/schemas/v1/godot-world-save-envelope.schema.json",
+  "title": "Godot world save envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "format_version",
+    "slot_id",
+    "metadata",
+    "world_snapshot_json"
+  ],
+  "properties": {
+    "format": {
+      "const": "godot-dnd-world-save"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "slot_id": {
+      "enum": ["slot-1", "slot-2", "slot-3"]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "saved_at",
+        "campaign_id",
+        "sequence",
+        "area_id",
+        "area_name"
+      ],
+      "properties": {
+        "saved_at": {"type": "string"},
+        "campaign_id": {"type": "string"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "area_id": {"type": "string"},
+        "area_name": {"type": "string"}
+      }
+    },
+    "world_snapshot_json": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Lossless canonical JSON produced by the Python world runtime. Godot persists and returns this string without interpreting snapshot numeric values."
+    }
+  }
+}

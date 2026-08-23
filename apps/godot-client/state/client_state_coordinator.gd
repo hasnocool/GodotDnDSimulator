@@ -26,6 +26,7 @@ signal stale_interaction_result_ignored(
 )
 signal bridge_bound()
 signal bridge_unbound()
+signal bridge_disconnected(reason: String)
 
 var authoritative := AuthoritativeMirror.new()
 var interaction := InteractionState.new()
@@ -250,8 +251,9 @@ func _on_request_failed(
         )
 
 
-func _on_bridge_disconnected(_reason: String) -> void:
+func _on_bridge_disconnected(reason: String) -> void:
     interaction.clear_all_pending()
+    bridge_disconnected.emit(reason)
 
 
 func _result_generation_is_current(correlation_id: String, generation: int) -> bool:
