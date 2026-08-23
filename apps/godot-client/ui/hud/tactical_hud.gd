@@ -26,12 +26,12 @@ var _log_lines: Array[String] = []
 
 
 func _ready() -> void:
-    _move_button.pressed.connect(func() -> void: move_requested.emit())
-    _strike_button.pressed.connect(func() -> void: strike_requested.emit())
-    _end_turn_button.pressed.connect(func() -> void: end_turn_requested.emit())
-    _area_button.pressed.connect(func() -> void: area_debug_requested.emit())
-    _shape_kind_button.pressed.connect(func() -> void: shape_kind_requested.emit())
-    _shape_rotate_button.pressed.connect(func() -> void: shape_rotate_requested.emit())
+    _move_button.pressed.connect(_on_move_button_pressed)
+    _strike_button.pressed.connect(_on_strike_button_pressed)
+    _end_turn_button.pressed.connect(_on_end_turn_button_pressed)
+    _area_button.pressed.connect(_on_area_button_pressed)
+    _shape_kind_button.pressed.connect(_on_shape_kind_button_pressed)
+    _shape_rotate_button.pressed.connect(_on_shape_rotate_button_pressed)
 
 
 func apply_tactical_state(tactical: Dictionary, selected_actor_id: String) -> void:
@@ -146,6 +146,41 @@ func append_log(text: String) -> void:
 
 func log_text() -> String:
     return _log_label.text
+
+
+func _on_move_button_pressed() -> void:
+    _release_button_focus(_move_button)
+    move_requested.emit()
+
+
+func _on_strike_button_pressed() -> void:
+    _release_button_focus(_strike_button)
+    strike_requested.emit()
+
+
+func _on_end_turn_button_pressed() -> void:
+    _release_button_focus(_end_turn_button)
+    end_turn_requested.emit()
+
+
+func _on_area_button_pressed() -> void:
+    _release_button_focus(_area_button)
+    area_debug_requested.emit()
+
+
+func _on_shape_kind_button_pressed() -> void:
+    _release_button_focus(_shape_kind_button)
+    shape_kind_requested.emit()
+
+
+func _on_shape_rotate_button_pressed() -> void:
+    _release_button_focus(_shape_rotate_button)
+    shape_rotate_requested.emit()
+
+
+func _release_button_focus(button: BaseButton) -> void:
+    if button.has_focus():
+        button.release_focus()
 
 
 func _conditions_text(value: Variant) -> String:
