@@ -10,6 +10,7 @@ from godot_dnd_engine.character_creator import (
 )
 from godot_dnd_engine.client_bridge import PROTOCOL_VERSION
 from godot_dnd_engine.engine import SimulationEngine
+from godot_dnd_engine.spell_slice import SpellEnabledTacticalSession
 from godot_dnd_engine.world import WorldRuntime, demo_campaign, restore_world_runtime
 from godot_dnd_engine.world_bridge import WorldClientBridgeSession
 
@@ -85,6 +86,39 @@ def _runtime_command(
         command_type,
         payload,
         expected_sequence=runtime.state.sequence,
+    )
+
+
+def _advance_to_road_encounter(bridge: WorldClientBridgeSession) -> None:
+    _command(
+        bridge,
+        "world.start",
+        {"party_ids": ["actor:hero-a"]},
+        "road-start",
+    )
+    _command(
+        bridge,
+        "dialogue.start",
+        {"dialogue_id": "dialogue:warden-ilar"},
+        "road-dialogue",
+    )
+    _command(
+        bridge,
+        "dialogue.choose",
+        {"choice_id": "choice:accept-quarry"},
+        "road-accept",
+    )
+    _command(
+        bridge,
+        "dialogue.choose",
+        {"choice_id": "choice:leave-warden"},
+        "road-leave",
+    )
+    _command(
+        bridge,
+        "world.travel",
+        {"area_id": "area:old-road"},
+        "road-travel",
     )
 
 
@@ -238,6 +272,62 @@ def test_world_actions_expose_authoritative_exploration_and_trade_state() -> Non
     )
     assert rope_after["owned_quantity"] == 1
     assert rope_after["sell_available"] is True
+
+
+def test_begin_encounter_resyncs_tactical_stream_and_blocks_world_progress() -> None:
+    bridge = _bridge()
+    bridge.spell_tactical = SpellEnabledTacticalSession.create(
+        campaign_id="campaign:v1-completion",
+        session_id="session:v1-completion",
+        seed=19,
+    )
+    bridge.spell_tactical.tactical.sequence = 6
+    _advance_to_road_encounter(bridge)
+
+    started = _command(
+        bridge,
+        "world.begin_encounter",
+        {"encounter_id": "encounter:road-ambush"},
+        "begin-road-ambush",
+    )
+    assert started is not None
+    assert started["kind"] == "command.accepted"
+    started_payload = _payload(started)
+    tactical_snapshot = started_payload["snapshot"]
+    assert isinstance(tactical_snapshot, dict)
+    tactical_state = tactical_snapshot["state"]
+    assert isinstance(tactical_state, dict)
+    assert tactical_state["sequence"] == 7
+    assert started_payload["result"]["tactical_sequence"] == 7
+    assert bridge.active_world_encounter_id == "encounter:road-ambush"
+
+    actions = bridge.handle_message(
+        _request(
+            "query.request",
+            {"query_type": "world.actions", "query": {}},
+            "road-actions-during-combat",
+        )
+    )
+    rows = _payload(actions)
+    assert "active tactical encounter" in rows["exploration_prompt"]
+    assert rows["can_rest"] is False
+    assert rows["dialogues"] == []
+    assert all(row["available"] is False for row in rows["travel"])
+    assert all(
+        "active tactical encounter" in row["reason"]
+        for row in rows["travel"]
+    )
+
+    blocked = _command(
+        bridge,
+        "world.travel",
+        {"area_id": "area:reedhollow-square"},
+        "blocked-travel-during-combat",
+    )
+    assert blocked is not None
+    assert blocked["kind"] == "command.rejected"
+    assert blocked["ok"] is False
+    assert bridge.world.state.current_area_id == "area:old-road"
 
 
 def test_end_to_end_campaign_completes_after_save_restore() -> None:
