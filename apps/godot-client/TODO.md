@@ -537,36 +537,47 @@ Do not implement named-spell special cases ahead of v0.8 engine capability.
 
 ## C20 — Complete character creator UX (v0.9)
 
-- [ ] Identity step.
-- [ ] Species step sourced from engine choices.
-- [ ] Background step sourced from engine choices.
-- [ ] Class step sourced from engine choices.
-- [ ] Ability score step.
-- [ ] Skills/proficiencies step.
-- [ ] Equipment step.
-- [ ] Spell/feature choice step.
-- [ ] Appearance hooks that do not alter rules state except through typed character data.
-- [ ] Biography/personality metadata.
-- [ ] Review/validation step using engine validation.
-- [ ] Level-up flow using engine-generated legal choices.
+- [x] Identity step.
+- [x] Species step sourced from engine choices.
+- [x] Background step sourced from engine choices.
+- [x] Class step sourced from engine choices.
+- [x] Ability score step.
+- [x] Skills/proficiencies step.
+- [x] Equipment step.
+- [x] Spell/feature choice step.
+- [x] Appearance hooks that do not alter rules state except through typed character data.
+- [x] Biography/personality metadata.
+- [x] Review/validation step using engine validation.
+- [x] Level-up flow using engine-generated legal choices.
 
 ---
 
 ## C21 — v1.0 RPG client shell
 
-Add actionable detail when v1.0 becomes near-term rather than prematurely implementing it during
-v0.7.
+v1.0 is now active. Keep this section aligned with observable Godot behavior while leaving exact-head
+validation and broader campaign acceptance work separate.
 
 - [ ] Exploration HUD and interaction prompts.
-- [ ] Dialogue UI.
-- [ ] Quest/journal UI.
-- [ ] Inventory/equipment UI.
-- [ ] Party/character screens.
+- [x] Dialogue UI.
+- [x] Quest/journal UI.
+- [x] Inventory/equipment UI.
+- [x] Party/character screens.
 - [ ] Shop/trade UI.
 - [ ] Rest/travel/area-transition UX.
-- [ ] Map screen.
+- [x] Map screen.
 - [ ] Production save/load UX.
 - [ ] Credits/attribution presentation.
+
+### Current v1.0 management phase
+
+- [x] Restore Journal, Map, Party, and Inventory tabs on the integrated world view.
+- [x] Render party cards from authoritative `characters.get` records rather than actor IDs alone.
+- [x] Render inventory ownership, currency, and current equipment only from world snapshot/query data.
+- [x] Submit `inventory.equip` through the bridge with the isolated world sequence and reconcile after acceptance.
+- [x] Keep world snapshots and character presentation records separate from the tactical/core authoritative mirror.
+- [x] Extend the FakeEngineTransport headless suite to verify character queries, rendered party data, and equipment command routing.
+- [ ] Replace the opaque equipment-slot text field with engine-provided legal slot/item compatibility choices when that query contract exists.
+- [ ] Add sell/trade inventory controls without duplicating price, stock, or ownership rules in Godot.
 
 ---
 
