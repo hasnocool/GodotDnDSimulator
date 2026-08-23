@@ -5,6 +5,7 @@ var _map: TacticalMapView
 var _reachable_root: Node3D
 var _path_root: Node3D
 var _area_root: Node3D
+var _occupancy_root: Node3D
 var _target_line: MeshInstance3D
 
 
@@ -12,6 +13,7 @@ func _ready() -> void:
     _reachable_root = _new_layer("Reachable")
     _path_root = _new_layer("Path")
     _area_root = _new_layer("Area")
+    _occupancy_root = _new_layer("OccupancyDebug")
     _target_line = MeshInstance3D.new()
     _target_line.name = "TargetLine"
     add_child(_target_line)
@@ -26,6 +28,10 @@ func clear_all() -> void:
     _clear_layer(_path_root)
     _clear_layer(_area_root)
     _target_line.mesh = null
+
+
+func clear_debug() -> void:
+    _clear_layer(_occupancy_root)
 
 
 func show_reachable(payload: Dictionary) -> void:
@@ -83,6 +89,51 @@ func show_area(payload: Dictionary) -> void:
             )
 
 
+func show_occupancy(actors: Variant, visible: bool) -> void:
+    _clear_layer(_occupancy_root)
+    if not visible or _map == null or typeof(actors) != TYPE_ARRAY:
+        return
+    for raw in actors:
+        if typeof(raw) != TYPE_DICTIONARY:
+            continue
+        var actor: Dictionary = raw
+        var position_value: Variant = actor.get("position", {})
+        if typeof(position_value) != TYPE_DICTIONARY:
+            continue
+        var cell: Dictionary = position_value
+        if not _map.contains_cell(cell):
+            continue
+        var root := Node3D.new()
+        root.name = "Occupied_%s" % str(actor.get("actor_id", "actor")).replace(":", "_")
+        root.position = _map.cell_to_world(cell) + Vector3.UP * 0.08
+        _occupancy_root.add_child(root)
+
+        var marker := MeshInstance3D.new()
+        var mesh := CylinderMesh.new()
+        mesh.top_radius = 0.48
+        mesh.bottom_radius = 0.48
+        mesh.height = 0.02
+        marker.mesh = mesh
+        var material := StandardMaterial3D.new()
+        material.albedo_color = Color(1.0, 1.0, 1.0, 0.18)
+        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        marker.material_override = material
+        root.add_child(marker)
+
+        var label := Label3D.new()
+        label.text = "%s @ %d,%d" % [
+            str(actor.get("actor_id", "actor")),
+            int(cell.get("x", 0)),
+            int(cell.get("y", 0)),
+        ]
+        label.position.y = 0.12
+        label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+        label.no_depth_test = true
+        label.font_size = 11
+        root.add_child(label)
+
+
 func show_target_line(
     source_world: Vector3,
     target_world: Vector3,
@@ -101,6 +152,26 @@ func show_target_line(
     immediate.surface_add_vertex(target_world + Vector3.UP * 0.55)
     immediate.surface_end()
     _target_line.mesh = immediate
+
+
+func reachable_marker_count() -> int:
+    return 0 if _reachable_root == null else _reachable_root.get_child_count()
+
+
+func path_marker_count() -> int:
+    return 0 if _path_root == null else _path_root.get_child_count()
+
+
+func area_marker_count() -> int:
+    return 0 if _area_root == null else _area_root.get_child_count()
+
+
+func occupancy_marker_count() -> int:
+    return 0 if _occupancy_root == null else _occupancy_root.get_child_count()
+
+
+func target_line_visible() -> bool:
+    return _target_line != null and _target_line.mesh != null
 
 
 func _new_layer(layer_name: String) -> Node3D:
