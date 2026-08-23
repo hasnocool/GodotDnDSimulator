@@ -7,6 +7,7 @@ var _state: ClientStateCoordinator
 var _world_snapshot: Dictionary = {}
 var _actions: Dictionary = {}
 var _party_records: Dictionary = {}
+var _party_record_errors: Dictionary = {}
 var _world_sequence := 0
 
 @onready var _area: Label = %Area
@@ -47,12 +48,14 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
     if _state == null:
         return
     _state.query_completed.connect(_on_query_completed)
+    _state.query_failed.connect(_on_query_failed)
     _state.command_payload_received.connect(_on_command_payload)
     _state.command_completed.connect(_on_command_completed)
 
 
 func show_world() -> void:
     _party_records.clear()
+    _party_record_errors.clear()
     visible = true
     _refresh_world()
 
@@ -319,6 +322,8 @@ func _render_party(payload: Dictionary, request_missing_records: bool = true) ->
         var actor_id := str(actor_value)
         if _party_records.has(actor_id):
             _add_party_card(actor_id, _party_records[actor_id] as Dictionary)
+        elif _party_record_errors.has(actor_id):
+            _add_party_error(actor_id, str(_party_record_errors[actor_id]))
         else:
             var loading := Label.new()
             loading.text = "%s · loading authoritative character record…" % actor_id
@@ -378,6 +383,33 @@ func _add_party_card(actor_id: String, record: Dictionary) -> void:
     _party_cards.add_child(card)
 
 
+func _add_party_error(actor_id: String, message: String) -> void:
+    var card := PanelContainer.new()
+    var body := VBoxContainer.new()
+    card.add_child(body)
+    var label := Label.new()
+    label.text = "%s · character unavailable: %s" % [actor_id, message]
+    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    body.add_child(label)
+    var retry := Button.new()
+    retry.text = "Retry character"
+    retry.pressed.connect(func() -> void: _retry_character(actor_id))
+    body.add_child(retry)
+    _party_cards.add_child(card)
+
+
+func _retry_character(actor_id: String) -> void:
+    if _state == null:
+        return
+    _party_record_errors.erase(actor_id)
+    _render_party_from_snapshot(false)
+    _state.request_query(
+        "characters.get",
+        {"actor_id": actor_id},
+        "world:character:%s" % actor_id,
+    )
+
+
 func _equipment_for_actor(actor_id: String) -> Array[String]:
     var result: Array[String] = []
     var state_value: Variant = _world_snapshot.get("state", {})
@@ -386,11 +418,16 @@ func _equipment_for_actor(actor_id: String) -> Array[String]:
     var equipped_value: Variant = (state_value as Dictionary).get("equipped", {})
     if typeof(equipped_value) != TYPE_DICTIONARY:
         return result
-    var prefix := "%s:" % actor_id
+    var prefix := "%s|" % actor_id
     for key_value in (equipped_value as Dictionary).keys():
         var key := str(key_value)
         if key.begins_with(prefix):
-            result.append("%s = %s" % [key.trim_prefix(prefix), str((equipped_value as Dictionary)[key_value])])
+            result.append(
+                "%s = %s" % [
+                    key.trim_prefix(prefix),
+                    str((equipped_value as Dictionary)[key_value]),
+                ]
+            )
     result.sort()
     return result
 
@@ -491,8 +528,28 @@ func _on_query_completed(correlation_id: String, _generation: int, payload: Dict
                 if typeof(record_value) != TYPE_DICTIONARY:
                     return
                 var actor_id := correlation_id.trim_prefix("world:character:")
+                _party_record_errors.erase(actor_id)
                 _party_records[actor_id] = (record_value as Dictionary).duplicate(true)
                 _render_party_from_snapshot(false)
+
+
+func _on_query_failed(
+    correlation_id: String,
+    _generation: int,
+    user_message: String,
+    debug_detail: String,
+) -> void:
+    if not correlation_id.begins_with("world:character:"):
+        return
+    var actor_id := correlation_id.trim_prefix("world:character:")
+    _party_records.erase(actor_id)
+    var message := user_message.strip_edges()
+    if message.is_empty():
+        message = debug_detail.strip_edges()
+    if message.is_empty():
+        message = "authoritative character query failed"
+    _party_record_errors[actor_id] = message
+    _render_party_from_snapshot(false)
 
 
 func _render_party_from_snapshot(request_missing_records: bool = true) -> void:
@@ -536,6 +593,8 @@ func _unbind_state() -> void:
         return
     if _state.query_completed.is_connected(_on_query_completed):
         _state.query_completed.disconnect(_on_query_completed)
+    if _state.query_failed.is_connected(_on_query_failed):
+        _state.query_failed.disconnect(_on_query_failed)
     if _state.command_payload_received.is_connected(_on_command_payload):
         _state.command_payload_received.disconnect(_on_command_payload)
     if _state.command_completed.is_connected(_on_command_completed):
