@@ -11,6 +11,7 @@ VENV_PYTEST="$ROOT_DIR/.venv/bin/pytest"
 "$VENV_MYPY" "$ROOT_DIR/engine/src" "$ROOT_DIR/tools/rules_importer"
 "$VENV_PYTHON" -m pytest --cov=godot_dnd_engine --cov=tools.rules_importer --cov-report=term-missing
 "$VENV_PYTHON" "$ROOT_DIR/scripts/check_governance.py"
+"$VENV_PYTHON" "$ROOT_DIR/scripts/check_secrets.py"
 "$VENV_PYTHON" "$ROOT_DIR/scripts/determinism_smoke.py"
 "$VENV_PYTHON" -m tools.rules_importer.smoke
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/bridge_tests.gd
