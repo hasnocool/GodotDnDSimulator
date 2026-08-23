@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://godotdndsimulator.local/schemas/agent/v1/agent-observation.schema.json",
+  "title": "GodotDnDSimulator Agent Observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context",
+    "campaign_id",
+    "session_id",
+    "world",
+    "active_world_encounter_id",
+    "tactical",
+    "current_actor_id",
+    "current_controller",
+    "controllers",
+    "legal_actions"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "context": {"enum": ["world", "tactical"]},
+    "campaign_id": {"type": "string", "pattern": "^campaign:"},
+    "session_id": {"type": "string", "pattern": "^session:"},
+    "world": {"type": "object"},
+    "active_world_encounter_id": {
+      "type": ["string", "null"]
+    },
+    "tactical": {
+      "type": ["object", "null"]
+    },
+    "current_actor_id": {
+      "type": ["string", "null"]
+    },
+    "current_controller": {
+      "oneOf": [
+        {"$ref": "#/$defs/controller"},
+        {"type": "null"}
+      ]
+    },
+    "controllers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/controller"}
+    },
+    "legal_actions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/action"}
+    }
+  },
+  "$defs": {
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_id", "mode", "policy_id"],
+      "properties": {
+        "actor_id": {"type": "string", "pattern": "^actor:"},
+        "mode": {"enum": ["human", "agent"]},
+        "policy_id": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "label",
+        "command_type",
+        "actor_id",
+        "payload",
+        "expected_sequence",
+        "context",
+        "metadata"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "pattern": "^agent-action:[0-9]+:[0-9a-f]{16}$"
+        },
+        "label": {"type": "string", "minLength": 1},
+        "command_type": {"type": "string", "minLength": 1},
+        "actor_id": {"type": ["string", "null"]},
+        "payload": {"type": "object"},
+        "expected_sequence": {"type": "integer", "minimum": 0},
+        "context": {"enum": ["world", "tactical"]},
+        "metadata": {"type": "object"}
+      }
+    }
+  }
+}
