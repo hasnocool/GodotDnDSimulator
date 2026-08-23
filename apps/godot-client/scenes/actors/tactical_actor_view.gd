@@ -9,12 +9,16 @@ var _team := "neutral"
 var _selected := false
 var _hovered := false
 var _current_turn := false
+var _debug_identity_visible := false
 var _body: MeshInstance3D
 var _selection_disc: MeshInstance3D
 var _hover_disc: MeshInstance3D
 var _turn_marker: Label3D
+var _team_marker: Label3D
 var _name_label: Label3D
 var _status_label: Label3D
+var _condition_label: Label3D
+var _debug_id_label: Label3D
 var _pick_body: StaticBody3D
 var _active_tween: Tween
 
@@ -42,10 +46,33 @@ func apply_authoritative_state(data: Dictionary) -> void:
         int(hp.get("maximum", 0)),
         int(data.get("armor_class", 0)),
     ]
+    _team_marker.text = _team_emblem(_team)
+    _team_marker.tooltip_text = "Faction/team: %s" % _team
+    _condition_label.text = _conditions_text(data.get("conditions", []))
+    _condition_label.visible = not _condition_label.text.is_empty()
+    _debug_id_label.text = actor_id
     var material := _body.material_override as StandardMaterial3D
     if material != null:
         material.albedo_color = _team_color(_team)
     _refresh_indicators()
+
+
+func set_debug_identity_visible(value: bool) -> void:
+    _debug_identity_visible = value
+    if _debug_id_label != null:
+        _debug_id_label.visible = value
+
+
+func debug_identity_text() -> String:
+    return "" if _debug_id_label == null else _debug_id_label.text
+
+
+func condition_text() -> String:
+    return "" if _condition_label == null else _condition_label.text
+
+
+func team_marker_text() -> String:
+    return "" if _team_marker == null else _team_marker.text
 
 
 func set_authoritative_position(world_position: Vector3, reduced_motion: bool) -> void:
@@ -99,6 +126,13 @@ func _build_visuals() -> void:
     _hover_disc.position.y = 0.03
     add_child(_hover_disc)
 
+    _team_marker = Label3D.new()
+    _team_marker.position = Vector3(-0.52, 1.78, 0.0)
+    _team_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    _team_marker.no_depth_test = true
+    _team_marker.font_size = 18
+    add_child(_team_marker)
+
     _name_label = Label3D.new()
     _name_label.position = Vector3(0.0, 1.55, 0.0)
     _name_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -112,6 +146,21 @@ func _build_visuals() -> void:
     _status_label.no_depth_test = true
     _status_label.font_size = 15
     add_child(_status_label)
+
+    _condition_label = Label3D.new()
+    _condition_label.position = Vector3(0.0, 1.08, 0.0)
+    _condition_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    _condition_label.no_depth_test = true
+    _condition_label.font_size = 13
+    add_child(_condition_label)
+
+    _debug_id_label = Label3D.new()
+    _debug_id_label.position = Vector3(0.0, 2.06, 0.0)
+    _debug_id_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    _debug_id_label.no_depth_test = true
+    _debug_id_label.font_size = 12
+    _debug_id_label.visible = _debug_identity_visible
+    add_child(_debug_id_label)
 
     _turn_marker = Label3D.new()
     _turn_marker.text = "TURN"
@@ -131,6 +180,27 @@ func _build_visuals() -> void:
     _pick_body.add_child(collision)
     add_child(_pick_body)
     _refresh_indicators()
+
+
+func _conditions_text(value: Variant) -> String:
+    if typeof(value) != TYPE_ARRAY or (value as Array).is_empty():
+        return ""
+    var rows: Array[String] = []
+    for raw in value:
+        if typeof(raw) == TYPE_DICTIONARY:
+            var condition: Dictionary = raw
+            rows.append(str(condition.get("name", condition.get("condition_id", "status"))))
+        else:
+            rows.append(str(raw))
+    return "Status: %s" % ", ".join(rows)
+
+
+func _team_emblem(team: String) -> String:
+    if team == "party" or team == "ember":
+        return "◆ PARTY"
+    if team == "neutral":
+        return "◇ NEUTRAL"
+    return "▲ %s" % team.to_upper().replace("_", " ")
 
 
 func _indicator_mesh(color: Color, radius: float) -> MeshInstance3D:
@@ -155,11 +225,13 @@ func _refresh_indicators() -> void:
         _hover_disc.visible = _hovered and not _selected
     if _turn_marker != null:
         _turn_marker.visible = _current_turn
+    if _debug_id_label != null:
+        _debug_id_label.visible = _debug_identity_visible
 
 
 func _team_color(team: String) -> Color:
     match team:
-        "ember":
+        "ember", "party":
             return Color(0.88, 0.36, 0.20)
         "shale":
             return Color(0.34, 0.48, 0.74)
