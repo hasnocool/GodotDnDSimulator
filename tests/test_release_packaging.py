@@ -20,6 +20,12 @@ def test_v1_release_bundle_is_deterministic_and_attributed(tmp_path: Path) -> No
         assert "LICENSES/SRD-5.2.1-ATTRIBUTION.txt" in names
         assert "README.md" in names
         assert "RELEASE-MANIFEST.json" in names
+        assert not any(
+            name.startswith("apps/godot-client/addons/godot-mcp/")
+            for name in names
+        )
+        assert not any("/.env" in name or name.endswith("/.env") for name in names)
+        assert not any(name.endswith("/export.cfg") for name in names)
 
         manifest = json.loads(archive.read("RELEASE-MANIFEST.json"))
         assert manifest["format"] == "godot-dnd-v1-release-bundle"
@@ -28,3 +34,7 @@ def test_v1_release_bundle_is_deterministic_and_attributed(tmp_path: Path) -> No
         manifest_paths = {row["path"] for row in manifest["files"]}
         assert "apps/godot-client/CREDITS.md" in manifest_paths
         assert "LICENSES/SRD-5.2.1-ATTRIBUTION.txt" in manifest_paths
+        assert not any(
+            path.startswith("apps/godot-client/addons/godot-mcp/")
+            for path in manifest_paths
+        )
