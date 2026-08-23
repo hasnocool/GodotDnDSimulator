@@ -1,6 +1,7 @@
 # tests/test_world_bridge.py
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -98,6 +99,79 @@ def test_world_snapshot_query_and_typed_command_flow_are_stream_isolated() -> No
     assert payload["world_snapshot"]["state"]["sequence"] == 1
     assert payload["world_events"][0]["type"] == "world.started"
     assert payload["presentation_events"][0]["type"] == "world.started"
+
+
+def test_world_save_lossless_json_survives_bridge_json_round_trip() -> None:
+    bridge = _bridge()
+    start = {
+        "command_id": "command:world-start-save",
+        "campaign_id": "campaign:world-bridge",
+        "session_id": "session:world-bridge",
+        "command_type": "world.start",
+        "payload": {"party_ids": ["actor:hero-a"]},
+        "version": 1,
+        "actor_id": None,
+        "expected_sequence": 0,
+    }
+    bridge.handle_message(
+        _request("command.submit", {"command": start}, "world:start-save")
+    )
+
+    save_response = bridge.handle_message(
+        _request(
+            "query.request",
+            {
+                "query_type": "world.save",
+                "query": {"encoding": "lossless-json"},
+            },
+            "world:save-lossless",
+        )
+    )
+    save_payload = _payload(save_response)
+    assert "world_snapshot" not in save_payload
+    serialized = save_payload["world_snapshot_json"]
+    assert isinstance(serialized, str)
+    assert save_payload["save_metadata"]["sequence"] == 1
+
+    wire_response = json.loads(json.dumps(save_response))
+    wire_payload = _payload(wire_response)
+    assert wire_payload["world_snapshot_json"] == serialized
+
+    decoded = json.loads(serialized)
+    authoritative_snapshot = bridge.world.snapshot()
+    assert isinstance(decoded["rng"]["state"], int)
+    assert isinstance(decoded["rng"]["increment"], int)
+    assert decoded["rng"] == authoritative_snapshot["rng"]
+
+    travel = {
+        "command_id": "command:world-travel-save",
+        "campaign_id": "campaign:world-bridge",
+        "session_id": "session:world-bridge",
+        "command_type": "world.travel",
+        "payload": {"area_id": "area:old-road"},
+        "version": 1,
+        "actor_id": None,
+        "expected_sequence": 1,
+    }
+    bridge.handle_message(
+        _request("command.submit", {"command": travel}, "world:travel-save")
+    )
+    load = {
+        "command_id": "command:world-load-lossless",
+        "campaign_id": "campaign:world-bridge",
+        "session_id": "session:world-bridge",
+        "command_type": "world.load",
+        "payload": {"world_snapshot_json": serialized},
+        "version": 1,
+        "actor_id": None,
+        "expected_sequence": 2,
+    }
+    load_response = bridge.handle_message(
+        _request("command.submit", {"command": load}, "world:load-lossless")
+    )
+    load_payload = _payload(load_response)
+    assert load_payload["world_snapshot"]["state"]["sequence"] == 1
+    assert bridge.world.snapshot()["rng"] == authoritative_snapshot["rng"]
 
 
 def test_world_actions_include_engine_supplied_dialogue_descriptors() -> None:
