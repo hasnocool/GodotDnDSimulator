@@ -3,7 +3,7 @@ extends RefCounted
 
 signal busy_changed(busy: bool)
 signal save_completed(slot_id: String, metadata: Dictionary)
-signal load_completed(slot_id: String, world_snapshot: Dictionary, metadata: Dictionary)
+signal load_completed(slot_id: String, world_snapshot_json: String, metadata: Dictionary)
 signal slots_listed(slots: Dictionary)
 signal operation_failed(
     operation: String,
@@ -14,7 +14,7 @@ signal operation_failed(
 
 const FORMAT_ID := "godot-dnd-world-save"
 const FORMAT_VERSION := 1
-const MAX_SAVE_BYTES := 32 * 1024 * 1024
+const MAX_SAVE_BYTES := 1_048_576
 const DEFAULT_ROOT := "user://saves/world"
 const SLOT_IDS := PackedStringArray(["slot-1", "slot-2", "slot-3"])
 const SLOT_LABELS := {
@@ -48,17 +48,17 @@ func is_busy() -> bool:
 
 func save_slot(
     slot_id: String,
-    world_snapshot: Dictionary,
+    world_snapshot_json: String,
     metadata: Dictionary = {},
 ) -> bool:
     if not _validate_slot(slot_id, "save"):
         return false
-    if world_snapshot.is_empty():
+    if world_snapshot_json.strip_edges().is_empty():
         operation_failed.emit(
             "save",
             slot_id,
             "There is no authoritative world state to save.",
-            "world_snapshot is empty",
+            "world_snapshot_json is empty",
         )
         return false
     var envelope := {
@@ -66,7 +66,7 @@ func save_slot(
         "format_version": FORMAT_VERSION,
         "slot_id": slot_id,
         "metadata": metadata.duplicate(true),
-        "world_snapshot": world_snapshot.duplicate(true),
+        "world_snapshot_json": world_snapshot_json,
     }
     return _start_operation(
         "save",
@@ -207,14 +207,14 @@ func _finish_operation(
             )
             save_completed.emit(slot_id, metadata)
         "load":
-            var snapshot_value: Variant = result.get("world_snapshot", {})
+            var snapshot_value: Variant = result.get("world_snapshot_json", "")
             var metadata_value: Variant = result.get("metadata", {})
-            if typeof(snapshot_value) != TYPE_DICTIONARY:
+            if typeof(snapshot_value) != TYPE_STRING or str(snapshot_value).strip_edges().is_empty():
                 operation_failed.emit(
                     operation,
                     slot_id,
                     "The save did not contain a world snapshot.",
-                    "validated load result lost world_snapshot dictionary",
+                    "validated load result lost world_snapshot_json string",
                 )
                 return
             var metadata := (
@@ -222,11 +222,7 @@ func _finish_operation(
                 if typeof(metadata_value) == TYPE_DICTIONARY
                 else {}
             )
-            load_completed.emit(
-                slot_id,
-                (snapshot_value as Dictionary).duplicate(true),
-                metadata,
-            )
+            load_completed.emit(slot_id, str(snapshot_value), metadata)
         "list":
             var slots_value: Variant = result.get("slots", {})
             if typeof(slots_value) == TYPE_DICTIONARY:
@@ -378,17 +374,17 @@ func _read_envelope(slot_id: String) -> Dictionary:
             "The save metadata is malformed.",
             "metadata must be a dictionary",
         )
-    var snapshot_value: Variant = envelope.get("world_snapshot", null)
-    if typeof(snapshot_value) != TYPE_DICTIONARY:
+    var snapshot_value: Variant = envelope.get("world_snapshot_json", null)
+    if typeof(snapshot_value) != TYPE_STRING or str(snapshot_value).strip_edges().is_empty():
         return _failure(
             "The save file does not contain a world snapshot.",
-            "world_snapshot must be a dictionary",
+            "world_snapshot_json must be a non-empty string",
         )
     return {
         "ok": true,
         "exists": true,
         "metadata": (metadata_value as Dictionary).duplicate(true),
-        "world_snapshot": (snapshot_value as Dictionary).duplicate(true),
+        "world_snapshot_json": str(snapshot_value),
         "recovered_backup": recovered_backup,
     }
 
