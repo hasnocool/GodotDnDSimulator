@@ -47,7 +47,6 @@ func apply_authoritative_state(data: Dictionary) -> void:
         int(data.get("armor_class", 0)),
     ]
     _team_marker.text = _team_emblem(_team)
-    _team_marker.tooltip_text = "Faction/team: %s" % _team
     _condition_label.text = _conditions_text(data.get("conditions", []))
     _condition_label.visible = not _condition_label.text.is_empty()
     _debug_id_label.text = actor_id
