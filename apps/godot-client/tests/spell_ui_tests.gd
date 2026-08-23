@@ -108,6 +108,15 @@ func _test_spell_ui_uses_authoritative_previews() -> void:
     var palette = scene.get_node("HUD/SpellPalette")
     _check(palette.visible, "spell palette is visible only with authoritative spell state")
     _check(palette.call("spell_rows").size() == 2, "palette renders engine spell rows")
+    var active_effects: Label = palette.get_node("Margin/VBox/ActiveEffectsLabel")
+    _check(
+        active_effects.text.contains("spell:echo-ward"),
+        "palette renders non-concentration active spell effects from engine data",
+    )
+    _check(
+        active_effects.text.contains("2 rounds"),
+        "palette renders authoritative active-effect duration",
+    )
 
     var lance: Dictionary = _available_spells()["spells"][0]
     scene.call("_on_spell_selected", lance, 0)
@@ -248,6 +257,16 @@ func _available_spells() -> Dictionary:
         "actor_id": "actor:ember",
         "slots": [{"level": 1, "current": 3, "maximum": 3}],
         "concentration": null,
+        "active_effects": [
+            {
+                "effect_id": "effect:echo-ward:1",
+                "spell_id": "spell:echo-ward",
+                "caster_id": "actor:ember",
+                "target_ids": ["actor:ember"],
+                "remaining_rounds": 2,
+                "concentration": false,
+            },
+        ],
         "spells": [
             {
                 "spell_id": "spell:arc-lance",
