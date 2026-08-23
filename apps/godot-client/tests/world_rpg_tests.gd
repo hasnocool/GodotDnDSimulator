@@ -185,9 +185,39 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
     var aster_request := _last_character_query(transport, "actor:premade-aster")
     _check(not mira_request.is_empty(), "party card requests Mira character record")
     _check(not aster_request.is_empty(), "party card requests Aster character record")
-    transport.queue_message(_character_response(mira_request, _character_record("actor:premade-mira", "Mira Quill", "guardian", 18, 16)))
-    transport.queue_message(_character_response(aster_request, _character_record("actor:premade-aster", "Aster Vale", "scholar", 12, 13)))
+    transport.queue_message(
+        _character_response(
+            mira_request,
+            _character_record(
+                "actor:premade-mira",
+                "Mira Quill",
+                "guardian",
+                18,
+                16,
+            ),
+        )
+    )
+    transport.queue_message(
+        _character_response(
+            aster_request,
+            _character_record(
+                "actor:premade-aster",
+                "Aster Vale",
+                "scholar",
+                12,
+                13,
+            ),
+        )
+    )
     await process_frame
+    _check(
+        _count_character_queries(transport, "actor:premade-mira") == 1,
+        "partial party-card responses do not duplicate Mira queries",
+    )
+    _check(
+        _count_character_queries(transport, "actor:premade-aster") == 1,
+        "partial party-card responses do not duplicate Aster queries",
+    )
 
     _check(
         world.call("world_snapshot")["state"]["mode"] == "world",
@@ -197,35 +227,77 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
         shell.client_state().authoritative.state_view().get("mode", "") != "world",
         "world query does not replace tactical/core authoritative mirror",
     )
-    var travel_box = world.get_node("Panel/Margin/VBox/Columns/ActionsScroll/Actions/Travel")
+    var travel_box = world.get_node(
+        "Panel/Margin/VBox/Columns/ActionsScroll/Actions/Travel"
+    )
     _check(travel_box.get_child_count() == 1, "travel UI renders engine-returned actions")
 
-    var map_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Map")
-    var party_cards: VBoxContainer = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Party/PartyCards")
-    var inventory_items: VBoxContainer = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/ItemsScroll/InventoryItems")
-    var journal_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Journal")
+    var map_view: RichTextLabel = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Map"
+    )
+    var party_cards: VBoxContainer = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Party/PartyCards"
+    )
+    var inventory_items: VBoxContainer = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Inventory/ItemsScroll/InventoryItems"
+    )
+    var journal_view: RichTextLabel = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Journal"
+    )
     _check(map_view.text.contains("Reedhollow Square"), "map tab renders authoritative area data")
     _check(map_view.text.contains("Old Quarry Road"), "map tab renders connected area data")
-    _check(_tree_text(party_cards).contains("Mira Quill"), "party cards render authoritative character names")
-    _check(_tree_text(party_cards).contains("HP 18/18 · AC 16"), "party cards render authoritative actor stats")
-    _check(_tree_text(party_cards).contains("item:lantern-blade"), "party cards render authoritative equipment")
-    _check(_tree_text(inventory_items).contains("item:field-kit × 2"), "inventory tab renders snapshot inventory")
+    _check(
+        _tree_text(party_cards).contains("Mira Quill"),
+        "party cards render authoritative character names",
+    )
+    _check(
+        _tree_text(party_cards).contains("HP 18/18 · AC 16"),
+        "party cards render authoritative actor stats",
+    )
+    _check(
+        _tree_text(party_cards).contains("item:lantern-blade"),
+        "party cards render authoritative equipment",
+    )
+    _check(
+        _tree_text(inventory_items).contains("item:field-kit × 2"),
+        "inventory tab renders snapshot inventory",
+    )
     _check(journal_view.text.contains("quest:test"), "journal tab renders authoritative quest state")
 
-    var equip_slot: LineEdit = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/EquipSlot")
-    var equip_button: Button = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/Equip")
+    var equip_slot: LineEdit = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/EquipSlot"
+    )
+    var equip_button: Button = world.get_node(
+        "Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow/Equip"
+    )
     equip_slot.text = "main_hand"
     equip_button.pressed.emit()
     await process_frame
     var equip_command := _last_message(transport, "command.submit")
     _check(not equip_command.is_empty(), "inventory UI submits an authoritative command")
-    var equip_payload: Dictionary = equip_command.get("payload", {}).get("command", {})
-    _check(str(equip_payload.get("command_type", "")) == "inventory.equip", "inventory UI uses inventory.equip")
-    _check(int(equip_payload.get("expected_sequence", -1)) == 0, "equipment command uses isolated world sequence")
+    var command_payload: Dictionary = equip_command.get("payload", {})
+    var equip_payload: Dictionary = command_payload.get("command", {})
+    _check(
+        str(equip_payload.get("command_type", "")) == "inventory.equip",
+        "inventory UI uses inventory.equip",
+    )
+    _check(
+        int(equip_payload.get("expected_sequence", -1)) == 0,
+        "equipment command uses isolated world sequence",
+    )
     var equipment_intent: Dictionary = equip_payload.get("payload", {})
-    _check(str(equipment_intent.get("actor_id", "")) == "actor:premade-mira", "equipment intent targets selected party actor")
-    _check(str(equipment_intent.get("item_id", "")) == "item:field-kit", "equipment intent uses an owned item")
-    _check(str(equipment_intent.get("slot", "")) == "main_hand", "equipment slot is submitted as intent for engine validation")
+    _check(
+        str(equipment_intent.get("actor_id", "")) == "actor:premade-mira",
+        "equipment intent targets selected party actor",
+    )
+    _check(
+        str(equipment_intent.get("item_id", "")) == "item:field-kit",
+        "equipment intent uses an owned item",
+    )
+    _check(
+        str(equipment_intent.get("slot", "")) == "main_hand",
+        "equipment slot is submitted as intent for engine validation",
+    )
 
     shell.shutdown()
     root.remove_child(shell)
@@ -244,7 +316,13 @@ func _character_response(request: Dictionary, record: Dictionary) -> Dictionary:
     )
 
 
-func _character_record(actor_id: String, name: String, class_name_value: String, hp: int, ac: int) -> Dictionary:
+func _character_record(
+    actor_id: String,
+    name: String,
+    class_name_value: String,
+    hp: int,
+    ac: int,
+) -> Dictionary:
     return {
         "schema_version": 1,
         "catalog_id": "catalog:test",
@@ -303,7 +381,11 @@ func _world_snapshot(sequence: int) -> Dictionary:
             "campaign_id": "campaign:test",
             "sequence": sequence,
             "mode": "world",
-            "area": {"area_id": "area:reedhollow-square", "name": "Reedhollow Square", "tags": ["village"]},
+            "area": {
+                "area_id": "area:reedhollow-square",
+                "name": "Reedhollow Square",
+                "tags": ["village"],
+            },
             "party_ids": ["actor:premade-mira", "actor:premade-aster"],
             "flags": [],
             "quests": {"quest:test": "available"},
@@ -351,6 +433,21 @@ func _last_character_query(transport, actor_id: String) -> Dictionary:
         if str(query.get("actor_id", "")) == actor_id:
             return message
     return {}
+
+
+func _count_character_queries(transport, actor_id: String) -> int:
+    var count := 0
+    for message_value in transport.sent_messages:
+        var message: Dictionary = message_value
+        if str(message.get("kind", "")) != "query.request":
+            continue
+        var payload: Dictionary = message.get("payload", {})
+        if str(payload.get("query_type", "")) != "characters.get":
+            continue
+        var query: Dictionary = payload.get("query", {})
+        if str(query.get("actor_id", "")) == actor_id:
+            count += 1
+    return count
 
 
 func _tree_text(node: Node) -> String:
