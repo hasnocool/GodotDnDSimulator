@@ -94,18 +94,22 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - `schemas/v1/character-record.schema.json`, Python creator/bridge/schema regressions, and `res://tests/character_creator_tests.gd` headless client coverage.
 - `docs/V0.9_CHARACTER_CREATOR.md` documenting creator authority, data contracts, bridge/UI flow, validation, and v1.0 handoff.
 - Restored `.github/workflows/ci.yml` with Python/governance and Godot headless jobs so future PR heads can be validated when repository Actions runners execute normally.
+- v1.0 deterministic playable-world runtime with original campaign exploration, travel, dialogue, quest state, skill-check interactions, shops, party inventory/equipment, rest, tactical-encounter gates, and world snapshot/replay integration.
+- Capability-gated Godot Adventure overlay plus authoritative Journal, Map, Party, and Inventory management surfaces driven by `world.*` and character bridge data.
+- v1.0 Godot party cards sourced from `characters.get` records and interactive `inventory.equip` intent routing that keeps active-party, ownership, and sequence validation in the headless world runtime.
+- `docs/V1.0_PARTY_INVENTORY_INTERACTIONS.md` documenting the v1.0 party/inventory client authority boundary, query/command flow, headless coverage, and follow-up equipment-choice contract.
 
 ### Changed
 
 - `README.md` documents the executable architecture and local validation workflow.
 - Release policy is semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
-- Development version advances to `0.9.0.dev0`; validation now includes creator runtime, character-record schema, and headless creator interaction suites.
+- Development version advances to `1.0.0.dev0`; validation now includes the playable-world and headless Godot Adventure integration surfaces.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation advances through v0.9 complete character creator while unfinished earlier CI/full-source audit items remain tracked as carryover.
+- Active implementation advances through v1.0 playable RPG while unfinished earlier CI/full-source audit and exact-head acceptance items remain tracked as carryover.
 - v0.5 movement-budget accounting has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
 - Root agent governance plus Claude, Gemini, and Copilot adapters require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
-- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, and v0.9 character creator suites.
-- The default `godot-dnd-client-bridge` entry point now uses the v0.9 character-aware host; `--core-only` disables tactical/spell providers while retaining character-creator services.
+- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, v0.9 character creator, and v1.0 world RPG suites.
+- The default `godot-dnd-client-bridge` entry point now uses the v1.0 world-aware host while retaining character, tactical, and spell capabilities according to negotiated providers.
 
 ### Deprecated
 
@@ -128,6 +132,7 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Spell RNG consumption is checkpointed in the spell event stream so replay/resume tooling can restore the exact future deterministic random stream.
 - Removed an unresolved changelog merge marker left from earlier integration history.
 - Creator catalog deserialization converts malformed enum/content values into project validation errors instead of leaking raw enum exceptions across the content boundary.
+- The integrated v1.0 world view again exposes the documented Journal, Map, Party, and Inventory tabs after the previous management-screen consolidation left only the Journal surface in the live scene.
 
 ### Security
 
