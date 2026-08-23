@@ -122,10 +122,77 @@ text = "Shops"
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="Journal" type="RichTextLabel" parent="Panel/Margin/VBox/Columns"]
-unique_name_in_owner = true
+[node name="ManagementTabs" type="TabContainer" parent="Panel/Margin/VBox/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="Journal" type="RichTextLabel" parent="Panel/Margin/VBox/Columns/ManagementTabs"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
 fit_content = false
 text = "Journal"
+
+[node name="Map" type="RichTextLabel" parent="Panel/Margin/VBox/Columns/ManagementTabs"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = false
+text = "Map"
+
+[node name="Party" type="ScrollContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs"]
+layout_mode = 2
+
+[node name="PartyCards" type="VBoxContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs/Party"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Inventory" type="VBoxContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InventorySummary" type="Label" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Currency: 0"
+
+[node name="ItemsScroll" type="ScrollContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InventoryItems" type="VBoxContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/ItemsScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EquipTitle" type="Label" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
+layout_mode = 2
+text = "Equip owned item"
+
+[node name="EquipRow" type="HBoxContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
+layout_mode = 2
+
+[node name="EquipActor" type="OptionButton" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EquipItem" type="OptionButton" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EquipSlot" type="LineEdit" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "engine slot ID"
+
+[node name="Equip" type="Button" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Equip"

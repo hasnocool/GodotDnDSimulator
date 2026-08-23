@@ -6,6 +6,8 @@ signal close_requested()
 var _state: ClientStateCoordinator
 var _world_snapshot: Dictionary = {}
 var _actions: Dictionary = {}
+var _party_records: Dictionary = {}
+var _party_record_errors: Dictionary = {}
 var _world_sequence := 0
 
 @onready var _area: Label = %Area
@@ -19,6 +21,14 @@ var _world_sequence := 0
 @onready var _encounters: VBoxContainer = %Encounters
 @onready var _shops: VBoxContainer = %Shops
 @onready var _journal: RichTextLabel = %Journal
+@onready var _map: RichTextLabel = %Map
+@onready var _party_cards: VBoxContainer = %PartyCards
+@onready var _inventory_summary: Label = %InventorySummary
+@onready var _inventory_items: VBoxContainer = %InventoryItems
+@onready var _equip_actor: OptionButton = %EquipActor
+@onready var _equip_item: OptionButton = %EquipItem
+@onready var _equip_slot: LineEdit = %EquipSlot
+@onready var _equip: Button = %Equip
 @onready var _close: Button = %Close
 
 
@@ -26,6 +36,7 @@ func _ready() -> void:
     visible = false
     _start.pressed.connect(_start_campaign)
     _refresh.pressed.connect(_refresh_world)
+    _equip.pressed.connect(_equip_selected)
     _close.pressed.connect(func() -> void: close_requested.emit())
 
 
@@ -37,11 +48,14 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
     if _state == null:
         return
     _state.query_completed.connect(_on_query_completed)
+    _state.query_failed.connect(_on_query_failed)
     _state.command_payload_received.connect(_on_command_payload)
     _state.command_completed.connect(_on_command_completed)
 
 
 func show_world() -> void:
+    _party_records.clear()
+    _party_record_errors.clear()
     visible = true
     _refresh_world()
 
@@ -60,6 +74,8 @@ func _refresh_world() -> void:
     _state.request_query("world.snapshot", {}, "world:snapshot")
     _state.request_query("world.actions", {}, "world:actions")
     _state.request_query("world.journal", {}, "world:journal")
+    _state.request_query("world.map", {}, "world:map")
+    _state.request_query("world.party", {}, "world:party")
 
 
 func _start_campaign() -> void:
@@ -72,6 +88,23 @@ func _start_campaign() -> void:
         _status.text = "Enter one or more actor IDs from the creator or loaded party."
         return
     _submit("world.start", {"party_ids": ids}, "world:start")
+
+
+func _equip_selected() -> void:
+    if _equip_actor.item_count == 0 or _equip_item.item_count == 0:
+        _status.text = "The active party needs an owned item before equipment can change."
+        return
+    var slot := _equip_slot.text.strip_edges()
+    if slot.is_empty():
+        _status.text = "Enter the engine equipment-slot ID to use."
+        return
+    var actor_id := str(_equip_actor.get_item_metadata(_equip_actor.selected))
+    var item_id := str(_equip_item.get_item_metadata(_equip_item.selected))
+    _submit(
+        "inventory.equip",
+        {"actor_id": actor_id, "slot": slot, "item_id": item_id},
+        "world:equip",
+    )
 
 
 func _submit(command_type: String, payload: Dictionary, correlation_id: String) -> void:
@@ -104,6 +137,8 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
     var party_value: Variant = world_state.get("party_ids", [])
     _start.disabled = typeof(party_value) == TYPE_ARRAY and not (party_value as Array).is_empty()
     _render_state_summary(world_state)
+    _render_inventory(world_state)
+    _render_party_from_snapshot(false)
 
 
 func _render_state_summary(world_state: Dictionary) -> void:
@@ -244,13 +279,201 @@ func _render_journal(payload: Dictionary) -> void:
     var lines: Array[String] = []
     var quests_value: Variant = payload.get("quests", {})
     if typeof(quests_value) == TYPE_DICTIONARY:
+        lines.append("[b]Quests[/b]")
         for quest_id in (quests_value as Dictionary).keys():
             lines.append("%s: %s" % [quest_id, (quests_value as Dictionary)[quest_id]])
     var entries_value: Variant = payload.get("entries", [])
     if typeof(entries_value) == TYPE_ARRAY:
+        lines.append("\n[b]Journal[/b]")
         for entry in entries_value:
-            lines.append(str(entry))
+            lines.append("• %s" % str(entry))
     _journal.text = "\n".join(lines)
+
+
+func _render_map(payload: Dictionary) -> void:
+    var lines: Array[String] = []
+    var current_area_id := str(payload.get("current_area_id", ""))
+    var areas_value: Variant = payload.get("areas", [])
+    if typeof(areas_value) == TYPE_ARRAY:
+        for area_value in areas_value:
+            if typeof(area_value) != TYPE_DICTIONARY:
+                continue
+            var area: Dictionary = area_value
+            var area_id := str(area.get("area_id", ""))
+            var marker := "▶" if area_id == current_area_id else "•"
+            var visited := "visited" if bool(area.get("visited", false)) else "unknown"
+            lines.append("%s [b]%s[/b] · %s" % [marker, str(area.get("name", area_id)), visited])
+            var exits_value: Variant = area.get("exits", [])
+            if typeof(exits_value) == TYPE_ARRAY and not (exits_value as Array).is_empty():
+                lines.append("    exits: %s" % ", ".join(exits_value as Array))
+    _map.text = "\n".join(lines)
+
+
+func _render_party(payload: Dictionary, request_missing_records: bool = true) -> void:
+    _clear(_party_cards)
+    var party_value: Variant = payload.get("party_ids", [])
+    if typeof(party_value) != TYPE_ARRAY or (party_value as Array).is_empty():
+        var empty := Label.new()
+        empty.text = "No active party. Create or load heroes, then start the campaign."
+        empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        _party_cards.add_child(empty)
+        return
+    for actor_value in party_value:
+        var actor_id := str(actor_value)
+        if _party_records.has(actor_id):
+            _add_party_card(actor_id, _party_records[actor_id] as Dictionary)
+        elif _party_record_errors.has(actor_id):
+            _add_party_error(actor_id, str(_party_record_errors[actor_id]))
+        else:
+            var loading := Label.new()
+            loading.text = "%s · loading authoritative character record…" % actor_id
+            _party_cards.add_child(loading)
+            if request_missing_records and _state != null:
+                _state.request_query(
+                    "characters.get",
+                    {"actor_id": actor_id},
+                    "world:character:%s" % actor_id,
+                )
+
+
+func _add_party_card(actor_id: String, record: Dictionary) -> void:
+    var actor_value: Variant = record.get("actor", {})
+    if typeof(actor_value) != TYPE_DICTIONARY:
+        return
+    var actor: Dictionary = actor_value
+    var card := PanelContainer.new()
+    var body := VBoxContainer.new()
+    card.add_child(body)
+
+    var title := Label.new()
+    var level_value: Variant = actor.get("level", null)
+    var level_text := "?" if level_value == null else str(level_value)
+    title.text = "%s · Level %s" % [str(actor.get("name", actor_id)), level_text]
+    body.add_child(title)
+
+    var identity := Label.new()
+    identity.text = "%s · %s · %s" % [
+        str(record.get("species_id", "unknown species")),
+        str(record.get("background_id", "unknown background")),
+        str(record.get("class_id", "unknown class")),
+    ]
+    identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    body.add_child(identity)
+
+    var hp_value: Variant = actor.get("hit_points", {})
+    var defense_value: Variant = actor.get("defense", {})
+    var current_hp := 0
+    var maximum_hp := 0
+    var armor_class := 0
+    if typeof(hp_value) == TYPE_DICTIONARY:
+        current_hp = int((hp_value as Dictionary).get("current", 0))
+        maximum_hp = int((hp_value as Dictionary).get("maximum", 0))
+    if typeof(defense_value) == TYPE_DICTIONARY:
+        armor_class = int((defense_value as Dictionary).get("armor_class", 0))
+    var stats := Label.new()
+    stats.text = "HP %d/%d · AC %d · %s" % [current_hp, maximum_hp, armor_class, actor_id]
+    body.add_child(stats)
+
+    var equipped := _equipment_for_actor(actor_id)
+    if not equipped.is_empty():
+        var equipment := Label.new()
+        equipment.text = "Equipped: %s" % ", ".join(equipped)
+        equipment.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        body.add_child(equipment)
+    _party_cards.add_child(card)
+
+
+func _add_party_error(actor_id: String, message: String) -> void:
+    var card := PanelContainer.new()
+    var body := VBoxContainer.new()
+    card.add_child(body)
+    var label := Label.new()
+    label.text = "%s · character unavailable: %s" % [actor_id, message]
+    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    body.add_child(label)
+    var retry := Button.new()
+    retry.text = "Retry character"
+    retry.pressed.connect(func() -> void: _retry_character(actor_id))
+    body.add_child(retry)
+    _party_cards.add_child(card)
+
+
+func _retry_character(actor_id: String) -> void:
+    if _state == null:
+        return
+    _party_record_errors.erase(actor_id)
+    _render_party_from_snapshot(false)
+    _state.request_query(
+        "characters.get",
+        {"actor_id": actor_id},
+        "world:character:%s" % actor_id,
+    )
+
+
+func _equipment_for_actor(actor_id: String) -> Array[String]:
+    var result: Array[String] = []
+    var state_value: Variant = _world_snapshot.get("state", {})
+    if typeof(state_value) != TYPE_DICTIONARY:
+        return result
+    var equipped_value: Variant = (state_value as Dictionary).get("equipped", {})
+    if typeof(equipped_value) != TYPE_DICTIONARY:
+        return result
+    var prefix := "%s|" % actor_id
+    for key_value in (equipped_value as Dictionary).keys():
+        var key := str(key_value)
+        if key.begins_with(prefix):
+            result.append(
+                "%s = %s" % [
+                    key.trim_prefix(prefix),
+                    str((equipped_value as Dictionary)[key_value]),
+                ]
+            )
+    result.sort()
+    return result
+
+
+func _render_inventory(world_state: Dictionary) -> void:
+    _inventory_summary.text = "Currency: %d" % int(world_state.get("currency", 0))
+    _clear(_inventory_items)
+    var inventory_value: Variant = world_state.get("inventory", {})
+    if typeof(inventory_value) == TYPE_DICTIONARY:
+        var inventory: Dictionary = inventory_value
+        if inventory.is_empty():
+            var empty := Label.new()
+            empty.text = "No items carried."
+            _inventory_items.add_child(empty)
+        else:
+            var item_ids: Array = inventory.keys()
+            item_ids.sort()
+            for item_id_value in item_ids:
+                var item_id := str(item_id_value)
+                var row := Label.new()
+                row.text = "%s × %d" % [item_id, int(inventory[item_id_value])]
+                _inventory_items.add_child(row)
+    _refresh_equip_controls(world_state)
+
+
+func _refresh_equip_controls(world_state: Dictionary) -> void:
+    _equip_actor.clear()
+    _equip_item.clear()
+    var party_value: Variant = world_state.get("party_ids", [])
+    if typeof(party_value) == TYPE_ARRAY:
+        for actor_value in party_value:
+            var actor_id := str(actor_value)
+            _equip_actor.add_item(actor_id)
+            _equip_actor.set_item_metadata(_equip_actor.item_count - 1, actor_id)
+    var inventory_value: Variant = world_state.get("inventory", {})
+    if typeof(inventory_value) == TYPE_DICTIONARY:
+        var inventory: Dictionary = inventory_value
+        var item_ids: Array = inventory.keys()
+        item_ids.sort()
+        for item_id_value in item_ids:
+            if int(inventory[item_id_value]) < 1:
+                continue
+            var item_id := str(item_id_value)
+            _equip_item.add_item(item_id)
+            _equip_item.set_item_metadata(_equip_item.item_count - 1, item_id)
+    _equip.disabled = _equip_actor.item_count == 0 or _equip_item.item_count == 0
 
 
 func _request_dialogue() -> void:
@@ -293,8 +516,54 @@ func _on_query_completed(correlation_id: String, _generation: int, payload: Dict
             _render_actions(payload)
         "world:journal":
             _render_journal(payload)
+        "world:map":
+            _render_map(payload)
+        "world:party":
+            _render_party(payload)
         "world:dialogue":
             _render_dialogue(payload)
+        _:
+            if correlation_id.begins_with("world:character:"):
+                var record_value: Variant = payload.get("record", {})
+                if typeof(record_value) != TYPE_DICTIONARY:
+                    return
+                var actor_id := correlation_id.trim_prefix("world:character:")
+                _party_record_errors.erase(actor_id)
+                _party_records[actor_id] = (record_value as Dictionary).duplicate(true)
+                _render_party_from_snapshot(false)
+
+
+func _on_query_failed(
+    correlation_id: String,
+    _generation: int,
+    user_message: String,
+    debug_detail: String,
+) -> void:
+    if not correlation_id.begins_with("world:character:"):
+        return
+    var actor_id := correlation_id.trim_prefix("world:character:")
+    _party_records.erase(actor_id)
+    var message := user_message.strip_edges()
+    if message.is_empty():
+        message = debug_detail.strip_edges()
+    if message.is_empty():
+        message = "authoritative character query failed"
+    _party_record_errors[actor_id] = message
+    _render_party_from_snapshot(false)
+
+
+func _render_party_from_snapshot(request_missing_records: bool = true) -> void:
+    var state_value: Variant = _world_snapshot.get("state", {})
+    if typeof(state_value) != TYPE_DICTIONARY:
+        return
+    var world_state: Dictionary = state_value
+    _render_party(
+        {
+            "party_ids": world_state.get("party_ids", []),
+            "equipped": world_state.get("equipped", {}),
+        },
+        request_missing_records,
+    )
 
 
 func _on_command_payload(correlation_id: String, payload: Dictionary) -> void:
@@ -324,6 +593,8 @@ func _unbind_state() -> void:
         return
     if _state.query_completed.is_connected(_on_query_completed):
         _state.query_completed.disconnect(_on_query_completed)
+    if _state.query_failed.is_connected(_on_query_failed):
+        _state.query_failed.disconnect(_on_query_failed)
     if _state.command_payload_received.is_connected(_on_command_payload):
         _state.command_payload_received.disconnect(_on_command_payload)
     if _state.command_completed.is_connected(_on_command_completed):
