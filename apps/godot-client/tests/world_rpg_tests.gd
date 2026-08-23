@@ -53,6 +53,7 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
                     "world.runtime.v1",
                     "world.commands.v1",
                     "world.queries.v1",
+                    "world.save-replay.v1",
                     "dialogue.v1",
                     "quests.v1",
                     "shops.v1",
@@ -90,9 +91,13 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
     var world_snapshot_request := _last_query(transport, "world.snapshot")
     var actions_request := _last_query(transport, "world.actions")
     var journal_request := _last_query(transport, "world.journal")
+    var map_request := _last_query(transport, "world.map")
+    var party_request := _last_query(transport, "world.party")
     _check(not world_snapshot_request.is_empty(), "world overlay requests world snapshot")
     _check(not actions_request.is_empty(), "world overlay requests available actions")
     _check(not journal_request.is_empty(), "world overlay requests journal")
+    _check(not map_request.is_empty(), "world overlay requests authoritative map")
+    _check(not party_request.is_empty(), "world overlay requests authoritative party")
 
     transport.queue_message(
         Protocol.make_response(
@@ -132,6 +137,45 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
             {"quests": {"quest:test": "available"}, "entries": ["Arrival"]},
         )
     )
+    transport.queue_message(
+        Protocol.make_response(
+            "query.result",
+            str(map_request["request_id"]),
+            str(map_request["correlation_id"]),
+            int(map_request["generation"]),
+            true,
+            {
+                "current_area_id": "area:reedhollow-square",
+                "areas": [
+                    {
+                        "area_id": "area:reedhollow-square",
+                        "name": "Reedhollow Square",
+                        "exits": ["area:old-road"],
+                        "visited": true,
+                    },
+                    {
+                        "area_id": "area:old-road",
+                        "name": "Old Quarry Road",
+                        "exits": ["area:reedhollow-square"],
+                        "visited": false,
+                    },
+                ],
+            },
+        )
+    )
+    transport.queue_message(
+        Protocol.make_response(
+            "query.result",
+            str(party_request["request_id"]),
+            str(party_request["correlation_id"]),
+            int(party_request["generation"]),
+            true,
+            {
+                "party_ids": ["actor:ember-warden", "actor:lantern-scout"],
+                "equipped": {"actor:ember-warden:main_hand": "item:lantern-blade"},
+            },
+        )
+    )
     await process_frame
 
     _check(
@@ -144,6 +188,18 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
     )
     var travel_box = world.get_node("Panel/Margin/VBox/Columns/ActionsScroll/Actions/Travel")
     _check(travel_box.get_child_count() == 1, "travel UI renders engine-returned actions")
+
+    var map_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Map")
+    var party_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Party")
+    var inventory_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Inventory")
+    var journal_view: RichTextLabel = world.get_node("Panel/Margin/VBox/Columns/ManagementTabs/Journal")
+    _check(map_view.text.contains("Reedhollow Square"), "map tab renders authoritative area data")
+    _check(map_view.text.contains("Old Quarry Road"), "map tab renders connected area data")
+    _check(party_view.text.contains("actor:ember-warden"), "party tab renders authoritative party IDs")
+    _check(party_view.text.contains("item:lantern-blade"), "party tab renders authoritative equipment")
+    _check(inventory_view.text.contains("item:field-kit"), "inventory tab renders snapshot inventory")
+    _check(inventory_view.text.contains("Currency: 25"), "inventory tab renders authoritative currency")
+    _check(journal_view.text.contains("quest:test"), "journal tab renders authoritative quest state")
 
     shell.shutdown()
     root.remove_child(shell)
@@ -172,11 +228,11 @@ func _world_snapshot(sequence: int) -> Dictionary:
             "sequence": sequence,
             "mode": "world",
             "area": {"area_id": "area:reedhollow-square", "name": "Reedhollow Square", "tags": ["village"]},
-            "party_ids": [],
+            "party_ids": ["actor:ember-warden", "actor:lantern-scout"],
             "flags": [],
             "quests": {"quest:test": "available"},
-            "inventory": {},
-            "equipped": {},
+            "inventory": {"item:field-kit": 2},
+            "equipped": {"actor:ember-warden:main_hand": "item:lantern-blade"},
             "currency": 25,
             "active_dialogue": null,
             "completed_encounters": [],
