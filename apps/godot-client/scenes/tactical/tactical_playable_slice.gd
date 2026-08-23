@@ -39,6 +39,7 @@ func _on_move_requested() -> void:
     if not _select_current_actor_for_action():
         return
     _release_ui_focus_for_map_action()
+    _hovered_cell.clear()
     super._on_move_requested()
 
 
@@ -59,6 +60,45 @@ func _on_spell_selected(spell: Dictionary, slot_level: int) -> void:
         return
     _release_ui_focus_for_map_action()
     super._on_spell_selected(spell, slot_level)
+
+
+func _update_pointer_hover(pointer: Vector2) -> void:
+    if _controller == null or _state == null:
+        return
+    if _controller.current_mode() != InteractionModes.Mode.MOVE:
+        super._update_pointer_hover(pointer)
+        return
+    var hit := _pick(pointer)
+    var cell := _cell_from_hit(hit)
+    if cell.is_empty():
+        _hovered_cell.clear()
+        return
+    if cell == _hovered_cell:
+        return
+    _hovered_cell = cell.duplicate(true)
+    if _armed_cell.is_empty():
+        _hud.set_preview_text(
+            "Destination %d,%d · click to preview and arm movement" % [
+                int(cell.get("x", 0)),
+                int(cell.get("y", 0)),
+            ]
+        )
+
+
+func _refresh_active_preview_after_state_change() -> void:
+    if _state == null or _controller == null:
+        return
+    if _controller.current_mode() != InteractionModes.Mode.MOVE:
+        super._refresh_active_preview_after_state_change()
+        return
+    var sequence := _state.authoritative.sequence()
+    if sequence == _preview_authority_sequence:
+        return
+    _preview_authority_sequence = sequence
+    if not _armed_cell.is_empty():
+        _request_path(_armed_cell)
+    else:
+        _request_reachable_for_selected()
 
 
 func _current_actor_id() -> String:
