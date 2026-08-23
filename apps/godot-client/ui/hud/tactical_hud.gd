@@ -5,6 +5,8 @@ signal move_requested()
 signal strike_requested()
 signal end_turn_requested()
 signal area_debug_requested()
+signal shape_kind_requested()
+signal shape_rotate_requested()
 
 var _log_lines: Array[String] = []
 
@@ -19,6 +21,8 @@ var _log_lines: Array[String] = []
 @onready var _strike_button: Button = %StrikeButton
 @onready var _end_turn_button: Button = %EndTurnButton
 @onready var _area_button: Button = %AreaButton
+@onready var _shape_kind_button: Button = %ShapeKindButton
+@onready var _shape_rotate_button: Button = %ShapeRotateButton
 
 
 func _ready() -> void:
@@ -26,6 +30,8 @@ func _ready() -> void:
     _strike_button.pressed.connect(func() -> void: strike_requested.emit())
     _end_turn_button.pressed.connect(func() -> void: end_turn_requested.emit())
     _area_button.pressed.connect(func() -> void: area_debug_requested.emit())
+    _shape_kind_button.pressed.connect(func() -> void: shape_kind_requested.emit())
+    _shape_rotate_button.pressed.connect(func() -> void: shape_rotate_requested.emit())
 
 
 func apply_tactical_state(tactical: Dictionary, selected_actor_id: String) -> void:
@@ -100,6 +106,13 @@ func apply_actions(payload: Dictionary) -> void:
             continue
         button.disabled = not enabled
         button.tooltip_text = reason
+
+
+func set_shape_debug_state(kind: String, direction: Vector2) -> void:
+    _shape_kind_button.text = "Shape: %s" % kind.capitalize()
+    _shape_kind_button.tooltip_text = "Cycle sphere, cylinder, cone, and line"
+    _shape_rotate_button.text = "Rotate %s" % _direction_label(direction)
+    _shape_rotate_button.tooltip_text = "Rotate cone/line direction by 90 degrees"
 
 
 func set_preview_text(text: String) -> void:
@@ -202,6 +215,12 @@ func _effects_text(actor_id: String, spellcasting: Dictionary) -> String:
                 ]
             )
     return "Effects · %s" % ("none" if rows.is_empty() else " · ".join(rows))
+
+
+func _direction_label(direction: Vector2) -> String:
+    if absf(direction.x) >= absf(direction.y):
+        return "E" if direction.x >= 0.0 else "W"
+    return "S" if direction.y >= 0.0 else "N"
 
 
 func _availability(available: bool) -> String:
