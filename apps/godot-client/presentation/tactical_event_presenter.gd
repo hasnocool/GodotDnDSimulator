@@ -24,11 +24,16 @@ func bind_state(state: ClientStateCoordinator) -> void:
     _state = state
     if _state != null:
         _state.presentation_events_received.connect(_on_presentation_events)
+        _state.presentation.options_changed.connect(_on_presentation_options_changed)
+        _debug_expanded = _state.presentation.debug_visible()
 
 
 func unbind_state() -> void:
-    if _state != null and _state.presentation_events_received.is_connected(_on_presentation_events):
-        _state.presentation_events_received.disconnect(_on_presentation_events)
+    if _state != null:
+        if _state.presentation_events_received.is_connected(_on_presentation_events):
+            _state.presentation_events_received.disconnect(_on_presentation_events)
+        if _state.presentation.options_changed.is_connected(_on_presentation_options_changed):
+            _state.presentation.options_changed.disconnect(_on_presentation_options_changed)
     _state = null
     _queued = 0
 
@@ -52,6 +57,11 @@ func queued_count() -> int:
 
 func seen_event_count() -> int:
     return _seen_order.size()
+
+
+func _on_presentation_options_changed() -> void:
+    if _state != null:
+        _debug_expanded = _state.presentation.debug_visible()
 
 
 func _on_presentation_events(events: Array) -> void:
