@@ -37,6 +37,7 @@ WORLD_CAPABILITIES = (
     "world.commands.v1",
     "world.queries.v1",
     "world.save-replay.v1",
+    "inventory.equipment-options.v1",
     "dialogue.v1",
     "quests.v1",
     "shops.v1",
@@ -89,6 +90,8 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 world_payload["bonus"] = self._authoritative_interaction_bonus(
                     world_payload
                 )
+            if command.command_type == "inventory.equip":
+                self._require_equipment_compatibility(world_payload)
             if command.command_type == "world.complete_encounter":
                 encounter_id = _payload_id(
                     world_payload,
@@ -147,6 +150,12 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 raise ValidationError(
                     f"unsupported world.save encoding: {encoding!r}"
                 )
+            if query_type == "inventory.equipment_options":
+                return _response(
+                    request,
+                    "query.result",
+                    payload=self._equipment_options(),
+                )
             result = self.world.query(query_type, query)
             if query_type == "world.actions":
                 result = self._world_actions_with_bridge_state(result)
@@ -159,6 +168,36 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
     ) -> dict[str, object]:
         rows = dict(result)
         current_area = self.world.state.current_area_id
+        area = next(
+            item
+            for item in self.world.definition.areas
+            if item.area_id == current_area
+        )
+        active_dialogue = self.world.state.active_dialogue is not None
+        rows["area_name"] = area.name
+        rows["area_tags"] = sorted(area.tags)
+        rows["exploration_prompt"] = (
+            "Finish the current conversation before travelling or resting."
+            if active_dialogue
+            else "Choose a destination, conversation, interaction, rest, shop action, or encounter."
+        )
+
+        travel_value = rows.get("travel", [])
+        travel: list[dict[str, object]] = []
+        if isinstance(travel_value, list):
+            for value in travel_value:
+                if not isinstance(value, dict):
+                    continue
+                row = dict(value)
+                row["available"] = not active_dialogue
+                row["reason"] = (
+                    "Finish the active dialogue first."
+                    if active_dialogue
+                    else ""
+                )
+                travel.append(row)
+        rows["travel"] = travel
+
         rows["dialogues"] = [
             {
                 "dialogue_id": dialogue.dialogue_id,
@@ -168,6 +207,20 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
             if dialogue.area_id == current_area
             and self._dialogue_available(dialogue.dialogue_id)
         ]
+
+        interaction_value = rows.get("interactions", [])
+        interactions: list[dict[str, object]] = []
+        if isinstance(interaction_value, list):
+            for value in interaction_value:
+                if not isinstance(value, dict):
+                    continue
+                row = dict(value)
+                completed = bool(row.get("completed", False))
+                row["available"] = not completed
+                row["reason"] = "Already completed." if completed else ""
+                interactions.append(row)
+        rows["interactions"] = interactions
+
         encounters_value = rows.get("encounters", [])
         encounters: list[dict[str, object]] = []
         if isinstance(encounters_value, list):
@@ -175,14 +228,112 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 if not isinstance(value, dict):
                     continue
                 row = dict(value)
-                row["active"] = (
-                    row.get("encounter_id")
-                    == self.active_world_encounter_id
-                )
+                active = row.get("encounter_id") == self.active_world_encounter_id
+                row["active"] = active
+                if active:
+                    row["available"] = False
+                    row["reason"] = "Tactical encounter is already active."
+                elif not bool(row.get("available", False)):
+                    row["reason"] = "Encounter prerequisites are not satisfied."
+                else:
+                    row["reason"] = ""
                 encounters.append(row)
         rows["encounters"] = encounters
+
+        shop_value = rows.get("shops", [])
+        shops: list[dict[str, object]] = []
+        inventory = self.world.state.inventory_map()
+        if isinstance(shop_value, list):
+            for shop_value_item in shop_value:
+                if not isinstance(shop_value_item, dict):
+                    continue
+                shop = dict(shop_value_item)
+                item_value = shop.get("items", [])
+                items: list[dict[str, object]] = []
+                if isinstance(item_value, list):
+                    for item_value_item in item_value:
+                        if not isinstance(item_value_item, dict):
+                            continue
+                        item = dict(item_value_item)
+                        item_id = str(item.get("item_id", ""))
+                        owned = int(inventory.get(item_id, 0))
+                        stock_value = item.get("stock")
+                        stock_available = (
+                            stock_value is None or int(stock_value) > 0
+                        )
+                        price = int(item.get("buy_price", 0))
+                        item["owned_quantity"] = owned
+                        item["buy_available"] = (
+                            stock_available and price <= self.world.state.currency
+                        )
+                        if not stock_available:
+                            item["buy_reason"] = "Out of stock."
+                        elif price > self.world.state.currency:
+                            item["buy_reason"] = "Not enough currency."
+                        else:
+                            item["buy_reason"] = ""
+                        item["sell_available"] = owned > 0
+                        item["sell_reason"] = (
+                            "Party does not own this item." if owned <= 0 else ""
+                        )
+                        items.append(item)
+                shop["items"] = items
+                shops.append(shop)
+        rows["shops"] = shops
+        rows["can_rest"] = not active_dialogue
+        rows["rest_reason"] = (
+            "Finish the active dialogue first." if active_dialogue else ""
+        )
         rows["premade_party_ids"] = sorted(self.creator.records)
         return rows
+
+    def _equipment_options(self) -> dict[str, object]:
+        inventory = self.world.state.inventory_map()
+        compatibility = {
+            item.item_id: item.slots
+            for item in self.world.definition.equipment_compatibility
+        }
+        items: list[dict[str, object]] = []
+        for item_id, quantity in sorted(inventory.items()):
+            slots = compatibility.get(item_id, ())
+            if quantity < 1 or not slots:
+                continue
+            items.append(
+                {
+                    "item_id": item_id,
+                    "quantity": quantity,
+                    "slots": [
+                        {
+                            "slot_id": slot_id,
+                            "label": slot_id.split(":", 1)[-1].replace("_", " ").title(),
+                        }
+                        for slot_id in slots
+                    ],
+                }
+            )
+        return {
+            "party_ids": list(self.world.state.party_ids),
+            "items": items,
+        }
+
+    def _require_equipment_compatibility(
+        self,
+        payload: Mapping[str, Any],
+    ) -> None:
+        item_id = _payload_id(payload, "item_id")
+        slot = _payload_id(payload, "slot")
+        compatibility = next(
+            (
+                item
+                for item in self.world.definition.equipment_compatibility
+                if item.item_id == item_id
+            ),
+            None,
+        )
+        if compatibility is None or slot not in compatibility.slots:
+            raise ValidationError(
+                "item is not compatible with requested equipment slot"
+            )
 
     def _dialogue_available(self, dialogue_id: str) -> bool:
         dialogue = next(
