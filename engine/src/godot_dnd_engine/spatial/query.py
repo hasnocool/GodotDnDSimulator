@@ -18,7 +18,13 @@ from .areas import (
 )
 from .geometry import distance_between_placements, placement_in_reach
 from .model import DistanceMetric, GridCell, MovementPolicy, SpatialState
-from .movement import find_actor_path, find_path, movement_capabilities, reachable_cells
+from .movement import (
+    find_actor_path,
+    find_path,
+    movement_capabilities,
+    reachable_cells,
+    step_cost,
+)
 from .threats import ThreatDefinition, threatened_cells
 from .visibility import cover_between_entities, line_of_sight_between_entities
 
@@ -152,12 +158,46 @@ class SpatialQueryService:
                 budget_feet=budget,
                 policy=self.policy,
             )
+        segments = self._path_segments(entity_id, result.path, mode) if result.legal else []
         return {
             "legal": result.legal,
             "path": [_cell_dict(cell) for cell in result.path],
             "cost_feet": result.cost_feet,
+            "segments": segments,
             "reason": result.reason,
         }
+
+    def _path_segments(
+        self,
+        entity_id: str,
+        path: tuple[GridCell, ...],
+        mode: MovementMode,
+    ) -> list[dict[str, object]]:
+        rows: list[dict[str, object]] = []
+        for source, target in zip(path, path[1:], strict=False):
+            source_terrain = self.state.space.cell(source)
+            target_terrain = self.state.space.cell(target)
+            rows.append(
+                {
+                    "from": _cell_dict(source),
+                    "to": _cell_dict(target),
+                    "cost_feet": step_cost(
+                        self.state,
+                        entity_id,
+                        source,
+                        target,
+                        mode,
+                        self.policy,
+                    ),
+                    "terrain_id": target_terrain.terrain_id,
+                    "difficult": target_terrain.difficult,
+                    "elevation_delta_feet": (
+                        target_terrain.elevation_feet - source_terrain.elevation_feet
+                    ),
+                    "movement_mode": mode.value,
+                }
+            )
+        return rows
 
     def _reachable(self, payload: dict[str, Any]) -> dict[str, object]:
         entity_id = _string(payload.get("entity_id"), "entity_id")
