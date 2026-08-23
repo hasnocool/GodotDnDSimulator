@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from godot_dnd_engine.actors import ActorState
 from godot_dnd_engine.character_creator import (
     CharacterCreatorRuntime,
     CharacterCreatorService,
@@ -26,7 +27,7 @@ ENCOUNTERS = {
 }
 
 
-def _party() -> tuple[object, ...]:
+def _party() -> tuple[ActorState, ...]:
     creator = CharacterCreatorService(CharacterCreatorRuntime(demo_character_catalog()))
     _seed_premade_characters(creator)
     return tuple(
@@ -48,7 +49,7 @@ def test_all_world_encounter_gates_have_distinct_party_aware_tactical_templates(
     for index, (encounter_id, expected) in enumerate(ENCOUNTERS.items()):
         session = create_world_tactical_session(
             encounter_id=encounter_id,
-            party_actors=party,  # type: ignore[arg-type]
+            party_actors=party,
             campaign_id="campaign:template-test",
             session_id="session:template-test",
             seed=100 + index,
@@ -88,14 +89,14 @@ def test_world_tactical_template_is_deterministic_for_same_seed() -> None:
     party = _party()
     first = create_world_tactical_session(
         encounter_id="encounter:vault-warden",
-        party_actors=party,  # type: ignore[arg-type]
+        party_actors=party,
         campaign_id="campaign:template-test",
         session_id="session:template-test",
         seed=707,
     )
     second = create_world_tactical_session(
         encounter_id="encounter:vault-warden",
-        party_actors=party,  # type: ignore[arg-type]
+        party_actors=party,
         campaign_id="campaign:template-test",
         session_id="session:template-test",
         seed=707,
