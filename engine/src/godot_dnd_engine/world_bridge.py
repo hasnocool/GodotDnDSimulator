@@ -52,8 +52,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         creator: CharacterCreatorService,
         world: WorldRuntime,
     ) -> None:
-        super().__init__(engine, tactical)
-        self.creator = creator
+        super().__init__(engine, tactical, creator)
         self.world = world
         self.active_world_encounter_id: str | None = None
 
