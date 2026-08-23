@@ -85,17 +85,26 @@ def _allowed_relative_path(relative: Path) -> bool:
 
 
 def _safe_tracked_file(relative: Path) -> Path | None:
-    if relative.is_absolute() or ".." in relative.parts or not _allowed_relative_path(relative):
+    invalid_path = (
+        relative.is_absolute()
+        or ".." in relative.parts
+        or not _allowed_relative_path(relative)
+    )
+    if invalid_path:
         return None
     candidate = ROOT / relative
     if candidate.is_symlink():
-        raise ValueError(f"release bundle refuses tracked symlink: {relative.as_posix()}")
+        raise ValueError(
+            f"release bundle refuses tracked symlink: {relative.as_posix()}"
+        )
     if not candidate.is_file():
         return None
     resolved = candidate.resolve(strict=True)
     root_resolved = ROOT.resolve(strict=True)
     if not resolved.is_relative_to(root_resolved):
-        raise ValueError(f"release path escapes repository root: {relative.as_posix()}")
+        raise ValueError(
+            f"release path escapes repository root: {relative.as_posix()}"
+        )
     return candidate
 
 
@@ -135,8 +144,14 @@ def validate_release_inputs(files: list[Path]) -> None:
         raise ValueError(
             "release bundle must contain at least one LICENSES/ attribution file"
         )
-    if any(path.startswith("apps/godot-client/addons/godot-mcp/") for path in relative):
-        raise ValueError("development Godot MCP addon must not be redistributed in v1 release bundle")
+    includes_dev_addon = any(
+        path.startswith("apps/godot-client/addons/godot-mcp/")
+        for path in relative
+    )
+    if includes_dev_addon:
+        raise ValueError(
+            "development Godot MCP addon must not be redistributed in v1 release bundle"
+        )
 
 
 def build_release_bundle(output: Path = DEFAULT_OUTPUT) -> Path:
