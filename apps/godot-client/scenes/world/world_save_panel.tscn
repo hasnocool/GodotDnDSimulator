@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://scenes/world/world_save_panel.gd" type="Script" id="1_save"]
+
+[node name="SaveLoad" type="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+script = ExtResource("1_save")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 2
+text = "Campaign saves"
+
+[node name="Description" type="Label" parent="."]
+layout_mode = 2
+text = "Manual saves persist the engine-provided world snapshot locally. Loaded files are validated by the authoritative engine before world state changes."
+autowrap_mode = 2
+
+[node name="SaveSlot" type="OptionButton" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SaveDetails" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save metadata has not been loaded yet."
+autowrap_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveGame" type="Button" parent="Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save Game"
+
+[node name="LoadGame" type="Button" parent="Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Load Game"
+
+[node name="RefreshSaves" type="Button" parent="Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Refresh Slots"
+
+[node name="SaveStatus" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save slots not checked yet."
+autowrap_mode = 2
