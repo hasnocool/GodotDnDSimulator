@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource path="res://scenes/world/world_rpg_view.gd" type="Script" id="1_world"]
+[ext_resource path="res://scenes/world/world_rpg_save_view.gd" type="Script" id="1_world"]
+[ext_resource path="res://scenes/world/world_save_panel.tscn" type="PackedScene" id="2_save"]
 
 [node name="WorldRPG" type="CanvasLayer"]
 visible = false
@@ -196,3 +197,7 @@ unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Equip"
+
+[node name="SaveLoad" parent="Panel/Margin/VBox/Columns/ManagementTabs" instance=ExtResource("2_save")]
+unique_name_in_owner = true
+layout_mode = 2
