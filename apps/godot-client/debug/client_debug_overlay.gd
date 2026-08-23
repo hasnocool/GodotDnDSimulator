@@ -6,8 +6,23 @@ var _bridge: EngineBridge
 var _bridge_version := 0
 var _capabilities := PackedStringArray()
 var _bridge_status := "not connected"
+var _pending_count := 0
+var _pending_started_msec := -1
+var _last_request_latency_msec := -1
+var _diagnostic_accumulator := 0.0
 
 @onready var _label: Label = $Margin/Label
+
+
+func _ready() -> void:
+    set_process(true)
+
+
+func _process(delta: float) -> void:
+    _diagnostic_accumulator += delta
+    if _diagnostic_accumulator >= 0.5:
+        _diagnostic_accumulator = 0.0
+        refresh()
 
 
 func bind(state: ClientStateCoordinator, bridge: EngineBridge) -> void:
@@ -18,6 +33,9 @@ func bind(state: ClientStateCoordinator, bridge: EngineBridge) -> void:
         _state.authoritative_changed.connect(_on_state_changed)
         _state.pending_changed.connect(_on_pending_changed)
         _state.presentation.scene_changed.connect(_on_scene_changed)
+        _pending_count = _state.interaction.pending_count()
+        if _pending_count > 0:
+            _pending_started_msec = Time.get_ticks_msec()
     if _bridge != null:
         _bridge.bridge_ready.connect(_on_bridge_ready)
         _bridge.bridge_disconnected.connect(_on_bridge_disconnected)
@@ -36,6 +54,8 @@ func unbind() -> void:
         _disconnect_if_connected(_bridge.bridge_incompatible, _on_bridge_incompatible)
     _state = null
     _bridge = null
+    _pending_count = 0
+    _pending_started_msec = -1
 
 
 func refresh() -> void:
@@ -54,6 +74,11 @@ func refresh() -> void:
     if capability_text.is_empty():
         capability_text = "none"
     var presentation_scene := active_scene if not active_scene.is_empty() else "none"
+    var latency_text := "n/a"
+    if pending > 0 and _pending_started_msec >= 0:
+        latency_text = "%d ms pending" % (Time.get_ticks_msec() - _pending_started_msec)
+    elif _last_request_latency_msec >= 0:
+        latency_text = "%d ms last batch" % _last_request_latency_msec
     _label.text = "\n".join(PackedStringArray([
         "Client diagnostics",
         "Bridge: %s" % _bridge_status,
@@ -62,6 +87,8 @@ func refresh() -> void:
         "Authoritative sequence: %d" % sequence,
         "Snapshot loaded: %s" % str(has_snapshot),
         "Pending requests: %d" % pending,
+        "Bridge latency: %s" % latency_text,
+        "FPS: %d" % Engine.get_frames_per_second(),
         "Presentation scene: %s" % presentation_scene,
     ]))
 
@@ -93,7 +120,14 @@ func _on_state_changed(_sequence: int) -> void:
     refresh()
 
 
-func _on_pending_changed(_pending_count: int) -> void:
+func _on_pending_changed(pending_count: int) -> void:
+    var now := Time.get_ticks_msec()
+    if pending_count > 0 and _pending_count == 0:
+        _pending_started_msec = now
+    elif pending_count == 0 and _pending_count > 0 and _pending_started_msec >= 0:
+        _last_request_latency_msec = now - _pending_started_msec
+        _pending_started_msec = -1
+    _pending_count = pending_count
     refresh()
 
 
