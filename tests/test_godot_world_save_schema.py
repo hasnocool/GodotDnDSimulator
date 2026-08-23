@@ -5,6 +5,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from godot_dnd_engine.serialization import dumps_canonical
 from godot_dnd_engine.world import WorldRuntime, demo_campaign
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,7 @@ def test_godot_world_save_envelope_matches_versioned_schema() -> None:
         {"party_ids": ["actor:save-schema-hero"]},
         expected_sequence=0,
     )
+    snapshot = runtime.snapshot()
     envelope = {
         "format": "godot-dnd-world-save",
         "format_version": 1,
@@ -38,7 +40,9 @@ def test_godot_world_save_envelope_matches_versioned_schema() -> None:
                 if area.area_id == runtime.state.current_area_id
             ),
         },
-        "world_snapshot": runtime.snapshot(),
+        "world_snapshot_json": dumps_canonical(snapshot),
     }
 
     assert list(validator.iter_errors(envelope)) == []
+    decoded = json.loads(envelope["world_snapshot_json"])
+    assert decoded["rng"] == snapshot["rng"]
