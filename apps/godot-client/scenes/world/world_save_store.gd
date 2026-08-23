@@ -175,6 +175,9 @@ func _finish_operation(
     slot_id: String,
     result: Dictionary,
 ) -> void:
+    if _thread != null and _thread.is_alive():
+        Callable(self, "_finish_operation").call_deferred(operation, slot_id, result)
+        return
     if _thread != null and _thread.is_started():
         _thread.wait_to_finish()
     _thread = null
