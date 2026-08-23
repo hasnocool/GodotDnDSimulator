@@ -175,7 +175,7 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
             true,
             {
                 "party_ids": ["actor:premade-mira", "actor:premade-aster"],
-                "equipped": {"actor:premade-mira:main_hand": "item:lantern-blade"},
+                "equipped": {"actor:premade-mira|main_hand": "item:lantern-blade"},
             },
         )
     )
@@ -255,8 +255,8 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
         "party cards render authoritative actor stats",
     )
     _check(
-        _tree_text(party_cards).contains("item:lantern-blade"),
-        "party cards render authoritative equipment",
+        _tree_text(party_cards).contains("main_hand = item:lantern-blade"),
+        "party cards parse authoritative actor|slot equipment keys",
     )
     _check(
         _tree_text(inventory_items).contains("item:field-kit × 2"),
@@ -298,6 +298,51 @@ func _test_world_overlay_uses_isolated_authoritative_stream() -> void:
         str(equipment_intent.get("slot", "")) == "main_hand",
         "equipment slot is submitted as intent for engine validation",
     )
+
+    world.hide_world()
+    world.show_world()
+    await process_frame
+    world.call("_render_party_from_snapshot", true)
+    await process_frame
+    _check(
+        _count_character_queries(transport, "actor:premade-mira") == 2,
+        "reopening Adventure refreshes cached Mira character data",
+    )
+    _check(
+        _count_character_queries(transport, "actor:premade-aster") == 2,
+        "reopening Adventure refreshes cached Aster character data",
+    )
+
+    var refreshed_aster_request := _last_character_query(transport, "actor:premade-aster")
+    transport.queue_message(
+        Protocol.make_response(
+            "query.result",
+            str(refreshed_aster_request["request_id"]),
+            str(refreshed_aster_request["correlation_id"]),
+            int(refreshed_aster_request["generation"]),
+            false,
+            {},
+            Protocol.make_error(
+                Protocol.ErrorCategory.VALIDATION,
+                "Unknown created character",
+                "actor record unavailable",
+            ),
+        )
+    )
+    await process_frame
+    _check(
+        _tree_text(party_cards).contains("Unknown created character"),
+        "failed character queries render a user-visible party-card error",
+    )
+    var retry_button := _find_button_by_text(party_cards, "Retry character")
+    _check(retry_button != null, "failed character queries expose a retry action")
+    if retry_button != null:
+        retry_button.pressed.emit()
+        await process_frame
+        _check(
+            _count_character_queries(transport, "actor:premade-aster") == 3,
+            "retry action resubmits the authoritative character query",
+        )
 
     shell.shutdown()
     root.remove_child(shell)
@@ -390,7 +435,7 @@ func _world_snapshot(sequence: int) -> Dictionary:
             "flags": [],
             "quests": {"quest:test": "available"},
             "inventory": {"item:field-kit": 2},
-            "equipped": {"actor:premade-mira:main_hand": "item:lantern-blade"},
+            "equipped": {"actor:premade-mira|main_hand": "item:lantern-blade"},
             "currency": 25,
             "active_dialogue": null,
             "completed_encounters": [],
@@ -448,6 +493,16 @@ func _count_character_queries(transport, actor_id: String) -> int:
         if str(query.get("actor_id", "")) == actor_id:
             count += 1
     return count
+
+
+func _find_button_by_text(node: Node, text: String) -> Button:
+    if node is Button and (node as Button).text == text:
+        return node as Button
+    for child in node.get_children():
+        var found := _find_button_by_text(child, text)
+        if found != null:
+            return found
+    return null
 
 
 func _tree_text(node: Node) -> String:
