@@ -41,6 +41,11 @@ func _refresh_world() -> void:
     super._refresh_world()
     if _state == null:
         return
+    if not _state.has_capability("inventory.equipment-options.v1"):
+        _enable_legacy_equipment_fallback(
+            "This engine does not advertise equipment compatibility choices; enter an engine slot ID."
+        )
+        return
     _equipment_query_pending = true
     var request_id := _state.request_query(
         "inventory.equipment_options",
