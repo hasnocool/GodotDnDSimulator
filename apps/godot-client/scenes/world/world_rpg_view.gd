@@ -52,6 +52,7 @@ func bind_client_state(state: ClientStateCoordinator) -> void:
 
 
 func show_world() -> void:
+    _party_records.clear()
     visible = true
     _refresh_world()
 
@@ -134,6 +135,7 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
     _start.disabled = typeof(party_value) == TYPE_ARRAY and not (party_value as Array).is_empty()
     _render_state_summary(world_state)
     _render_inventory(world_state)
+    _render_party_from_snapshot(false)
 
 
 func _render_state_summary(world_state: Dictionary) -> void:
@@ -304,7 +306,7 @@ func _render_map(payload: Dictionary) -> void:
     _map.text = "\n".join(lines)
 
 
-func _render_party(payload: Dictionary) -> void:
+func _render_party(payload: Dictionary, request_missing_records: bool = true) -> void:
     _clear(_party_cards)
     var party_value: Variant = payload.get("party_ids", [])
     if typeof(party_value) != TYPE_ARRAY or (party_value as Array).is_empty():
@@ -321,7 +323,7 @@ func _render_party(payload: Dictionary) -> void:
             var loading := Label.new()
             loading.text = "%s · loading authoritative character record…" % actor_id
             _party_cards.add_child(loading)
-            if _state != null:
+            if request_missing_records and _state != null:
                 _state.request_query(
                     "characters.get",
                     {"actor_id": actor_id},
@@ -490,10 +492,10 @@ func _on_query_completed(correlation_id: String, _generation: int, payload: Dict
                     return
                 var actor_id := correlation_id.trim_prefix("world:character:")
                 _party_records[actor_id] = (record_value as Dictionary).duplicate(true)
-                _render_party_from_snapshot()
+                _render_party_from_snapshot(false)
 
 
-func _render_party_from_snapshot() -> void:
+func _render_party_from_snapshot(request_missing_records: bool = true) -> void:
     var state_value: Variant = _world_snapshot.get("state", {})
     if typeof(state_value) != TYPE_DICTIONARY:
         return
@@ -502,7 +504,8 @@ func _render_party_from_snapshot() -> void:
         {
             "party_ids": world_state.get("party_ids", []),
             "equipped": world_state.get("equipped", {}),
-        }
+        },
+        request_missing_records,
     )
 
 
