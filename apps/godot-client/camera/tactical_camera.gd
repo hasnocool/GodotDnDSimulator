@@ -8,6 +8,7 @@ signal camera_state_changed(quarter_turn: int, zoom_size: float, focus: Vector3)
 @export var max_zoom := 24.0
 @export var zoom_step := 1.5
 @export var smoothing := 10.0
+@export var edge_padding_world := 0.75
 
 var _quarter_turn := 0
 var _target_focus := Vector3.ZERO
@@ -25,7 +26,15 @@ func _ready() -> void:
     _camera.projection = Camera3D.PROJECTION_ORTHOGONAL
     _target_zoom = clampf(_camera.size, min_zoom, max_zoom)
     _target_focus = global_position
+    get_viewport().size_changed.connect(_on_viewport_size_changed)
+    _target_focus = _clamped_focus(_target_focus)
     set_process(true)
+
+
+func _exit_tree() -> void:
+    var viewport := get_viewport()
+    if viewport != null and viewport.size_changed.is_connected(_on_viewport_size_changed):
+        viewport.size_changed.disconnect(_on_viewport_size_changed)
 
 
 func _process(delta: float) -> void:
@@ -71,6 +80,7 @@ func handle_camera_action(action: StringName) -> void:
 func set_map_bounds(bounds: Rect2) -> void:
     _bounds = bounds
     _target_focus = _clamped_focus(_target_focus)
+    _apply_reduced_motion_focus()
 
 
 func set_reduced_motion(enabled: bool) -> void:
@@ -79,15 +89,16 @@ func set_reduced_motion(enabled: bool) -> void:
 
 func focus_world_position(world_position: Vector3) -> void:
     _target_focus = _clamped_focus(Vector3(world_position.x, 0.0, world_position.z))
-    if _reduced_motion:
-        global_position = _target_focus
+    _apply_reduced_motion_focus()
     camera_state_changed.emit(_quarter_turn, _target_zoom, _target_focus)
 
 
 func set_zoom(size: float) -> void:
     _target_zoom = clampf(size, min_zoom, max_zoom)
+    _target_focus = _clamped_focus(_target_focus)
     if _reduced_motion:
         _camera.size = _target_zoom
+        global_position = _target_focus
     camera_state_changed.emit(_quarter_turn, _target_zoom, _target_focus)
 
 
@@ -95,8 +106,10 @@ func rotate_quarter(direction: int) -> void:
     if direction == 0:
         return
     _quarter_turn = posmod(_quarter_turn + signi(direction), 4)
+    _target_focus = _clamped_focus(_target_focus)
     if _reduced_motion:
         _yaw.rotation.y = _target_yaw()
+        global_position = _target_focus
     camera_state_changed.emit(_quarter_turn, _target_zoom, _target_focus)
 
 
@@ -110,6 +123,16 @@ func zoom_size() -> float:
 
 func focus_position() -> Vector3:
     return _target_focus
+
+
+func focus_limits() -> Rect2:
+    var margin := _aspect_aware_world_margin()
+    var x_range := _axis_limits(_bounds.position.x, _bounds.end.x, margin)
+    var z_range := _axis_limits(_bounds.position.y, _bounds.end.y, margin)
+    return Rect2(
+        Vector2(x_range.x, z_range.x),
+        Vector2(x_range.y - x_range.x, z_range.y - z_range.x),
+    )
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -139,8 +162,40 @@ func _target_yaw() -> float:
 
 
 func _clamped_focus(value: Vector3) -> Vector3:
+    var limits := focus_limits()
     return Vector3(
-        clampf(value.x, _bounds.position.x, _bounds.end.x),
+        clampf(value.x, limits.position.x, limits.end.x),
         value.y,
-        clampf(value.z, _bounds.position.y, _bounds.end.y),
+        clampf(value.z, limits.position.y, limits.end.y),
     )
+
+
+func _aspect_aware_world_margin() -> float:
+    var viewport_size := get_viewport().get_visible_rect().size
+    var aspect := viewport_size.x / maxf(viewport_size.y, 1.0)
+    var half_height := _target_zoom * 0.5
+    var half_width := half_height * maxf(aspect, 1.0)
+    # A conservative rotation-independent X/Z footprint for the 45-degree isometric yaw.
+    # This intentionally centers maps smaller than the visible footprint instead of exposing void.
+    return (half_width + half_height) * 0.70710678 + maxf(edge_padding_world, 0.0)
+
+
+func _axis_limits(minimum: float, maximum: float, margin: float) -> Vector2:
+    if maximum < minimum:
+        var swap := minimum
+        minimum = maximum
+        maximum = swap
+    var center := (minimum + maximum) * 0.5
+    if maximum - minimum <= margin * 2.0:
+        return Vector2(center, center)
+    return Vector2(minimum + margin, maximum - margin)
+
+
+func _on_viewport_size_changed() -> void:
+    _target_focus = _clamped_focus(_target_focus)
+    _apply_reduced_motion_focus()
+
+
+func _apply_reduced_motion_focus() -> void:
+    if _reduced_motion:
+        global_position = _target_focus

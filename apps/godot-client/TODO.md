@@ -527,11 +527,11 @@ from exact-head executable acceptance.
 
 Do not implement named-spell special cases ahead of v0.8 engine capability.
 
-- [ ] Display spell resources/availability from engine data.
-- [ ] Reuse generic target/shape/AoE preview modes.
-- [ ] Reuse action bar and engine rejection flow.
-- [ ] Show concentration/duration/ongoing status from authoritative state.
-- [ ] Support upcast/scaling choices supplied by engine/canonical data.
+- [x] Display spell resources/availability from engine data.
+- [x] Reuse generic target/shape/AoE preview modes.
+- [x] Reuse action bar and engine rejection flow.
+- [ ] Show concentration/duration/ongoing status from authoritative state beyond the existing concentration + remaining-round display; generic non-concentration active-effect presentation remains open.
+- [x] Support upcast/scaling choices supplied by engine/canonical data.
 
 ---
 
@@ -554,21 +554,20 @@ Do not implement named-spell special cases ahead of v0.8 engine capability.
 
 ## C21 — v1.0 RPG client shell
 
-v1.0 is now active. Keep this section aligned with observable Godot behavior while leaving exact-head
-validation and broader campaign acceptance work separate.
+v1.0 implementation is complete. Keep exact-head executable/manual validation and explicitly conditional future save policies separate from the implementation checklist.
 
-- [ ] Exploration HUD and interaction prompts.
+- [x] Exploration HUD and interaction prompts.
 - [x] Dialogue UI.
 - [x] Quest/journal UI.
 - [x] Inventory/equipment UI.
 - [x] Party/character screens.
-- [ ] Shop/trade UI.
-- [ ] Rest/travel/area-transition UX.
+- [x] Shop/trade UI.
+- [x] Rest/travel/area-transition UX.
 - [x] Map screen.
 - [x] Production save/load UX.
-- [ ] Credits/attribution presentation.
+- [x] Credits/attribution presentation.
 
-### Current v1.0 management phase
+### Completed v1.0 management phase
 
 - [x] Restore Journal, Map, Party, and Inventory tabs on the integrated world view.
 - [x] Render party cards from authoritative `characters.get` records rather than actor IDs alone.
@@ -576,21 +575,31 @@ validation and broader campaign acceptance work separate.
 - [x] Submit `inventory.equip` through the bridge with the isolated world sequence and reconcile after acceptance.
 - [x] Keep world snapshots and character presentation records separate from the tactical/core authoritative mirror.
 - [x] Extend the FakeEngineTransport headless suite to verify character queries, rendered party data, and equipment command routing.
-- [ ] Replace the opaque equipment-slot text field with engine-provided legal slot/item compatibility choices when that query contract exists.
-- [ ] Add sell/trade inventory controls without duplicating price, stock, or ownership rules in Godot.
+- [x] Replace the opaque user-facing equipment-slot text field with engine-provided legal slot/item compatibility choices and Python-side compatibility validation.
+- [x] Add Buy/Sell trade controls without duplicating price, stock, currency, or ownership rules in Godot.
+- [x] Add exploration area/tags/prompt plus engine-provided disabled/reason states for travel, interaction, rest, and encounters.
+- [x] Add world encounter begin/completion intent controls without treating Godot as the tactical-victory authority.
+- [x] Add Credits presentation and deterministic attributed release-source packaging.
+- [x] Add `res://tests/world_rpg_completion_tests.gd` and register it in local CI.
 
-### Current v1.0 save/load phase
+### Completed v1.0 save/load phase
 
 - [x] Add three fixed manual save slots under `user://` without deriving file paths from player text.
-- [x] Request an authoritative `world.save` snapshot immediately before writing a slot.
+- [x] Request an authoritative lossless `world.save` snapshot immediately before writing a slot.
 - [x] Keep JSON encoding/decoding and disk reads/writes off the frame-critical thread.
 - [x] Use bounded, versioned local envelopes plus temporary/backup replacement and backup recovery.
 - [x] Submit persisted snapshots through `world.load` with the current world sequence for authoritative validation.
 - [x] Never replace displayed world state merely because a local file parsed successfully.
-- [x] Show slot metadata, busy state, unreadable-save errors, and accepted/rejected load status.
+- [x] Show slot metadata, busy state, unreadable-save errors, disconnect recovery, and accepted/rejected load status.
 - [x] Add headless Godot save/load coverage plus a versioned envelope schema regression.
-- [ ] Add autosave/checkpoint policy only after campaign transition semantics are stable.
-- [ ] Add explicit save migrations/export/import when future format or cross-device requirements make them necessary.
+- [ ] Add autosave/checkpoint policy only after a product decision specifies checkpoint timing/retention; manual production save/load is complete.
+- [ ] Add explicit save migrations/export/import when a future format change or cross-device requirement actually exists; v1 envelope semantics are frozen and versioned.
+
+### v1.0 completion evidence
+
+- `res://tests/world_rpg_completion_tests.gd` verifies exploration prompts/reasons, shop Sell routing, engine-provided equipment slot IDs, encounter begin/completion intent, and credits presentation.
+- `res://tests/world_save_load_tests.gd` verifies lossless manual persistence, authoritative load validation, and disconnect recovery.
+- `docs/V1.0_GODOT_RPG_COMPLETION.md` documents the completed client/engine boundary and release workflow.
 
 ---
 

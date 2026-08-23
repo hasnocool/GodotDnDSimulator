@@ -10,6 +10,7 @@ from .model import (
     DialogueDefinition,
     DialogueNode,
     EncounterGate,
+    EquipmentCompatibility,
     InteractionDefinition,
     QuestDefinition,
     QuestStatus,
@@ -211,6 +212,15 @@ def demo_campaign() -> CampaignDefinition:
                 success_flags=("flag:survey-lantern-found",),
                 reward_item_id="item:survey-lantern",
             ),
+            InteractionDefinition(
+                "interaction:stonefall-trigger",
+                "area:underworks",
+                "Disarm the suspended stonefall trigger",
+                dc=13,
+                ability="dexterity",
+                success_flags=("flag:stonefall-disarmed",),
+                failure_flags=("flag:stonefall-triggered",),
+            ),
         ),
         encounters=(
             EncounterGate(
@@ -244,6 +254,24 @@ def demo_campaign() -> CampaignDefinition:
                     "flag:campaign-complete",
                 ),
                 boss=True,
+            ),
+        ),
+        equipment_compatibility=(
+            EquipmentCompatibility(
+                "item:healing-draught",
+                ("slot:consumable",),
+            ),
+            EquipmentCompatibility(
+                "item:rope-coil",
+                ("slot:utility",),
+            ),
+            EquipmentCompatibility(
+                "item:quarry-lantern",
+                ("slot:utility",),
+            ),
+            EquipmentCompatibility(
+                "item:survey-lantern",
+                ("slot:utility",),
             ),
         ),
     )

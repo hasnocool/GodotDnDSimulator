@@ -24,9 +24,14 @@ REQUIRED_FILES = (
     "docs/V0.8_SPELL_RUNTIME.md",
     "docs/V0.9_CHARACTER_CREATOR.md",
     "docs/V1.0_PLAYABLE_RPG.md",
+    "docs/V1.0_GODOT_SAVE_LOAD.md",
+    "docs/V1.0_GODOT_RPG_COMPLETION.md",
     "docs/adr/0001-engine-runtime.md",
     "docs/adr/0002-versioning.md",
     "pyproject.toml",
+    "apps/godot-client/AGENTS.md",
+    "apps/godot-client/TODO.md",
+    "apps/godot-client/CREDITS.md",
     "apps/godot-client/project.godot",
     "schemas/v1/command.schema.json",
     "schemas/v1/event.schema.json",
@@ -35,6 +40,7 @@ REQUIRED_FILES = (
     "schemas/v1/spell-event.schema.json",
     "schemas/v1/character-record.schema.json",
     "schemas/v1/world-event.schema.json",
+    "schemas/v1/godot-world-save-envelope.schema.json",
 )
 
 
@@ -55,6 +61,8 @@ def run() -> list[str]:
     changelog = _read("CHANGELOG.md")
     agents = _read("AGENTS.md")
     architecture = _read("docs/ARCHITECTURE.md")
+    client_agents = _read("apps/godot-client/AGENTS.md")
+    client_todo = _read("apps/godot-client/TODO.md")
 
     milestone_focuses = tuple(
         f"## Current focus: {version} {name}"
@@ -84,6 +92,22 @@ def run() -> list[str]:
         errors.append(
             "architecture contract no longer identifies the authoritative headless engine"
         )
+
+    client_requirements = (
+        (agents, "apps/godot-client/AGENTS.md", "root AGENTS client contract reference"),
+        (agents, "apps/godot-client/TODO.md", "root AGENTS client TODO reference"),
+        (client_agents, "presentation", "client presentation-authority boundary"),
+        (client_agents, "headless", "client headless-testing requirement"),
+        (client_todo, "## C21 — v1.0 RPG client shell", "client v1.0 execution section"),
+        (
+            client_todo,
+            "docs/V1.0_GODOT_RPG_COMPLETION.md",
+            "client v1.0 completion evidence",
+        ),
+    )
+    for content, needle, label in client_requirements:
+        if needle not in content:
+            errors.append(f"missing {label}: {needle}")
 
     for path in sorted((ROOT / "engine").rglob("*.py")):
         first_line = path.read_text(encoding="utf-8").splitlines()[0]

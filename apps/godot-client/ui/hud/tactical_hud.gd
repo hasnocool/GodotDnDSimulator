@@ -12,6 +12,7 @@ var _log_lines: Array[String] = []
 @onready var _turn_label: Label = %TurnLabel
 @onready var _initiative_label: Label = %InitiativeLabel
 @onready var _selected_label: Label = %SelectedLabel
+@onready var _status_label: Label = %StatusLabel
 @onready var _preview_label: Label = %PreviewLabel
 @onready var _log_label: Label = %LogLabel
 @onready var _move_button: Button = %MoveButton
@@ -51,6 +52,7 @@ func apply_tactical_state(tactical: Dictionary, selected_actor_id: String) -> vo
 func apply_selected_actor(actor: Dictionary) -> void:
     if actor.is_empty():
         _selected_label.text = "No actor selected"
+        _status_label.text = "Conditions · none\nResources · —"
         return
     var hp_value: Variant = actor.get("hit_points", {})
     var hp: Dictionary = hp_value if typeof(hp_value) == TYPE_DICTIONARY else {}
@@ -58,12 +60,19 @@ func apply_selected_actor(actor: Dictionary) -> void:
     var economy: Dictionary = (
         economy_value if typeof(economy_value) == TYPE_DICTIONARY else {}
     )
-    _selected_label.text = "%s\nHP %d/%d · AC %d · Move %d ft" % [
+    var temporary := int(hp.get("temporary", 0))
+    var temp_text := "" if temporary <= 0 else " · Temp %d" % temporary
+    _selected_label.text = "%s\nHP %d/%d%s · AC %d · Move %d ft" % [
         str(actor.get("name", actor.get("actor_id", ""))),
         int(hp.get("current", 0)),
         int(hp.get("maximum", 0)),
+        temp_text,
         int(actor.get("armor_class", 0)),
         int(economy.get("movement_remaining", 0)),
+    ]
+    _status_label.text = "%s\n%s" % [
+        _conditions_text(actor.get("conditions", [])),
+        _resources_text(actor, economy),
     ]
 
 
@@ -104,6 +113,52 @@ func append_log(text: String) -> void:
     if _log_lines.size() > 8:
         _log_lines.pop_front()
     _log_label.text = "\n".join(_log_lines)
+
+
+func _conditions_text(value: Variant) -> String:
+    if typeof(value) != TYPE_ARRAY or (value as Array).is_empty():
+        return "Conditions · none"
+    var rows: Array[String] = []
+    for condition_value in value:
+        if typeof(condition_value) == TYPE_DICTIONARY:
+            var condition: Dictionary = condition_value
+            rows.append(
+                str(
+                    condition.get(
+                        "name",
+                        condition.get("condition_id", condition.get("id", "condition")),
+                    )
+                )
+            )
+        else:
+            rows.append(str(condition_value))
+    return "Conditions · %s" % ", ".join(rows)
+
+
+func _resources_text(actor: Dictionary, economy: Dictionary) -> String:
+    var rows: Array[String] = [
+        "Action %s" % _availability(bool(economy.get("action_available", false))),
+        "Bonus %s" % _availability(bool(economy.get("bonus_action_available", false))),
+        "Reaction %s" % _availability(bool(economy.get("reaction_available", false))),
+    ]
+    var resources_value: Variant = actor.get("resources", [])
+    if typeof(resources_value) == TYPE_ARRAY:
+        for resource_value in resources_value:
+            if typeof(resource_value) != TYPE_DICTIONARY:
+                continue
+            var resource: Dictionary = resource_value
+            rows.append(
+                "%s %d/%d" % [
+                    str(resource.get("name", resource.get("resource_id", "Resource"))),
+                    int(resource.get("current", 0)),
+                    int(resource.get("maximum", 0)),
+                ]
+            )
+    return "Resources · %s" % " · ".join(rows)
+
+
+func _availability(available: bool) -> String:
+    return "ready" if available else "spent"
 
 
 func _actor_by_id(tactical: Dictionary, actor_id: String) -> Dictionary:

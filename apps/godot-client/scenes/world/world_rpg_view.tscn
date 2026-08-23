@@ -69,6 +69,12 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "World runtime ready"
 
+[node name="ExplorationSummary" type="Label" parent="Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = "Exploration actions are supplied by the engine."
+
 [node name="Columns" type="HBoxContainer" parent="Panel/Margin/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -101,7 +107,7 @@ layout_mode = 2
 
 [node name="InteractionTitle" type="Label" parent="Panel/Margin/VBox/Columns/ActionsScroll/Actions"]
 layout_mode = 2
-text = "Interactions"
+text = "Interactions / Rest"
 
 [node name="Interactions" type="VBoxContainer" parent="Panel/Margin/VBox/Columns/ActionsScroll/Actions"]
 unique_name_in_owner = true
@@ -171,7 +177,7 @@ size_flags_horizontal = 3
 
 [node name="EquipTitle" type="Label" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
 layout_mode = 2
-text = "Equip owned item"
+text = "Equip owned item (engine-approved compatibility)"
 
 [node name="EquipRow" type="HBoxContainer" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory"]
 layout_mode = 2
@@ -188,9 +194,14 @@ size_flags_horizontal = 3
 
 [node name="EquipSlot" type="LineEdit" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
 unique_name_in_owner = true
+visible = false
+layout_mode = 2
+placeholder_text = "legacy engine slot ID"
+
+[node name="EquipSlotOptions" type="OptionButton" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-placeholder_text = "engine slot ID"
 
 [node name="Equip" type="Button" parent="Panel/Margin/VBox/Columns/ManagementTabs/Inventory/EquipRow"]
 unique_name_in_owner = true
@@ -201,3 +212,10 @@ text = "Equip"
 [node name="SaveLoad" parent="Panel/Margin/VBox/Columns/ManagementTabs" instance=ExtResource("2_save")]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="Credits" type="RichTextLabel" parent="Panel/Margin/VBox/Columns/ManagementTabs"]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+fit_content = false
+text = "Credits"

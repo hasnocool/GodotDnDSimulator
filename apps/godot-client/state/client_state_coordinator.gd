@@ -75,6 +75,16 @@ func unbind_bridge() -> void:
     bridge_unbound.emit()
 
 
+func capabilities() -> PackedStringArray:
+    if _bridge == null:
+        return PackedStringArray()
+    return _bridge.capabilities()
+
+
+func has_capability(capability: String) -> bool:
+    return capabilities().has(capability)
+
+
 func submit_command(
     command: Dictionary,
     correlation_id: String,

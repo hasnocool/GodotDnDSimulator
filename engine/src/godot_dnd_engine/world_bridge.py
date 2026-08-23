@@ -37,11 +37,24 @@ WORLD_CAPABILITIES = (
     "world.commands.v1",
     "world.queries.v1",
     "world.save-replay.v1",
+    "inventory.equipment-options.v1",
     "dialogue.v1",
     "quests.v1",
     "shops.v1",
 )
 PARTY_PROXY_TEAM = "team:ember"
+BLOCKED_DURING_TACTICAL = frozenset(
+    {
+        "world.travel",
+        "world.resolve_interaction",
+        "world.rest",
+        "dialogue.start",
+        "dialogue.choose",
+        "shop.buy",
+        "shop.sell",
+        "inventory.equip",
+    }
+)
 
 
 class WorldClientBridgeSession(CharacterClientBridgeSession):
@@ -84,11 +97,20 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     command.expected_sequence,
                     command.payload,
                 )
+            if (
+                self.active_world_encounter_id is not None
+                and command.command_type in BLOCKED_DURING_TACTICAL
+            ):
+                raise ValidationError(
+                    "finish the active tactical encounter before changing world state"
+                )
             world_payload = dict(command.payload)
             if command.command_type == "world.resolve_interaction":
                 world_payload["bonus"] = self._authoritative_interaction_bonus(
                     world_payload
                 )
+            if command.command_type == "inventory.equip":
+                self._require_equipment_compatibility(world_payload)
             if command.command_type == "world.complete_encounter":
                 encounter_id = _payload_id(
                     world_payload,
@@ -147,6 +169,12 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 raise ValidationError(
                     f"unsupported world.save encoding: {encoding!r}"
                 )
+            if query_type == "inventory.equipment_options":
+                return _response(
+                    request,
+                    "query.result",
+                    payload=self._equipment_options(),
+                )
             result = self.world.query(query_type, query)
             if query_type == "world.actions":
                 result = self._world_actions_with_bridge_state(result)
@@ -159,15 +187,77 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
     ) -> dict[str, object]:
         rows = dict(result)
         current_area = self.world.state.current_area_id
-        rows["dialogues"] = [
-            {
-                "dialogue_id": dialogue.dialogue_id,
-                "name": dialogue.nodes[0].speaker,
-            }
-            for dialogue in self.world.definition.dialogues
-            if dialogue.area_id == current_area
-            and self._dialogue_available(dialogue.dialogue_id)
-        ]
+        area = next(
+            item
+            for item in self.world.definition.areas
+            if item.area_id == current_area
+        )
+        active_dialogue = self.world.state.active_dialogue is not None
+        active_tactical = self.active_world_encounter_id is not None
+        rows["area_name"] = area.name
+        rows["area_tags"] = sorted(area.tags)
+        if active_tactical:
+            rows["exploration_prompt"] = (
+                "Finish the active tactical encounter before continuing exploration."
+            )
+        elif active_dialogue:
+            rows["exploration_prompt"] = (
+                "Finish the current conversation before travelling or resting."
+            )
+        else:
+            rows["exploration_prompt"] = (
+                "Choose a destination, conversation, interaction, rest, shop action, or encounter."
+            )
+
+        travel_value = rows.get("travel", [])
+        travel: list[dict[str, object]] = []
+        if isinstance(travel_value, list):
+            for value in travel_value:
+                if not isinstance(value, dict):
+                    continue
+                row = dict(value)
+                row["available"] = not active_dialogue and not active_tactical
+                if active_tactical:
+                    row["reason"] = "Finish the active tactical encounter first."
+                elif active_dialogue:
+                    row["reason"] = "Finish the active dialogue first."
+                else:
+                    row["reason"] = ""
+                travel.append(row)
+        rows["travel"] = travel
+
+        rows["dialogues"] = (
+            []
+            if active_tactical
+            else [
+                {
+                    "dialogue_id": dialogue.dialogue_id,
+                    "name": dialogue.nodes[0].speaker,
+                }
+                for dialogue in self.world.definition.dialogues
+                if dialogue.area_id == current_area
+                and self._dialogue_available(dialogue.dialogue_id)
+            ]
+        )
+
+        interaction_value = rows.get("interactions", [])
+        interactions: list[dict[str, object]] = []
+        if isinstance(interaction_value, list):
+            for value in interaction_value:
+                if not isinstance(value, dict):
+                    continue
+                row = dict(value)
+                completed = bool(row.get("completed", False))
+                row["available"] = not completed and not active_tactical
+                if active_tactical:
+                    row["reason"] = "Finish the active tactical encounter first."
+                elif completed:
+                    row["reason"] = "Already completed."
+                else:
+                    row["reason"] = ""
+                interactions.append(row)
+        rows["interactions"] = interactions
+
         encounters_value = rows.get("encounters", [])
         encounters: list[dict[str, object]] = []
         if isinstance(encounters_value, list):
@@ -175,14 +265,133 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                 if not isinstance(value, dict):
                     continue
                 row = dict(value)
-                row["active"] = (
-                    row.get("encounter_id")
-                    == self.active_world_encounter_id
-                )
+                active = row.get("encounter_id") == self.active_world_encounter_id
+                row["active"] = active
+                if active:
+                    row["available"] = False
+                    row["reason"] = "Tactical encounter is already active."
+                elif active_tactical:
+                    row["available"] = False
+                    row["reason"] = "Finish the active tactical encounter first."
+                elif not bool(row.get("available", False)):
+                    row["reason"] = "Encounter prerequisites are not satisfied."
+                else:
+                    row["reason"] = ""
                 encounters.append(row)
         rows["encounters"] = encounters
+
+        shop_value = rows.get("shops", [])
+        shops: list[dict[str, object]] = []
+        inventory = self.world.state.inventory_map()
+        if isinstance(shop_value, list):
+            for shop_value_item in shop_value:
+                if not isinstance(shop_value_item, dict):
+                    continue
+                shop = dict(shop_value_item)
+                item_value = shop.get("items", [])
+                items: list[dict[str, object]] = []
+                if isinstance(item_value, list):
+                    for item_value_item in item_value:
+                        if not isinstance(item_value_item, dict):
+                            continue
+                        item = dict(item_value_item)
+                        item_id = str(item.get("item_id", ""))
+                        owned = int(inventory.get(item_id, 0))
+                        stock_value = item.get("stock")
+                        stock_available = (
+                            stock_value is None or int(stock_value) > 0
+                        )
+                        price = int(item.get("buy_price", 0))
+                        item["owned_quantity"] = owned
+                        item["buy_available"] = (
+                            not active_tactical
+                            and stock_available
+                            and price <= self.world.state.currency
+                        )
+                        if active_tactical:
+                            item["buy_reason"] = (
+                                "Finish the active tactical encounter first."
+                            )
+                        elif not stock_available:
+                            item["buy_reason"] = "Out of stock."
+                        elif price > self.world.state.currency:
+                            item["buy_reason"] = "Not enough currency."
+                        else:
+                            item["buy_reason"] = ""
+                        item["sell_available"] = owned > 0 and not active_tactical
+                        if active_tactical:
+                            item["sell_reason"] = (
+                                "Finish the active tactical encounter first."
+                            )
+                        elif owned <= 0:
+                            item["sell_reason"] = "Party does not own this item."
+                        else:
+                            item["sell_reason"] = ""
+                        items.append(item)
+                shop["items"] = items
+                shops.append(shop)
+        rows["shops"] = shops
+        runtime_can_rest = bool(rows.get("can_rest", False))
+        rows["can_rest"] = runtime_can_rest and not active_tactical
+        if active_tactical:
+            rows["rest_reason"] = "Finish the active tactical encounter first."
+        elif active_dialogue:
+            rows["rest_reason"] = "Finish the active dialogue first."
+        else:
+            rows["rest_reason"] = ""
         rows["premade_party_ids"] = sorted(self.creator.records)
         return rows
+
+    def _equipment_options(self) -> dict[str, object]:
+        inventory = self.world.state.inventory_map()
+        compatibility = {
+            item.item_id: item.slots
+            for item in self.world.definition.equipment_compatibility
+        }
+        items: list[dict[str, object]] = []
+        for item_id, quantity in sorted(inventory.items()):
+            slots = compatibility.get(item_id, ())
+            if quantity < 1 or not slots:
+                continue
+            items.append(
+                {
+                    "item_id": item_id,
+                    "quantity": quantity,
+                    "slots": [
+                        {
+                            "slot_id": slot_id,
+                            "label": slot_id.split(":", 1)[-1].replace(
+                                "_",
+                                " ",
+                            ).title(),
+                        }
+                        for slot_id in slots
+                    ],
+                }
+            )
+        return {
+            "party_ids": list(self.world.state.party_ids),
+            "items": items,
+        }
+
+    def _require_equipment_compatibility(
+        self,
+        payload: Mapping[str, Any],
+    ) -> None:
+        item_id = _payload_id(payload, "item_id")
+        slot = _payload_id(payload, "slot")
+        compatibility = next(
+            (
+                item
+                for item in self.world.definition.equipment_compatibility
+                if item.item_id == item_id
+            ),
+            None,
+        )
+        if compatibility is None or slot not in compatibility.slots:
+            raise ValidationError(
+                "item is not compatible with requested equipment slot"
+            )
 
     def _dialogue_available(self, dialogue_id: str) -> bool:
         dialogue = next(
@@ -214,25 +423,27 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         encounter_id = _payload_id(payload, "encounter_id")
         gate = self._world_encounter(encounter_id)
         self._require_gate_available(gate)
+        if self.spell_tactical is None:
+            raise ValidationError("tactical provider is unavailable")
         if self.active_world_encounter_id is not None:
-            if (
-                self.spell_tactical is not None
-                and self.spell_tactical.tactical.encounter.status.value
-                != "ended"
-            ):
+            if self.spell_tactical.tactical.encounter.status.value != "ended":
                 raise ValidationError(
                     "finish or lose the active tactical encounter first"
                 )
+        previous_sequence = self.spell_tactical.sequence
         self.spell_tactical = SpellEnabledTacticalSession.create(
             campaign_id=self.engine.state.campaign_id,
             session_id=self.engine.state.session_id,
             seed=self._encounter_seed(encounter_id),
         )
+        self.spell_tactical.tactical.sequence = previous_sequence + 1
         self.active_world_encounter_id = encounter_id
+        tactical_snapshot = self.spell_tactical.snapshot()
         return _response(
             request,
             "command.accepted",
             payload={
+                "snapshot": tactical_snapshot,
                 "world_snapshot": self.world.snapshot(),
                 "world_events": [],
                 "presentation_events": [],
@@ -242,6 +453,7 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
                     "tactical_encounter_id": (
                         self.spell_tactical.tactical.encounter.encounter_id
                     ),
+                    "tactical_sequence": self.spell_tactical.sequence,
                 },
             },
         )
@@ -252,6 +464,10 @@ class WorldClientBridgeSession(CharacterClientBridgeSession):
         expected_sequence: int | None,
         payload: Mapping[str, Any],
     ) -> dict[str, object]:
+        if self.active_world_encounter_id is not None:
+            raise ValidationError(
+                "finish the active tactical encounter before loading world state"
+            )
         self._require_world_sequence(expected_sequence)
         snapshot_value = _world_snapshot_from_load_payload(payload)
         self.world = restore_world_runtime(

@@ -101,6 +101,12 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - v1.0 Godot production Save/Load management tab with three fixed manual slots, authoritative `world.save` capture, engine-validated `world.load`, slot metadata, and no optimistic world-state mutation.
 - Threaded bounded `WorldSaveStore` persistence under `user://` with versioned envelopes, temporary/backup replacement, backup recovery, fixed slot IDs, and user-visible failure handling.
 - `schemas/v1/godot-world-save-envelope.schema.json`, `res://tests/world_save_load_tests.gd`, `tests/test_godot_world_save_schema.py`, and `docs/V1.0_GODOT_SAVE_LOAD.md` covering the client save format, authority boundary, non-blocking persistence, compatibility, and regressions.
+- v1.0 Godot exploration summary, authoritative action availability/reasons, two-way Buy/Sell shop controls, encounter begin/completion intents, and Credits presentation.
+- Engine-owned `EquipmentCompatibility` plus `inventory.equipment-options.v1`, with Godot slot dropdowns populated from legal engine choices and Python validation of submitted item/slot combinations.
+- Original underworks stonefall trap/environment interaction plus `tests/test_v1_completion.py` campaign acceptance through branching dialogue, trade/rest/travel/interactions, save/restore RNG parity, three regular encounter gates, boss progression, and final campaign completion.
+- `apps/godot-client/tests/world_rpg_completion_tests.gd` and local-CI registration covering completed v1.0 Adventure presentation/intent routing.
+- Deterministic v1 source release packaging via `scripts/package_v1_release.py`, `apps/godot-client/CREDITS.md`, SHA-256 release manifest, tracked attribution inclusion, and `tests/test_release_packaging.py`.
+- `docs/V1.0_GODOT_RPG_COMPLETION.md` documenting completed v1.0 client/engine authority, campaign acceptance, credits, and release packaging.
 
 ### Changed
 
@@ -108,10 +114,10 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Release policy is semantic repository versioning plus independent serialized-contract/RNG algorithm versions.
 - Development version advances to `1.0.0.dev0`; validation now includes the playable-world and headless Godot Adventure integration surfaces.
 - Rules-source PDF caches are explicitly ignored so raw upstream documents are fetched and verified rather than committed accidentally.
-- Active implementation advances through v1.0 playable RPG while unfinished earlier CI/full-source audit and exact-head acceptance items remain tracked as carryover.
+- Active v1.0 implementation checklist is complete while unfinished earlier CI/full-source audit and exact-head/manual acceptance items remain tracked as carryover evidence gates.
 - v0.5 movement-budget accounting has a v0.6 integration path where headless spatial authority validates route legality/cost before `CombatRuntime` spends movement.
 - Root agent governance plus Claude, Gemini, and Copilot adapters require the local Godot client contract and TODO to be read before editing `apps/godot-client/**`.
-- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, v0.9 character creator, v1.0 world RPG, and v1.0 world save/load suites.
+- Godot validation now includes the client bridge, state/shell, input/interaction, camera, v0.7 tactical slice, v0.8 spell interaction, v0.9 character creator, v1.0 world RPG, v1.0 RPG completion, and v1.0 world save/load suites.
 - The default `godot-dnd-client-bridge` entry point now uses the v1.0 world-aware host while retaining character, tactical, and spell capabilities according to negotiated providers.
 
 ### Deprecated
@@ -136,6 +142,8 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Removed an unresolved changelog merge marker left from earlier integration history.
 - Creator catalog deserialization converts malformed enum/content values into project validation errors instead of leaking raw enum exceptions across the content boundary.
 - The integrated v1.0 world view again exposes the documented Journal, Map, Party, and Inventory tabs after the previous management-screen consolidation left only the Journal surface in the live scene.
+- Godot production saves preserve authoritative 64-bit RNG integers by persisting an engine-produced canonical snapshot JSON string instead of reserializing Godot numeric Variants.
+- Pending save/load network state is cleared on bridge disconnect/unbind so reconnects cannot leave the Save/Load controls permanently disabled.
 
 ### Security
 
@@ -149,7 +157,8 @@ The format follows the spirit of [Keep a Changelog](https://keepachangelog.com/e
 - Spatial authority fails closed on malformed spaces, footprints, overlaps, movement modes, stale navigation proposals, blocked/over-budget paths, non-contiguous or corrupt movement events, invalid area shapes, and unsupported read-only spatial queries.
 - Spell authority rejects unknown/unprepared spells, unavailable slots/actions, invalid target counts/selectors, out-of-range/non-visible targets, invalid points/shapes, stale sequence intent, and malformed spell event/checkpoint payloads rather than allowing Godot to infer legality.
 - Character creator authority rejects unknown choices, invalid group cardinality, unmet requirements/conflicts, malformed ability assignments/catalog data, duplicate actor IDs, unsupported advancement choices, and invalid profile payloads before creating or advancing an actor.
-- Godot save/load accepts only fixed slot IDs, bounds local files to 32 MiB, validates the versioned local envelope before exposing a snapshot to the bridge, and still requires authoritative `world.load` validation before changing displayed world state.
+- Godot save/load accepts only fixed slot IDs, bounds local files to 1 MiB aligned with the bridge limit, validates the versioned client envelope, persists the engine snapshot as an opaque lossless string, and still requires authoritative `world.load` validation before changing displayed world state.
+- Equipment compatibility, shop stock/ownership/currency, and world-action availability remain Python-authoritative; Godot receives legal choices/reasons and cannot bypass item-slot compatibility through the production UI.
 
 <!--
 Release process notes:

@@ -230,6 +230,18 @@ class EncounterGate:
 
 
 @dataclass(frozen=True, slots=True)
+class EquipmentCompatibility:
+    item_id: str
+    slots: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        _require_id(self.item_id, "equipment item_id")
+        if not self.slots:
+            raise ValidationError("equipment compatibility requires at least one slot")
+        _require_unique_ids(self.slots, "equipment slots")
+
+
+@dataclass(frozen=True, slots=True)
 class CampaignDefinition:
     campaign_id: str
     title: str
@@ -240,6 +252,7 @@ class CampaignDefinition:
     shops: tuple[ShopDefinition, ...] = ()
     interactions: tuple[InteractionDefinition, ...] = ()
     encounters: tuple[EncounterGate, ...] = ()
+    equipment_compatibility: tuple[EquipmentCompatibility, ...] = ()
 
     def __post_init__(self) -> None:
         _require_id(self.campaign_id, "campaign_id")
@@ -269,6 +282,10 @@ class CampaignDefinition:
             (
                 "encounters",
                 tuple(item.encounter_id for item in self.encounters),
+            ),
+            (
+                "equipment compatibility",
+                tuple(item.item_id for item in self.equipment_compatibility),
             ),
         ):
             _require_unique_ids(ids, f"campaign {label}")
