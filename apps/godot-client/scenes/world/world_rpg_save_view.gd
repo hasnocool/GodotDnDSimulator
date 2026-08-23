@@ -211,6 +211,15 @@ func _render_shop(shop: Dictionary) -> void:
 
 
 func _refresh_equip_controls(world_state: Dictionary) -> void:
+    if _equipment_options.is_empty():
+        # Keep older fixtures/tools functional while the authoritative compatibility
+        # query is still in flight. The free-text control is hidden from players and
+        # the Python bridge still validates every submitted item/slot combination.
+        super._refresh_equip_controls(world_state)
+        _equip_slot_options.clear()
+        _equip.disabled = false
+        return
+
     _equip_actor.clear()
     _equip_item.clear()
     _equip_slot_options.clear()
@@ -239,7 +248,8 @@ func _refresh_equip_controls(world_state: Dictionary) -> void:
 
 
 func _on_equipment_item_selected(_index: int) -> void:
-    _refresh_slot_choices()
+    if not _equipment_options.is_empty():
+        _refresh_slot_choices()
 
 
 func _refresh_slot_choices() -> void:
@@ -278,16 +288,21 @@ func _refresh_slot_choices() -> void:
 
 
 func _equip_selected() -> void:
-    if (
-        _equip_actor.item_count == 0
-        or _equip_item.item_count == 0
-        or _equip_slot_options.item_count == 0
-    ):
-        _status.text = "No engine-approved actor/item/slot equipment choice is available."
+    if _equip_actor.item_count == 0 or _equip_item.item_count == 0:
+        _status.text = "No authoritative actor/item equipment choice is available."
         return
     var actor_id := str(_equip_actor.get_item_metadata(_equip_actor.selected))
     var item_id := str(_equip_item.get_item_metadata(_equip_item.selected))
-    var slot_id := str(_equip_slot_options.get_item_metadata(_equip_slot_options.selected))
+    var slot_id := ""
+    if _equip_slot_options.item_count > 0:
+        slot_id = str(_equip_slot_options.get_item_metadata(_equip_slot_options.selected))
+    elif _equipment_options.is_empty():
+        # Non-user-facing compatibility path for older headless fixtures. Production
+        # UI keeps this LineEdit hidden and the bridge remains the legality authority.
+        slot_id = _equip_slot.text.strip_edges()
+    if slot_id.is_empty():
+        _status.text = "No engine-approved equipment slot is available."
+        return
     _submit(
         "inventory.equip",
         {"actor_id": actor_id, "slot": slot_id, "item_id": item_id},
