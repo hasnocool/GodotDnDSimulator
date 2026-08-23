@@ -16,7 +16,6 @@ const FORMAT_ID := "godot-dnd-world-save"
 const FORMAT_VERSION := 1
 const MAX_SAVE_BYTES := 1_048_576
 const DEFAULT_ROOT := "user://saves/world"
-const SLOT_IDS := PackedStringArray(["slot-1", "slot-2", "slot-3"])
 const SLOT_LABELS := {
     "slot-1": "Slot 1",
     "slot-2": "Slot 2",
@@ -35,7 +34,7 @@ func _init(root_dir: String = DEFAULT_ROOT) -> void:
 
 
 static func slot_ids() -> PackedStringArray:
-    return SLOT_IDS.duplicate()
+    return PackedStringArray(["slot-1", "slot-2", "slot-3"])
 
 
 static func slot_label(slot_id: String) -> String:
@@ -94,7 +93,7 @@ func list_slots() -> bool:
 
 
 func _validate_slot(slot_id: String, operation: String) -> bool:
-    if SLOT_IDS.has(slot_id):
+    if slot_ids().has(slot_id):
         return true
     operation_failed.emit(
         operation,
@@ -148,7 +147,7 @@ func _load_worker(slot_id: String) -> void:
 
 func _list_worker() -> void:
     var slots: Dictionary = {}
-    for slot_id_value in SLOT_IDS:
+    for slot_id_value in slot_ids():
         var slot_id := str(slot_id_value)
         var result := _read_envelope(slot_id)
         if bool(result.get("ok", false)):

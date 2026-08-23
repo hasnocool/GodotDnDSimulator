@@ -128,7 +128,13 @@ func _tooltip(spell: Dictionary, level: int) -> String:
         parts.append("duration %d rounds" % int(duration_value))
     var area_shape := str(spell.get("area_shape", ""))
     if not area_shape.is_empty():
-        parts.append("%s %d ft" % [area_shape, int(spell.get("area_size_feet", 0))])
+        var area_size_value: Variant = spell.get("area_size_feet", 0)
+        var area_size := (
+            int(area_size_value)
+            if typeof(area_size_value) in [TYPE_INT, TYPE_FLOAT]
+            else 0
+        )
+        parts.append("%s %d ft" % [area_shape, area_size])
     if level > int(spell.get("level", 0)):
         parts.append("upcast at %d" % level)
     return " · ".join(parts)
