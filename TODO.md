@@ -4,7 +4,7 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 
 ## Current focus: v1.0 Playable RPG
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, v0.8 spell runtime, v0.9 character creator, and v1.0 playable-RPG implementation are present. Outstanding repository/CI, full-official-source v0.2 audit, and exact-head/manual acceptance items remain visible below as carryover; they must not be silently forgotten. The v1.0 implementation checklist is complete while those evidence gates remain separate.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, v0.8 spell runtime, v0.9 character creator, and most v1.0 playable-RPG implementation are present. Outstanding repository/CI, full-official-source v0.2 audit, exact-head/manual acceptance, and authored per-world-encounter tactical templates remain visible below as carryover; they must not be silently forgotten.
 
 ### v0.1 carryover: repository and governance
 
@@ -56,7 +56,7 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 char
 - [x] Add engine unit/integration test job.
 - [x] Add schema validation job.
 - [x] Add generated-content determinism check using the v0.2 importer fixture build.
-- [ ] Add secret scanning/dependency security checks where supported.
+- [x] Add secret scanning/dependency security checks where supported.
 - [x] Add artifact/cache ignores for Godot/editor/build/test/rules-source outputs.
 
 ### v0.1 exit criterion carryover
@@ -355,19 +355,19 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 - [x] Original dungeon area.
 - [x] Skill-check interaction.
 - [x] Trap/environment interaction.
-- [x] Three tactical encounter gates integrated with the authoritative tactical session boundary.
-- [x] Boss encounter gate with authoritative tactical-victory validation.
+- [ ] Three authored tactical encounters bound to distinct world encounter gates; the gates currently reuse the Sunken Courtyard proxy session.
+- [ ] Authored boss tactical encounter bound to the boss gate; the gate currently reuses the Sunken Courtyard proxy session.
 - [x] One branching quest.
 - [x] Four premade heroes.
 - [x] Release packaging/attribution/credits.
-- [x] End-to-end campaign completion test including save/restore continuation.
+- [x] End-to-end world-campaign completion test including save/restore continuation.
 
 ### v1.0 implementation evidence
 
-- `tests/test_v1_completion.py` verifies the original village/dungeon campaign content, trade/rest/travel/interaction flow, equipment compatibility, branch choice, save/restore parity, three regular encounter gates, boss progression, and final campaign-complete state.
+- `tests/test_v1_completion.py` verifies the original village/dungeon campaign content, trade/rest/travel/interaction flow, equipment compatibility, branch choice, save/restore parity, three regular encounter gates, boss-gate progression at the world-runtime layer, and final campaign-complete state. Distinct authored tactical templates remain open above.
 - `apps/godot-client/tests/world_rpg_completion_tests.gd` verifies exploration prompts/reasons, Sell routing, engine-provided equipment-slot choices, encounter start/completion intents, and credits presentation at the Godot boundary.
-- `scripts/package_v1_release.py` creates a deterministic Godot client source bundle that requires repository credits and tracked `LICENSES/` attribution files; `tests/test_release_packaging.py` verifies deterministic packaging.
-- `docs/V1.0_GODOT_RPG_COMPLETION.md` documents the completed v1.0 client/engine boundary and release workflow.
+- `scripts/package_v1_release.py` creates a deterministic Godot client source bundle from tracked allowlisted files, excludes the development Godot MCP addon, and requires repository credits plus tracked `LICENSES/` attribution files; `tests/test_release_packaging.py` verifies deterministic packaging.
+- `docs/V1.0_GODOT_RPG_COMPLETION.md` documents the implemented v1.0 client/engine boundary and release workflow.
 
 ---
 
