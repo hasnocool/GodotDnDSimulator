@@ -61,6 +61,8 @@ jobs:
         run: godot --headless --path apps/godot-client --script res://tests/tactical_vertical_slice_tests.gd
       - name: Tactical action-bar tests
         run: godot --headless --path apps/godot-client --script res://tests/tactical_action_bar_tests.gd
+      - name: Tactical HUD focus tests
+        run: godot --headless --path apps/godot-client --script res://tests/tactical_hud_focus_tests.gd
       - name: Spell UI tests
         run: godot --headless --path apps/godot-client --script res://tests/spell_ui_tests.gd
       - name: Character creator tests
