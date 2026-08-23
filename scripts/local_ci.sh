@@ -14,6 +14,7 @@ VENV_PYTEST="$ROOT_DIR/.venv/bin/pytest"
 "$VENV_PYTHON" "$ROOT_DIR/scripts/check_secrets.py"
 "$VENV_PYTHON" "$ROOT_DIR/scripts/determinism_smoke.py"
 "$VENV_PYTHON" -m tools.rules_importer.smoke
+"$VENV_PYTHON" -m godot_dnd_engine.agent_autoplay --seed 23 --max-steps 2000 --no-disk-log
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/bridge_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/authoritative_mirror_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/state_shell_tests.gd
@@ -30,3 +31,4 @@ godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/chara
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_rpg_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_rpg_completion_tests.gd
 godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/world_save_load_tests.gd
+godot --headless --path "$ROOT_DIR/apps/godot-client" --script res://tests/ui_automation_tests.gd
