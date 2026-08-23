@@ -4,7 +4,7 @@ This is the active execution backlog for `ROADMAP.md`. Keep it synchronized with
 
 ## Current focus: v1.0 Playable RPG
 
-The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, v0.8 spell runtime, and v0.9 character-creator implementations have been merged. Outstanding repository/CI, full-official-source v0.2 audit, and exact-head acceptance items remain visible below as carryover; they must not be silently forgotten. v1.0 now turns those production foundations into the complete original campaign and RPG client loop while keeping world, character, combat, and inventory authority in the headless engine.
+The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 character runtime, v0.5 tactical combat, v0.6 spatial authority, v0.7 Godot vertical slice, v0.8 spell runtime, v0.9 character creator, and v1.0 playable-RPG implementation are present. Outstanding repository/CI, full-official-source v0.2 audit, and exact-head/manual acceptance items remain visible below as carryover; they must not be silently forgotten. The v1.0 implementation checklist is complete while those evidence gates remain separate.
 
 ### v0.1 carryover: repository and governance
 
@@ -20,7 +20,7 @@ The v0.1 foundation, v0.2 importer infrastructure, v0.3 rules runtime, v0.4 char
 
 ### v0.1 carryover: project structure
 
-- [x] Create top-level `apps/`, `engine/`, `content/`, `schemas/`, `tools/`, `tests/`, and `docs/adr/` structure.
+- [x] Create top-level `apps/`, `engine/`, `content/`, `schemas/`, `tools/`, `tests/`, and `docs/` structure.
 - [x] Add a minimal Godot 4.x project under `apps/godot-client/`.
 - [x] Add a headless engine package with no Godot rendering dependency.
 - [x] Decide the engine implementation language/runtime and document the rationale in an ADR.
@@ -342,25 +342,32 @@ Detailed client execution lives in `apps/godot-client/TODO.md`; keep root accept
 
 ## v1.0 Playable RPG
 
-- [ ] Exploration loop.
-- [ ] Dialogue system.
-- [ ] Quest state machine/branching consequences.
+- [x] Exploration loop.
+- [x] Dialogue system.
+- [x] Quest state machine/branching consequences.
 - [x] Inventory/equipment UI.
-- [ ] Trade/shop flow.
-- [ ] Rest flow.
-- [ ] Travel/area transitions.
+- [x] Trade/shop flow.
+- [x] Rest flow.
+- [x] Travel/area transitions.
 - [x] Journal/map/party screens.
 - [x] Production save/load UX.
-- [ ] Original village area.
-- [ ] Original dungeon area.
-- [ ] Skill-check interaction.
-- [ ] Trap/environment interaction.
-- [ ] Three tactical encounters.
-- [ ] Boss encounter.
-- [ ] One branching quest.
-- [ ] Four premade heroes.
-- [ ] Release packaging/attribution/credits.
-- [ ] End-to-end campaign completion test.
+- [x] Original village area.
+- [x] Original dungeon area.
+- [x] Skill-check interaction.
+- [x] Trap/environment interaction.
+- [x] Three tactical encounter gates integrated with the authoritative tactical session boundary.
+- [x] Boss encounter gate with authoritative tactical-victory validation.
+- [x] One branching quest.
+- [x] Four premade heroes.
+- [x] Release packaging/attribution/credits.
+- [x] End-to-end campaign completion test including save/restore continuation.
+
+### v1.0 implementation evidence
+
+- `tests/test_v1_completion.py` verifies the original village/dungeon campaign content, trade/rest/travel/interaction flow, equipment compatibility, branch choice, save/restore parity, three regular encounter gates, boss progression, and final campaign-complete state.
+- `apps/godot-client/tests/world_rpg_completion_tests.gd` verifies exploration prompts/reasons, Sell routing, engine-provided equipment-slot choices, encounter start/completion intents, and credits presentation at the Godot boundary.
+- `scripts/package_v1_release.py` creates a deterministic Godot client source bundle that requires repository credits and tracked `LICENSES/` attribution files; `tests/test_release_packaging.py` verifies deterministic packaging.
+- `docs/V1.0_GODOT_RPG_COMPLETION.md` documents the completed v1.0 client/engine boundary and release workflow.
 
 ---
 
