@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# scripts/package_v1_release.py
 """Build a deterministic v1 Godot client source release bundle.
 
 The bundle deliberately contains project resources rather than a Godot engine binary. Binary
@@ -55,7 +55,10 @@ def release_files() -> list[Path]:
     )
     files.extend(ROOT / name for name in REQUIRED_ROOT_FILES)
     unique = {path.resolve(): path for path in files if path.is_file()}
-    return sorted(unique.values(), key=lambda path: path.relative_to(ROOT).as_posix())
+    return sorted(
+        unique.values(),
+        key=lambda path: path.relative_to(ROOT).as_posix(),
+    )
 
 
 def _manifest_rows(files: list[Path]) -> list[dict[str, object]]:
@@ -76,10 +79,14 @@ def validate_release_inputs(files: list[Path]) -> None:
     relative = {path.relative_to(ROOT).as_posix() for path in files}
     missing = (REQUIRED_CLIENT_FILES | REQUIRED_ROOT_FILES) - relative
     if missing:
-        raise ValueError(f"release bundle is missing required files: {sorted(missing)!r}")
+        raise ValueError(
+            f"release bundle is missing required files: {sorted(missing)!r}"
+        )
     attributions = sorted(path for path in relative if path.startswith("LICENSES/"))
     if not attributions:
-        raise ValueError("release bundle must contain at least one LICENSES/ attribution file")
+        raise ValueError(
+            "release bundle must contain at least one LICENSES/ attribution file"
+        )
 
 
 def build_release_bundle(output: Path = DEFAULT_OUTPUT) -> Path:
@@ -93,7 +100,12 @@ def build_release_bundle(output: Path = DEFAULT_OUTPUT) -> Path:
         "files": _manifest_rows(files),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    with zipfile.ZipFile(
+        output,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+    ) as archive:
         for path in files:
             relative = path.relative_to(ROOT).as_posix()
             info = zipfile.ZipInfo(relative, date_time=FIXED_ZIP_TIME)
@@ -101,10 +113,18 @@ def build_release_bundle(output: Path = DEFAULT_OUTPUT) -> Path:
             info.external_attr = 0o100644 << 16
             archive.writestr(info, path.read_bytes())
         manifest_bytes = (
-            json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            json.dumps(
+                manifest,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
             + "\n"
         ).encode("utf-8")
-        info = zipfile.ZipInfo("RELEASE-MANIFEST.json", date_time=FIXED_ZIP_TIME)
+        info = zipfile.ZipInfo(
+            "RELEASE-MANIFEST.json",
+            date_time=FIXED_ZIP_TIME,
+        )
         info.compress_type = zipfile.ZIP_DEFLATED
         info.external_attr = 0o100644 << 16
         archive.writestr(info, manifest_bytes)
@@ -113,7 +133,9 @@ def build_release_bundle(output: Path = DEFAULT_OUTPUT) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Build the deterministic GodotDnDSimulator v1 client source release bundle"
+        description=(
+            "Build the deterministic GodotDnDSimulator v1 client source release bundle"
+        )
     )
     parser.add_argument(
         "--output",
@@ -123,7 +145,8 @@ def main() -> None:
     )
     args = parser.parse_args()
     output = build_release_bundle(args.output.resolve())
-    print(PurePosixPath(output.relative_to(ROOT) if output.is_relative_to(ROOT) else output))
+    display = output.relative_to(ROOT) if output.is_relative_to(ROOT) else output
+    print(PurePosixPath(display))
 
 
 if __name__ == "__main__":
