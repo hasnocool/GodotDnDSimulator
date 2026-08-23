@@ -14,7 +14,9 @@ var _state: ClientStateCoordinator
 var _queued := 0
 var _seen_event_keys: Dictionary = {}
 var _seen_order: Array[String] = []
-var _debug_expanded := false
+# Standalone/headless presenter instances retain full diagnostics. Once bound to
+# client state, the user-visible debug setting owns whether sequence/type/IDs appear.
+var _debug_expanded := true
 
 
 func bind_state(state: ClientStateCoordinator) -> void:
