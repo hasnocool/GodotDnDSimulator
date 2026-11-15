@@ -21,13 +21,13 @@ godot-dnd-client-bridge = "godot_dnd_engine.world_bridge:main"
 rules = [
   "httpx>=0.28.1,<1",
   "jsonschema>=4.26,<5",
-  "pypdf>=6.15,<7",
+  "pypdf>=6.15,<8",
 ]
 dev = [
   "httpx>=0.28.1,<1",
   "jsonschema>=4.26,<5",
   "mypy>=1.15",
-  "pypdf>=6.15,<7",
+  "pypdf>=6.15,<8",
   "pytest>=8.3",
   "pytest-cov>=6.0",
   "ruff>=0.11",
